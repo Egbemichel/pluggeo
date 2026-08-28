@@ -4,7 +4,7 @@ import { useLayoutEffect, useRef, useState } from "react";
 import Image from "next/image";
 import gsap from "gsap";
 import { Flip } from "gsap/Flip";
-import { SectionHeader } from "@/components/section-header";
+import { SectionHeader, SectionCarouselNav } from "@/components/section-header";
 import { cn } from "@/lib/utils";
 
 gsap.registerPlugin(Flip);
@@ -316,6 +316,19 @@ export function TestimonialSection({
           </p>
         </div>
       </div>
+
+      {/* SectionHeader's own chevron nav is desktop-only (hidden inline on
+          mobile, per its own layout) — mobile had no way to page through
+          reviews at all until this was added. forceVisible + always-on
+          desktop parity: same pattern CelebrityShowcase already established
+          for its mobile media pager, kept visible with the inapplicable
+          direction disabled rather than disappearing at either boundary. */}
+      <SectionCarouselNav
+        onPrev={canGoPrev ? goPrev : undefined}
+        onNext={canGoNext ? goNext : undefined}
+        forceVisible
+        className="flex justify-center self-center md:hidden"
+      />
     </section>
   );
 }

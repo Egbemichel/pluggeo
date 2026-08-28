@@ -6,6 +6,26 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+### Fixed (batch 47 — CelebrityShowcase vanished live; reviews had no mobile nav)
+
+- **CelebrityShowcase disappeared entirely on the deployed site** — batch
+  46's `node:fs`-based scan worked in local dev/build but silently returned
+  an empty celebrity list on the actual Cloudflare Worker: with no
+  incremental-cache store bound, OpenNext re-executes Home's Server
+  Component per request inside the Worker, which has no real filesystem.
+  Fixed by moving the scan to a manual build-time script
+  (`scripts/generate-celebrities.mjs`, run whenever `public/celebrity/`
+  changes) that writes `src/data/celebrities.json`; `src/lib/celebrities.ts`
+  now just imports that as static data — bundled at build time, works
+  identically regardless of runtime environment, no more `node:fs` on the
+  request path at all.
+- **Reviews ("What our customers say") had no way to page through it on
+  mobile** — `SectionHeader`'s chevron nav is desktop-only by design;
+  `TestimonialSection` never rendered the mobile-specific
+  `SectionCarouselNav` companion (pre-existing gap, not something this
+  session's earlier edits to that file introduced). Added it, matching the
+  exact pattern `CelebrityShowcase` already uses for its own mobile pager.
+
 ### Added (batch 46 — CelebrityShowcase runs on real media)
 
 - New `src/lib/celebrities.ts` (`getCelebrities()`, server-only) scans

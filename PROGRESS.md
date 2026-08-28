@@ -32,16 +32,40 @@ pagination.
 
 ## Resolved decisions
 
-- **CelebrityShowcase now driven by real media (public/celebrity/), not
-  placeholder data** (2026-08-29) — new `src/lib/celebrities.ts`
-  (`getCelebrities()`, server-only, uses `node:fs`) scans
-  `public/celebrity/@handle/{pictures,videos}/` and returns typed
+- **Fixed: CelebrityShowcase disappeared entirely on the live site**
+  (2026-08-29) — the `node:fs`-scan approach from the entry directly below
+  this one turned out unsafe in a way local verification didn't catch: with
+  no incremental-cache store bound (Cloudflare KV/R2 — this project has
+  none, confirmed by every deploy log's own "Incremental cache does not need
+  populating"), OpenNext re-executes Home's Server Component *per request*
+  inside the actual Cloudflare Worker rather than serving a pre-baked static
+  snapshot — and the Worker has no real filesystem, so `fs.existsSync` on
+  `public/celebrity` silently returned false there, `getCelebrities()`
+  returned `[]`, and `CelebrityShowcase` returns `null` when it has no
+  active celebrity — the whole section just vanished, no error, nothing in
+  the build output to catch it. My original verification (grepping celebrity
+  ids out of a locally-built static HTML/cache artifact) only proved the
+  *build-time* artifact was correct, not that the *deployed Worker* would
+  actually serve it — a real gap between "the build output looks right" and
+  "the live site behaves right," confirmed by CI reporting success and the
+  live site still being wrong. Fixed by removing `node:fs` from the runtime
+  path entirely: new `scripts/generate-celebrities.mjs` (manual, run via
+  `node scripts/generate-celebrities.mjs` whenever `public/celebrity/`
+  changes) does the same scan and writes `src/data/celebrities.json`, which
+  `src/lib/celebrities.ts` now just imports as static data — a JSON import
+  is bundled at build time and behaves identically no matter where the code
+  executes, no more environment-dependent runtime uncertainty. Re-verify
+  after every deploy by actually curling the live site
+  (`https://pluggeo.egbemichel39.workers.dev/`) for real celebrity ids, not
+  just by trusting a green CI run or a local build artifact — that's the
+  concrete lesson this bug leaves behind.
+- **CelebrityShowcase driven by real media (public/celebrity/), not
+  placeholder data** (2026-08-29, superseded by the fix above) — original
+  `src/lib/celebrities.ts` (`getCelebrities()`, server-only, uses `node:fs`)
+  scanned `public/celebrity/@handle/{pictures,videos}/` and returned typed
   `Celebrity[]`; called once from Home's `page.tsx` (a Server Component) and
   passed down as a prop, since Client Components can't touch `node:fs`
-  directly. Safe specifically because Home (`/`) is statically prerendered —
-  the scan runs during `next build`, never at Cloudflare Worker request time
-  (confirmed no real filesystem exists there for `public/`); verified by
-  grepping actual celebrity ids out of the built static HTML
+  directly. Verified by grepping actual celebrity ids out of the built static HTML
   (`.next/server/app/index.html`) after a real `next build`, not assumed.
   Folder name (with the `@`) is both the id and the dial label, per the
   user — no separate mapping. Handles real inconsistency across the 8
@@ -73,6 +97,21 @@ pagination.
   and mute/unmute — both verified functional via direct `<video>` element
   state checks (`.paused`/`.muted`) before/after clicking each control, not
   just visual inspection.
+- **Fixed: reviews section had no way to page through it on mobile**
+  (2026-08-29) — `SectionHeader`'s own chevron nav is desktop-only by design
+  (hidden inline below `md`; the mobile equivalent is opt-in per caller via
+  the separately-exported `SectionCarouselNav`). `TestimonialSection` never
+  rendered that mobile copy — pre-existing gap, not something introduced by
+  this session's earlier edits to that file (which only touched the
+  `TESTIMONIALS` data array), just not noticed until now. Fixed by adding a
+  `SectionCarouselNav` below the mobile content block, same `forceVisible`
+  pattern `CelebrityShowcase` already established for its own mobile media
+  pager (stays visible with the inapplicable direction disabled at either
+  boundary, rather than disappearing). Verified via Playwright scoped
+  strictly to the testimonials `<section>` (the page has several other
+  Previous/Next button pairs from other sections, so an unscoped query would
+  false-positive) — confirmed exactly one Prev/Next pair inside the section,
+  and that clicking Next genuinely advances the displayed reviewer.
 - **Real photography wired into CategoryCollage and TestimonialSection**
   (2026-08-29) — `CategoryTile` gained a required `image` field, all 6
   `DEFAULT_TILES` now point at `public/assets/categories/<id>.png` (exact
