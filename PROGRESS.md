@@ -19,16 +19,60 @@ pages still read placeholder arrays, not real queries yet — that's separate,
 unstarted work.
 
 Scaffolding, design tokens, and ~34 components are built. **Home is fully built,
-top to bottom, with placeholder data**: HeroSection → promo strip → Bestsellers →
-Our categories → CelebrityShowcase → Bracelet Collection → Pendant Collection →
-TestimonialSection → Footer (shared layout). The old "temporary component showcase"
-scratch section has been retired now that the real page is complete — Home is a plain
-Server Component again (no direct `useState`; interactivity lives in the leaf
-components that need it). Shop has real (placeholder-data) integration: sidebar +
-controls + grid/list toggle + pagination.
+top to bottom**: HeroSection → promo strip → Bestsellers (placeholder products) →
+Our categories (real photography) → CelebrityShowcase (real media) →
+Bracelet Collection → Pendant Collection (placeholder products) →
+TestimonialSection (real reviewer photos) → Footer (shared layout). The old
+"temporary component showcase" scratch section has been retired now that the
+real page is complete — Home is a plain Server Component again (no direct
+`useState`; interactivity lives in the leaf components that need it, except
+`getCelebrities()`'s filesystem scan, which now also runs there). Shop has
+real (placeholder-data) integration: sidebar + controls + grid/list toggle +
+pagination.
 
 ## Resolved decisions
 
+- **CelebrityShowcase now driven by real media (public/celebrity/), not
+  placeholder data** (2026-08-29) — new `src/lib/celebrities.ts`
+  (`getCelebrities()`, server-only, uses `node:fs`) scans
+  `public/celebrity/@handle/{pictures,videos}/` and returns typed
+  `Celebrity[]`; called once from Home's `page.tsx` (a Server Component) and
+  passed down as a prop, since Client Components can't touch `node:fs`
+  directly. Safe specifically because Home (`/`) is statically prerendered —
+  the scan runs during `next build`, never at Cloudflare Worker request time
+  (confirmed no real filesystem exists there for `public/`); verified by
+  grepping actual celebrity ids out of the built static HTML
+  (`.next/server/app/index.html`) after a real `next build`, not assumed.
+  Folder name (with the `@`) is both the id and the dial label, per the
+  user — no separate mapping. Handles real inconsistency across the 8
+  provided folders without any per-celebrity special-casing: some have only
+  pictures (@sauce_walkatsf, @teegrizzley), some only videos in varying
+  counts (@rodwave/@yfnlucci/@trappyoblockouttt365 have 1 each,
+  @jamorant has 2), some both (@luhtyler_, @moneybaggyo) — `media` is one
+  flat ordered list (pictures first, then videos) so the existing
+  pagination logic never needed to know the type mix. One real layout gap
+  found and fixed: a celebrity with exactly 1 total media item (several of
+  the above) previously would've sat lopsided in the first column of a
+  `grid-cols-2` row with an empty gap beside it — now that specific case
+  drops to `grid-cols-1` + centered + width-capped, confirmed via a direct
+  `getComputedStyle` check on the live grid (`gridTemplateColumns` resolves
+  to a single track, not two).
+  Filenames are real exported social-caption filenames — spaces, emoji,
+  `#`, parens, unicode — encoded per-path-segment via `encodeURIComponent`
+  (not a single `encodeURI` on the whole string) so every character
+  round-trips into a URL Next's static file serving can actually resolve;
+  confirmed zero bad HTTP responses for any `/celebrity/*` asset in a live
+  Playwright run across all 8 celebrities.
+  **Video playback, per the user**: real `<video loop playsInline>` (no
+  native `controls`), sound-on autoplay attempted first, only falling back
+  to muted if the browser's autoplay-with-sound block rejects the play()
+  promise — gated behind the tile's own `useViewportEnter` (run once) so a
+  video below the fold never starts playing before it's actually scrolled
+  into view. Custom Hugeicons overlay controls (`PauseCircleIcon`/
+  `PlayCircleIcon`, `VolumeMute02Icon`/`VolumeHighIcon`) for pause/resume
+  and mute/unmute — both verified functional via direct `<video>` element
+  state checks (`.paused`/`.muted`) before/after clicking each control, not
+  just visual inspection.
 - **Real photography wired into CategoryCollage and TestimonialSection**
   (2026-08-29) — `CategoryTile` gained a required `image` field, all 6
   `DEFAULT_TILES` now point at `public/assets/categories/<id>.png` (exact
@@ -885,9 +929,9 @@ direction) · 🟡 built + later generalized/merged into another component.
 | HeroMobileCarousel | `components/hero-mobile-carousel.tsx` | 602:656 | Native scroll-snap (no gesture library), scroll position drives the Indicator. Only client-side piece of the hero — HeroSection itself stays a Server Component |
 | SectionHeader | `components/section-header.tsx` | 603:658 (desktop), 612:665 (mobile) | Title + optional subtitle + optional "View all"/chevron nav — all independently optional. **Mobile layout corrected 2026-08-25** against a real screenshot (had been guessed from a verbal description, guessed wrong): "View all" stays inline next to the title on mobile too; only the chevron nav hides inline and relocates below the section's content via the exported `SectionCarouselNav`. Subtitle sits inline on desktop, drops to its own line on mobile |
 | ProductCollectionSection | `components/product-collection-section.tsx` | — (built from a real screenshot, "Bracelet/Pendant Collection") | SectionHeader + ProductGrid, reused for Bestsellers/Bracelet Collection/Pendant Collection instead of copy-pasting the block per section. Desktop: static 4-col grid. Mobile: real 2-item paginated window via the chevron (confirmed by screenshot — not just a reflowed grid). Desktop's inline chevron doesn't page anything yet (flagged) |
-| CategoryCollage | `components/category-collage.tsx` | — (built from pasted screenshots, not a Figma node/link) | Replaced CategoryDial on Home's "Our categories" section. Desktop: asymmetric bento grid (CSS grid-template-areas) of 6 category tiles + a copy block; mobile: single stacked column. Placeholder image on every tile per the user. `CategoryDial` itself wasn't touched/removed — still used by ShopSidebar |
-| CelebrityShowcase | `components/celebrity-showcase.tsx` | — (built from pasted screenshots, not a Figma node/link) | "Worn by your favorite celebs." Two independent controls: CategoryDial (vertical desktop / horizontal mobile) picks the celebrity; SectionHeader's chevron pages that celebrity's media (2 slots visible, enabled only when a celebrity has more than 2). Each media slot can be image or video (video gets a dimmed overlay + `PlayCircleIcon`). Placeholder image + placeholder handles throughout — not real content |
-| TestimonialSection | `components/testimonial-section.tsx` | — (built from pasted screenshots, not a Figma node/link) | "What our customers say" — last section before Footer. Chevron (via SectionHeader, no "View all") pages between *testimonials* one at a time. Desktop: hero photo + up to 4 thumbnails in an approximated 3-col/2-row bento (exact positions unverifiable from a screenshot, flagged) beside name/stars/quote; mobile: hero photo only. `StarIcon` is stroke-only (no filled variant) — rating is shown via color (navy vs gray), not a fill/outline swap. **Animated (GSAP)**: data swaps instantly on chevron click, hero image grows into place (scale 0.82→1, opacity fade, `power3.out`, ~0.7s), text fades/settles slightly faster (~0.4s) — gated behind `prefers-reduced-motion` via `gsap.matchMedia()`, cleaned up per the gsap-motion skill. 3 placeholder testimonials now (was 1 — needed a second to make the chevron/animation demonstrable at all) |
+| CategoryCollage | `components/category-collage.tsx` | — (built from pasted screenshots, not a Figma node/link) | Replaced CategoryDial on Home's "Our categories" section. Desktop: asymmetric bento grid (CSS grid-template-areas) of 6 category tiles + a copy block; mobile: single stacked column. Real category photography (`public/assets/categories/`), `object-cover`. `CategoryDial` itself wasn't touched/removed — still used by ShopSidebar |
+| CelebrityShowcase 🟡 | `components/celebrity-showcase.tsx` + `lib/celebrities.ts` | — (built from pasted screenshots, not a Figma node/link) | "Worn by your favorite celebs." Real media (`public/celebrity/@handle/{pictures,videos}/`, scanned server-side by `getCelebrities()` and passed in from Home's `page.tsx`) — folder name is both id and dial label. CategoryDial (vertical desktop / horizontal mobile) picks the celebrity; SectionHeader's chevron pages that celebrity's media (2 slots visible, enabled only when >2 items; a celebrity with exactly 1 item gets a centered single-column layout instead of a lopsided empty gap). Video tiles are real `<video loop playsInline>` with sound-on autoplay (falls back to muted if the browser blocks it), gated behind viewport visibility, plus custom Hugeicons play/pause + mute/unmute controls — no native `controls` |
+| TestimonialSection | `components/testimonial-section.tsx` | — (built from pasted screenshots, not a Figma node/link) | "What our customers say" — last section before Footer. Chevron (via SectionHeader, no "View all") pages between *testimonials* one at a time. Desktop: hero photo + up to 4 thumbnails in an approximated 3-col/2-row bento (exact positions unverifiable from a screenshot, flagged) beside name/stars/quote; mobile: hero photo only. `StarIcon` is stroke-only (no filled variant) — rating is shown via color (navy vs gray), not a fill/outline swap. **Animated (GSAP)**: data swaps instantly on chevron click, hero image grows into place (scale 0.82→1, opacity fade, `power3.out`, ~0.7s), text fades/settles slightly faster (~0.4s) — gated behind `prefers-reduced-motion` via `gsap.matchMedia()`, cleaned up per the gsap-motion skill. 4 reviews now, real photos (`public/assets/reviews/1-4.png`), names/quotes/ratings still placeholder text |
 
 Shared/support files: `lib/utils.ts` (`cn`, `toCssLength`), `lib/coverflow.ts`
 (distance→size/radius/blur math shared by PaginationDial + CategoryDial),
@@ -905,7 +949,7 @@ choreography), `hooks/use-accordion.ts` (shared dropdown/disclosure open/close),
 
 | Route | Status |
 |---|---|
-| `/` (Home) | **Fully built**, top to bottom, real (mobile+desktop), placeholder data: HeroSection → promo strip → Bestsellers → Our categories (SectionHeader + CategoryCollage) → CelebrityShowcase → Bracelet Collection → Pendant Collection → TestimonialSection → Footer (shared layout). No more scratch/showcase content on this page |
+| `/` (Home) | **Fully built**, top to bottom, real (mobile+desktop): HeroSection → promo strip → Bestsellers (placeholder products) → Our categories (real photography) → CelebrityShowcase (real media) → Bracelet/Pendant Collection (placeholder products) → TestimonialSection (real reviewer photos) → Footer. No more scratch/showcase content on this page |
 | `/shop` | Real integration: ShopSidebar + ShopControlsBar + ProductGrid/ProductList toggle + PaginationDial + ProductSpotlight (list layout), placeholder product data |
 | `/grillz` | Hero (real images, back button, full-bleed) → Best Grillz Collection (ProductCollectionSection) → GrillzCastSection → Footer. Placeholder product data |
 | `/category/[slug]` | Real (placeholder-data) integration, built purely from existing components: SectionHeader + ProductGrid + pagination dial + "More from us" + Explore more Button. Shares NavBar's back-button variant with Grillz. Has a ProductGridSkeleton-based `loading.tsx` |
@@ -969,11 +1013,8 @@ collage photos), `public/placeholder-product.svg` (local placeholder, not from F
 - CategoryCollage's bento grid proportions (desktop) and its corner arrow icon
   (`ArrowUpRight03Icon` — the user corrected this from an earlier `01Icon` guess,
   presumably checking against Figma directly) are approximated from pasted
-  screenshots, not measured. Every tile uses the placeholder image, per the user,
-  pending real category photos.
-- CelebrityShowcase's celebrity handles are placeholder labels (`@CELEBRITY1` etc.),
-  not real ones — the screenshot showed real-looking handles but the user didn't
-  confirm them as real data to use.
+  screenshots, not measured. Tile photography is real now (see the resolved-decision
+  entry above), so this is just about the arrow icon/proportions.
 - TestimonialSection's desktop photo collage (hero + 4 thumbnails) is an
   approximated 3-col/2-row bento, not a pixel match — exact thumbnail positions
   aren't verifiable from a screenshot.

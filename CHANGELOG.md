@@ -6,6 +6,30 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+### Added (batch 46 — CelebrityShowcase runs on real media)
+
+- New `src/lib/celebrities.ts` (`getCelebrities()`, server-only) scans
+  `public/celebrity/@handle/{pictures,videos}/` and returns typed data;
+  called from Home's `page.tsx` and passed into `CelebrityShowcase` as a
+  prop, replacing the hardcoded placeholder celebrity list entirely. Folder
+  name (with the `@`) is both the celebrity id and the dial label.
+- Handles every real combination present in the provided folders gracefully:
+  pictures-only, videos-only (1 or more), both, and — a real gap this
+  surfaced — exactly 1 total item, which previously would've sat lopsided
+  in a 2-column grid; that case now centers in a single column instead.
+- Video tiles are real `<video loop playsInline>` elements: sound-on
+  autoplay is attempted first, falling back to muted only if the browser
+  blocks it, gated behind the tile's own viewport visibility so nothing
+  plays audio before it's scrolled into view. Custom Hugeicons overlay
+  controls (play/pause, mute/unmute) replace the old static play-icon
+  treatment; no native `<video controls>`.
+- Verified with real `next build` (confirmed celebrity ids present in the
+  prerendered static HTML) and live Playwright checks: correct media counts
+  per celebrity, zero bad HTTP responses across all 8 celebrities' assets
+  (filenames have spaces/emoji/`#`/parens — encoded per path segment), and
+  direct `<video>` element state checks proving both custom controls
+  actually work.
+
 ### Fixed (batch 45 — CI: wrangler needs Node 22, not 20)
 
 - First real Actions run failed at deploy with "Wrangler requires at least

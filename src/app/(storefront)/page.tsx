@@ -6,6 +6,7 @@ import { ProductCollectionSection } from "@/components/product-collection-sectio
 import { SectionHeader } from "@/components/section-header";
 import { TestimonialSection } from "@/components/testimonial-section";
 import { Pill } from "@/components/ui/pill";
+import { getCelebrities } from "@/lib/celebrities";
 import { PAGE_TRANSITION } from "@/lib/motion";
 
 // The full real Home page — every section here is built from real Figma nodes or
@@ -33,6 +34,8 @@ const BRACELET_COLLECTION_PLACEHOLDER = makePlaceholderProducts("bracelet-collec
 const PENDANT_COLLECTION_PLACEHOLDER = makePlaceholderProducts("pendant-collection", 4);
 
 export default function Home() {
+  const celebrities = getCelebrities();
+
   return (
     <ViewTransition {...PAGE_TRANSITION}>
       <div className="flex flex-1 flex-col gap-16 py-8">
@@ -93,7 +96,7 @@ export default function Home() {
             the celebrity dial (vertical desktop / horizontal mobile — same
             CategoryDial, just orientation) picks the celebrity; the header's chevron
             pages that celebrity's media (only enabled when they have more than 2). */}
-        <CelebrityShowcase />
+        <CelebrityShowcase celebrities={celebrities} />
 
         {/* Built from a real screenshot ("Bracelet Collection"/"Pendant Collection") —
             same SectionHeader + ProductGrid pattern as Bestsellers, via the shared
