@@ -6,6 +6,29 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+### Added (batch 43 — live deployment: Cloudflare Workers + real Neon DB + CI)
+
+- The app is live: https://pluggeo.egbemichel39.workers.dev. Created real
+  Cloudflare and Neon accounts/projects (neither existed before), applied the
+  existing Drizzle schema to the new database (`npm run db:migrate`), set
+  `DATABASE_URL`/`CLERK_SECRET_KEY`/`ADMIN_EMAIL` as Cloudflare Worker
+  secrets, and added the account ID to `wrangler.jsonc`.
+- Added `.github/workflows/deploy.yml` — runs DB migrations then builds and
+  deploys to Cloudflare on every push to `main`, so every prompt's work goes
+  live automatically once the required repo secrets are added (see
+  `PROGRESS.md`'s Flagged section — not yet added as of this entry, so the
+  workflow will fail until then).
+- Renamed `src/proxy.ts` back to `src/middleware.ts` (same Clerk middleware,
+  unchanged otherwise) — Next.js 16's `proxy.ts` convention is hard-locked to
+  the Node.js runtime with no way to opt back into Edge, and
+  `@opennextjs/cloudflare` refuses to build any Node.js-runtime middleware at
+  all. Next's own docs name `middleware.ts` as the explicit way to keep Edge
+  runtime, which is what Cloudflare Workers deployment requires here.
+- `eslint.config.mjs` now ignores `.open-next/**` (OpenNext's generated,
+  gitignored build output) — it had never existed on disk before the first
+  Cloudflare build, so lint had never actually been run against it until this
+  pass surfaced ~400 errors from generated code.
+
 ### Fixed (batch 42 — app-wide z-index sweep: overlays now portal to `<body>`)
 
 - Per the user, after batch 41's PDP-specific fix: found and fixed the whole

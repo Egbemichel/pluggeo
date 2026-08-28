@@ -9,6 +9,15 @@ true right now."
 
 ## Status at a glance
 
+**The app is live**: https://pluggeo.egbemichel39.workers.dev (Cloudflare
+Workers via OpenNext, no custom domain yet — free `workers.dev` subdomain).
+GitHub Actions (`.github/workflows/deploy.yml`) auto-deploys on every push to
+`main`, so the `github-sync` skill's auto-push after every prompt now also
+means auto-deploy — no manual step to get a change live. Real Neon Postgres
+is connected and migrated (see the resolved-decision entry below); storefront
+pages still read placeholder arrays, not real queries yet — that's separate,
+unstarted work.
+
 Scaffolding, design tokens, and ~34 components are built. **Home is fully built,
 top to bottom, with placeholder data**: HeroSection → promo strip → Bestsellers →
 Our categories → CelebrityShowcase → Bracelet Collection → Pendant Collection →
@@ -20,6 +29,57 @@ controls + grid/list toggle + pagination.
 
 ## Resolved decisions
 
+- **Live deployment stood up: Cloudflare Workers + real Neon DB, auto-deploy
+  on every push** (2026-08-29) — the app went from local-only to a real,
+  publicly reachable site at https://pluggeo.egbemichel39.workers.dev. Neon
+  project created for real (was never provisioned before this — `DATABASE_URL`
+  had been empty since scaffolding); `npm run db:migrate` applied the existing
+  schema (categories/products/product_images/product_variants) successfully,
+  confirmed by querying `information_schema.tables` directly. Cloudflare
+  account created, `account_id` added to `wrangler.jsonc` (non-secret, safe to
+  commit per Cloudflare's own convention), three runtime secrets set on the
+  Worker via `wrangler secret put` (`DATABASE_URL`, `CLERK_SECRET_KEY`,
+  `ADMIN_EMAIL` — confirmed present via `wrangler secret list`).
+  **Real, non-obvious blocker found and fixed**: the first deploy attempt
+  failed outright — `opennextjs-cloudflare build` hard-exits
+  (`process.exit(1)`, no bypass flag) on any Node.js-runtime middleware, and
+  Next.js 16 renamed `middleware.ts` → `proxy.ts` with a hard rule (confirmed
+  by reading Next's own bundled upgrade docs,
+  `node_modules/next/dist/docs/.../upgrading/version-16.md`): "The edge
+  runtime is NOT supported in `proxy`. The `proxy` runtime is `nodejs`, and it
+  cannot be configured. If you want to continue using the `edge` runtime, keep
+  using `middleware`." Since this project's Clerk auth gate had already been
+  renamed to `src/proxy.ts` following Next 16's new convention, it was
+  unconditionally Node-runtime and unconditionally rejected by
+  `@opennextjs/cloudflare` 1.20.2 — no config option resolves this on either
+  side. Fixed by reverting the file back to `src/middleware.ts` (identical
+  content, same default-exported `clerkMiddleware(...)`, same `config.matcher`
+  — only the filename changed), which restores Edge-runtime middleware per
+  Next's own documented escape hatch. Deploy succeeded immediately after.
+  **`eslint.config.mjs`** gained `.open-next/**` in its ignore list — that
+  directory (OpenNext/Cloudflare's generated build output, already gitignored)
+  had never existed on disk before the first `cf:deploy` run, so `npm run
+  lint` had never actually encountered it; it produced ~400 real errors from
+  generated code the moment it did. Same class of gap as `.next/`/`out/`/
+  `build/`, just missing because this was the first Cloudflare build.
+  **Verified live**: `/`, `/shop`, `/grillz`, `/product/[slug]`,
+  `/category/[slug]`, `/bag` all return 200 with real rendered content.
+  `/admin` returned a 404 under a plain `curl` check — response headers show
+  `x-clerk-auth-status: signed-out` / `x-clerk-auth-reason:
+  dev-browser-missing`, meaning Clerk's middleware genuinely is running and
+  correctly detecting no session; Clerk's dev/test-instance "dev browser"
+  handshake needs real browser JS + cookies to complete the redirect to
+  `/sign-in`, which a bare `curl` request can't do — flagged as a probable
+  test-harness limitation, not confirmed as a real bug, and not yet verified
+  by the user in an actual browser.
+  **CI**: new `.github/workflows/deploy.yml` runs `db:migrate` then
+  `cf:deploy` on every push to `main`. It needs three GitHub repo secrets
+  added manually before it can succeed (no `gh` CLI on this machine, so this
+  wasn't automatable) — `CLOUDFLARE_API_TOKEN`, `DATABASE_URL`,
+  `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` — **not yet added as of this entry**,
+  so the workflow will fail until that's done. Staging environment and a
+  custom domain were both explicitly deferred, per the user, in favor of
+  getting production live fast on the free `workers.dev` subdomain.
 - **App-wide z-index sweep: every full-viewport overlay now portals to
   `document.body`** (2026-08-29), per the user after the PDP-specific
   SearchOverlay fix below — asked to find and fix the whole class of issue,
@@ -837,6 +897,19 @@ collage photos), `public/placeholder-product.svg` (local placeholder, not from F
 
 ## Flagged / worth confirming (not blocking)
 
+- **GitHub Actions deploy workflow needs 3 repo secrets added before it can
+  run successfully** — `CLOUDFLARE_API_TOKEN`, `DATABASE_URL`,
+  `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, via Settings → Secrets and variables →
+  Actions on the repo. Not automatable from here (no `gh` CLI on this
+  machine). Until added, every push to `main` will show a red/failed Actions
+  run — expected, not a regression.
+- **`/admin`'s Clerk-gated redirect not yet confirmed in a real browser** —
+  a plain `curl` check got a 404 that's very likely just Clerk's dev-instance
+  handshake needing real browser JS/cookies (see the deployment
+  resolved-decision entry above for the full reasoning), not a confirmed bug.
+  Worth a real click-through once someone's at a browser: `/admin` should
+  redirect to `/sign-in`, and signing in with the allowed Google account
+  should land on the admin stub.
 - **`e2e/home.spec.ts` fails against current markup** — asserts a heading with
   the text "Plug Geo" is visible on `/`, but that text only ever appears as
   image `alt`/`aria-label`, never as a real heading anywhere in the app.
