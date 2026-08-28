@@ -6,6 +6,16 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+### Fixed (batch 45 — CI: wrangler needs Node 22, not 20)
+
+- First real Actions run failed at deploy with "Wrangler requires at least
+  Node.js v22.0.0" — `deploy.yml` had been pinned to Node 20 based on a
+  wrong signal (`@types/node`'s version, not an actual engine requirement).
+  Bumped to Node 22. Also documented inline in `src/middleware.ts` why the
+  build's "middleware is deprecated, use proxy" warning is intentional to
+  ignore here, so it doesn't get "fixed" later and silently re-break
+  Cloudflare deploys.
+
 ### Added (batch 44 — real photography: categories + reviews)
 
 - `CategoryCollage` now uses real category photography

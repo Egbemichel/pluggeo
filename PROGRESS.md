@@ -43,6 +43,16 @@ controls + grid/list toggle + pagination.
   provided, only photos). Verified live via Playwright screenshots, not just
   code review — both sections render the real images correctly with no
   console/page errors.
+- **CI fixed: `deploy.yml` was pinned to Node 20, `wrangler` needs 22+**
+  (2026-08-29) — first real CI run (triggered by the images-wiring push)
+  failed at the deploy step with "Wrangler requires at least Node.js
+  v22.0.0." Node 20 had been picked matching `@types/node: ^20`, which was
+  the wrong signal — that's just type definitions, not an engine
+  requirement; `wrangler`/`miniflare`/`@cloudflare/kv-asset-handler` are the
+  actual constraint. Bumped `actions/setup-node`'s `node-version` to 22.
+  Also added an inline comment in `src/middleware.ts` flagging that the
+  build's "middleware convention is deprecated, use proxy" nag is
+  intentional to ignore — see the deployment entry below for why.
 - **Live deployment stood up: Cloudflare Workers + real Neon DB, auto-deploy
   on every push** (2026-08-29) — the app went from local-only to a real,
   publicly reachable site at https://pluggeo.egbemichel39.workers.dev. Neon
