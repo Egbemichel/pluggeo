@@ -87,6 +87,8 @@ build with no room to redo work.
 - `nextjs-architecture` — before writing/reviewing any route or component code
 - `accessibility` — before writing/reviewing any UI
 - `definition-of-done` — at the END of every task, before calling it finished
+- `github-sync` — immediately after `definition-of-done`, to commit and push
+  the finished work so `origin/main` stays current after every prompt
 
 **Contextual — invoke when the work touches that area:**
 
