@@ -29,6 +29,20 @@ controls + grid/list toggle + pagination.
 
 ## Resolved decisions
 
+- **Real photography wired into CategoryCollage and TestimonialSection**
+  (2026-08-29) — `CategoryTile` gained a required `image` field, all 6
+  `DEFAULT_TILES` now point at `public/assets/categories/<id>.png` (exact
+  1:1 filename match to the existing tile ids — bracelets/pendants/chains/
+  watches/grillz/sets, no mapping guesswork needed); the placeholder icon's
+  `object-contain` + padding treatment switched to full-bleed `object-cover`,
+  since these are real photos meant to fill the tile, not a small centered
+  icon. `TestimonialSection`'s 5 placeholder-image entries trimmed to 4 (was
+  padded to 5 earlier only to make the chevron/animation demonstrable at all
+  — no longer needed) and pointed at `public/assets/reviews/1-4.png` in
+  order; names/quotes/ratings are unchanged (no real reviewer text was
+  provided, only photos). Verified live via Playwright screenshots, not just
+  code review — both sections render the real images correctly with no
+  console/page errors.
 - **Live deployment stood up: Cloudflare Workers + real Neon DB, auto-deploy
   on every push** (2026-08-29) — the app went from local-only to a real,
   publicly reachable site at https://pluggeo.egbemichel39.workers.dev. Neon

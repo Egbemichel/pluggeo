@@ -18,8 +18,10 @@ import { cn } from "@/lib/utils";
 // a large Grillz tile + Sets + a copy block filling the rest); mobile is a single
 // stacked column. The corner arrow icon (Hugeicons ArrowUpRight03Icon) is inferred
 // from the visual, not confirmed against a Figma layer name — flag if a real node
-// ever surfaces for this section. Every tile uses the placeholder image per the
-// user's instruction; swap in real category photography later.
+// ever surfaces for this section. Real category photography (public/assets/categories/,
+// one file per tile id) replaced the placeholder icon 2026-08-29 — object-cover
+// full-bleed instead of the placeholder's object-contain+padding treatment, since
+// these are real photos meant to fill the tile, not a small centered icon.
 //
 // 2026-08-25 QA pass: tile label bumped text-h6 (16px) -> text-h4 (28px) — a real
 // screenshot showed it clearly larger than the h6 guess. Best-effort, unconfirmed.
@@ -36,18 +38,18 @@ export type CategoryTile = {
   id: string;
   label: string;
   href: string;
+  image: string;
 };
 
 const DEFAULT_TILES: CategoryTile[] = [
-  { id: "bracelets", label: "Bracelets", href: "/category/bracelets" },
-  { id: "pendants", label: "Pendants", href: "/category/pendants" },
-  { id: "chains", label: "Chains", href: "/category/chains" },
-  { id: "watches", label: "Watches", href: "/category/watches" },
-  { id: "grillz", label: "Grillz", href: "/grillz" },
-  { id: "sets", label: "Sets", href: "/category/sets" },
+  { id: "bracelets", label: "Bracelets", href: "/category/bracelets", image: "/assets/categories/bracelets.png" },
+  { id: "pendants", label: "Pendants", href: "/category/pendants", image: "/assets/categories/pendants.png" },
+  { id: "chains", label: "Chains", href: "/category/chains", image: "/assets/categories/chains.png" },
+  { id: "watches", label: "Watches", href: "/category/watches", image: "/assets/categories/watches.png" },
+  { id: "grillz", label: "Grillz", href: "/grillz", image: "/assets/categories/grillz.png" },
+  { id: "sets", label: "Sets", href: "/category/sets", image: "/assets/categories/sets.png" },
 ];
 
-const PLACEHOLDER_IMAGE = "/placeholder-product.svg";
 const DESKTOP_STAGGER = 0.12;
 
 function CategoryTileCard({
@@ -71,12 +73,7 @@ function CategoryTileCard({
       )}
     >
       <div className="relative flex-1">
-        <Image
-          src={PLACEHOLDER_IMAGE}
-          alt={tile.label}
-          fill
-          className="object-contain p-(--space-4)"
-        />
+        <Image src={tile.image} alt={tile.label} fill className="object-cover" />
       </div>
       <div className="absolute top-(--space-3) right-(--space-3) flex size-8 items-center justify-center rounded-full border border-black">
         <Icon icon={ArrowUpRight03Icon} size={16} className="text-brand-primary" />

@@ -39,43 +39,37 @@ export type Testimonial = {
   image: { src: string; alt: string };
 };
 
-const PLACEHOLDER_IMAGE = "/placeholder-product.svg";
-
+// Real reviewer photos (public/assets/reviews/1-4.png) replaced the
+// placeholder 2026-08-29 — static content, exactly 4 reviews to match the 4
+// real photos provided (was 5 placeholder entries before).
 const TESTIMONIALS: Testimonial[] = [
   {
     id: "testimonial-1",
     name: 'Deshawn "Trey" Coleman III',
     rating: 5,
     quote: "Custom pendant surprised me like nothing else.",
-    image: { src: PLACEHOLDER_IMAGE, alt: "Customer photo" },
+    image: { src: "/assets/reviews/1.png", alt: "Deshawn \"Trey\" Coleman III" },
   },
   {
     id: "testimonial-2",
     name: "Marcus Webb",
     rating: 5,
     quote: "The craftsmanship is unreal. Worth every penny.",
-    image: { src: PLACEHOLDER_IMAGE, alt: "Customer photo" },
+    image: { src: "/assets/reviews/2.png", alt: "Marcus Webb" },
   },
   {
     id: "testimonial-3",
     name: "Andre Lewis",
     rating: 4,
     quote: "Fast shipping and the chain looks even better in person.",
-    image: { src: PLACEHOLDER_IMAGE, alt: "Customer photo" },
+    image: { src: "/assets/reviews/3.png", alt: "Andre Lewis" },
   },
   {
     id: "testimonial-4",
     name: "Jaylen Brooks",
     rating: 5,
     quote: "Exactly what I designed, down to the last detail.",
-    image: { src: PLACEHOLDER_IMAGE, alt: "Customer photo" },
-  },
-  {
-    id: "testimonial-5",
-    name: "Chris Odum",
-    rating: 5,
-    quote: "We love it!!!!",
-    image: { src: PLACEHOLDER_IMAGE, alt: "Customer photo" },
+    image: { src: "/assets/reviews/4.png", alt: "Jaylen Brooks" },
   },
 ];
 

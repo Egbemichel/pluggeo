@@ -6,6 +6,17 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+### Added (batch 44 — real photography: categories + reviews)
+
+- `CategoryCollage` now uses real category photography
+  (`public/assets/categories/<id>.png`) instead of the placeholder icon —
+  full-bleed `object-cover` instead of the placeholder's centered
+  `object-contain`. `CategoryTile` gained a required `image` field.
+- `TestimonialSection` ("What our customers say") now uses 4 real reviewer
+  photos (`public/assets/reviews/1-4.png`); trimmed from 5 placeholder
+  entries to 4 to match. Names/quotes/ratings unchanged — no real reviewer
+  text was provided, only photos.
+
 ### Added (batch 43 — live deployment: Cloudflare Workers + real Neon DB + CI)
 
 - The app is live: https://pluggeo.egbemichel39.workers.dev. Created real
