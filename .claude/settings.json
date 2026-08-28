@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Edit(/.claude/skills/testing-conventions/**)",
+      "Edit(/.claude/skills/security-admin/**)",
+      "Edit(/.claude/skills/performance-budget/**)"
+    ]
+  }
+}

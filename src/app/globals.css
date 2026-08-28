@@ -1,0 +1,394 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  /* Plug Geo primitives (Figma: color/primitive) */
+  --color-black: var(--black);
+  --color-white: var(--white);
+  --color-navy: var(--navy);
+  --color-gray: var(--gray);
+  --color-black-20: var(--black-20);
+  --color-black-40: var(--black-40);
+  --color-black-82: var(--black-82);
+
+  /* Plug Geo semantics (Figma: color/semantic) — class names intentionally mirror
+     the Figma token names 1:1 (e.g. bg-surface-dark, text-text-primary). */
+  --color-brand-primary: var(--brand-primary);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-inverse: var(--text-inverse);
+  --color-surface-primary: var(--surface-primary);
+  --color-surface-dark: var(--surface-dark);
+  --color-border-default: var(--border-default);
+  --color-border-inverse: var(--border-inverse);
+
+  /* shadcn/ui tokens, mapped onto the Plug Geo palette — see docs/DESIGN_SYSTEM.md */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+
+  /* Fonts (Figma: font/family) */
+  --font-sans: var(--font-sans);
+  --font-mono: ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --font-heading: var(--font-quinn), var(--font-sans);
+
+  /* Type scale (Figma: font/size). Line-heights are measured, not guessed: pulled
+     directly from a real component (Product Card, node 557:3742) via the Figma REST
+     API. Every Quinn (heading) text node measured used Figma's "Auto" line-height at
+     a consistent 1.4x ratio regardless of size; every Inter (body) text node measured
+     a consistent ~1.21x ratio regardless of size/weight — both are font-intrinsic
+     constants, not per-role choices, so they're applied uniformly here. This
+     supersedes the earlier tight/snug/normal/relaxed per-role guessing (kept as
+     unused tokens below in case a role genuinely needs to deviate later). */
+  --text-display: 6rem;
+  --text-display--line-height: 1.4;
+  --text-h1: 4rem;
+  --text-h1--line-height: 1.4;
+  --text-h2: 3rem;
+  --text-h2--line-height: 1.4;
+  --text-h3: 1.875rem;
+  --text-h3--line-height: 1.4;
+  --text-h4: 1.75rem;
+  --text-h4--line-height: 1.4;
+  --text-h5: 1.25rem;
+  --text-h5--line-height: 1.4;
+  --text-h6: 1rem;
+  --text-h6--line-height: 1.4;
+  --text-body-lg: 2rem;
+  --text-body-lg--line-height: 1.21;
+  --text-body-md: 1rem;
+  --text-body-md--line-height: 1.21;
+  --text-body-sm: 0.875rem;
+  --text-body-sm--line-height: 1.21;
+  --text-caption: 0.625rem;
+  --text-caption--line-height: 1.21;
+
+  /* Discovered directly from Product Card (557:3742) — sizes outside the named
+     h1-h6/body-* scale that recur functionally, so promoted to tokens rather than
+     left as magic numbers. Flag: only confirmed on this one component so far. */
+  --text-eyebrow: 1.5rem; /* 24px, Inter Light 300 — small label above a title */
+  --text-eyebrow--line-height: 1.21;
+  --text-card-title: 1.25rem; /* 20px, Inter Regular 400 — secondary title/description */
+  --text-card-title--line-height: 1.21;
+  --text-price: 1.375rem; /* 22px, Inter Medium 500 */
+  --text-price--line-height: 1.21;
+
+  /* Radius (Figma: radius) — sm/md are real tokens; lg/xl/2xl/3xl/4xl are an
+     extrapolated placeholder scale for shadcn components Figma doesn't define. */
+  --radius-sm: 0.5rem;
+  --radius-md: 1rem;
+  --radius-lg: 1.25rem;
+  --radius-xl: 1.75rem;
+  --radius-2xl: 2.25rem;
+  --radius-3xl: 2.75rem;
+  --radius-4xl: 3.25rem;
+
+  /* Blur (Figma: blur) — overrides Tailwind's default blur-sm/md values */
+  --blur-sm: 2px;
+  --blur-md: 8px;
+
+  /* Effect style (Figma: drop-shadow) — confirmed in use on Product Card (557:3742),
+     exact match to the values pulled earlier from the Styles panel screenshot. */
+  --shadow-drop: 8px 6px 4px 0 rgb(0 0 0 / 0.25);
+}
+
+:root {
+  /* Plug Geo primitives */
+  --black: #000000;
+  --white: #ffffff;
+  --navy: #141b34;
+  --gray: #727272;
+  --black-20: rgb(0 0 0 / 0.2);
+  --black-40: rgb(0 0 0 / 0.4);
+  --black-82: rgb(0 0 0 / 0.82);
+
+  /* Plug Geo semantics */
+  --brand-primary: var(--navy);
+  --text-primary: var(--black);
+  --text-secondary: var(--gray);
+  --text-inverse: var(--white);
+  --surface-primary: var(--white);
+  --surface-dark: var(--navy);
+  --border-default: var(--gray);
+  --border-inverse: var(--white);
+
+  /* Border width (Figma: border/width) — used via arbitrary values, e.g.
+     border-[length:var(--border-width-thick)] */
+  --border-width-thin: 1px;
+  --border-width-default: 2px;
+  --border-width-thick: 3px;
+
+  /* Spacing (Figma: space, steps 1-14) — deliberately NOT under Tailwind's
+     --spacing-* namespace (that would silently override Tailwind's own numeric
+     spacing scale for the same numbers). Use via arbitrary values, e.g.
+     gap-[var(--space-6)]. */
+  --space-1: 0.25rem;
+  --space-2: 0.375rem;
+  --space-3: 0.5rem;
+  --space-4: 0.625rem;
+  --space-5: 0.875rem;
+  --space-6: 1rem;
+  --space-7: 1.25rem;
+  --space-8: 1.5rem;
+  --space-9: 1.75rem;
+  --space-10: 2rem;
+  --space-11: 3rem;
+  --space-12: 4rem;
+  --space-13: 5rem;
+  --space-14: 6rem;
+
+  /* Corrected 2026-08-25: every real component pulled from Figma (NavBar, search
+     bar, chips, sidebar text) assumes black/navy foreground on a WHITE ambient
+     background — navy/black text on a navy page (the original guess below) is
+     unreadable. The page background is white (surface-primary); navy/black dark
+     blocks (hero collage images, footer's promo card) are intentional accent
+     sections *within* that white page, not the page's own background. "Dark mode
+     only for v1" means one fixed palette, not a dark page — see CLAUDE.md. */
+  --background: var(--surface-primary);
+  --foreground: var(--text-primary);
+  --card: var(--surface-primary);
+  --card-foreground: var(--text-primary);
+  --popover: var(--surface-primary);
+  --popover-foreground: var(--text-primary);
+  --primary: var(--surface-dark);
+  --primary-foreground: var(--text-inverse);
+  --secondary: var(--black-20);
+  --secondary-foreground: var(--text-primary);
+  --muted: var(--black-20);
+  --muted-foreground: var(--text-secondary);
+  --accent: var(--black-20);
+  --accent-foreground: var(--text-primary);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: var(--border-default);
+  --input: var(--border-default);
+  --ring: var(--gray);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --sidebar: var(--surface-primary);
+  --sidebar-foreground: var(--text-primary);
+  --sidebar-primary: var(--surface-dark);
+  --sidebar-primary-foreground: var(--text-inverse);
+  --sidebar-accent: var(--black-20);
+  --sidebar-accent-foreground: var(--text-primary);
+  --sidebar-border: var(--border-default);
+  --sidebar-ring: var(--gray);
+}
+
+/* No separate .dark override block — this is the only palette, see CLAUDE.md.
+   `.dark` stays on <html> (see layout.tsx) so Tailwind's dark: variant still works
+   for one-off cases, it just has nothing to override here. */
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+
+  /* Tailwind v4's preflight doesn't set cursor:pointer on <button> (browsers
+     default it to `cursor: default`, unlike <a>, which already gets pointer
+     natively) — per the user, every clickable element should show a pointer on
+     hover. One base rule instead of adding `cursor-pointer` to every button
+     across the codebase individually. Disabled buttons are excluded on purpose
+     (they're not actually clickable). */
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+
+  /* Subtle hover feedback (a slight fade) for every clickable element,
+     per the user — one base rule instead of adding a hover: utility to
+     every button/link/pill individually. Utility-layer `hover:` classes
+     on an individual component always win over this regardless of
+     selector specificity (that's what @layer ordering guarantees), so
+     anything that needs different hover behavior — ProductCard's
+     scale-up instead of a fade, a toggle's active/selected state — just
+     adds its own `hover:` class rather than fighting this rule.
+     Wrapped in the same `(hover: hover)` media feature Tailwind's own
+     `hover:` variant uses, so a tap on a touchscreen doesn't leave the
+     element stuck faded. */
+  button:not(:disabled),
+  a,
+  [role="button"]:not(:disabled) {
+    transition: opacity 150ms ease;
+  }
+  @media (hover: hover) {
+    button:not(:disabled):hover,
+    a:hover,
+    [role="button"]:not(:disabled):hover {
+      opacity: 0.8;
+    }
+  }
+
+  /* Icon micro-interaction sweep, per the site-wide animation spec: bare
+     icon buttons (chevrons, close/cancel, search, filter — anything that's
+     just an svg with no text) get a restrained snappy scale on hover/tap
+     rather than only the plain opacity fade above, so nothing feels like a
+     static instant snap. One `:has()` rule instead of hand-adding a class
+     to every chevron/close/search icon across the app. Deliberately plain
+     CSS, not GSAP — the project's own stack rule reserves GSAP for motion
+     beyond what a CSS transition already covers, and this is exactly that.
+     Any icon button with its own bespoke GSAP treatment (dial items,
+     SortToggle/LayoutToggle's pulse, the flying add-to-bag icon,
+     ProductCard's hover-scale) sets its transform inline via JS, which
+     always wins over this stylesheet rule, so there's no fight between the
+     two — this rule only ever fires where nothing more specific exists. */
+  button:not(:disabled):has(> svg:only-child),
+  [role="button"]:not(:disabled):has(> svg:only-child) {
+    transition: transform 150ms ease-out;
+  }
+  @media (hover: hover) {
+    button:not(:disabled):has(> svg:only-child):hover,
+    [role="button"]:not(:disabled):has(> svg:only-child):hover {
+      transform: scale(1.12);
+    }
+  }
+  button:not(:disabled):has(> svg:only-child):active,
+  [role="button"]:not(:disabled):has(> svg:only-child):active {
+    transform: scale(0.9);
+  }
+}
+
+/* Page transitions — React's <ViewTransition> (from "react", zero-config in
+   this Next.js App Router build) integrates with the browser's native View
+   Transitions API. Every storefront page.tsx wraps its content in
+   <ViewTransition enter={{...}} exit={{...}} default="pg-crossfade">; Links
+   that should read as "forward"/"back" carry transitionTypes accordingly.
+   `router.back()` (BackButton) and real browser back/forward can't carry a
+   transition type at all (confirmed via Next's router types) — they fall
+   through to `pg-crossfade` below rather than the literal "none" Next's own
+   docs example uses, so even an untyped navigation still gets *some*
+   motion, never a hard cut. Without browser support these rules simply
+   don't match anything and navigation works exactly as it did before this
+   pass — no fallback branch needed. */
+
+::view-transition {
+  /* Restores click-through on unnamed content while a transition plays —
+     the overlay otherwise captures pointer events for its duration. */
+  pointer-events: none;
+}
+
+/* Untyped navigations (BackButton's router.back(), real browser back/forward) */
+::view-transition-old(.pg-crossfade) {
+  animation: pg-fade-out 180ms ease both;
+}
+::view-transition-new(.pg-crossfade) {
+  animation: pg-fade-in 180ms ease both;
+}
+@keyframes pg-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes pg-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* Directional slides — forward moves left (destination arrives from the
+   right), back moves right (destination arrives from the left). Both old
+   and new snapshots are visible simultaneously mid-transition, which is
+   native View Transitions behavior. */
+::view-transition-old(.nav-forward) {
+  animation:
+    150ms ease-in both pg-fade-out,
+    400ms ease-in-out both pg-slide-left;
+}
+::view-transition-new(.nav-forward) {
+  animation:
+    210ms ease-out 150ms both pg-fade-in,
+    400ms ease-in-out both pg-slide-in-from-right;
+}
+::view-transition-old(.nav-back) {
+  animation:
+    150ms ease-in both pg-fade-out,
+    400ms ease-in-out both pg-slide-right;
+}
+::view-transition-new(.nav-back) {
+  animation:
+    210ms ease-out 150ms both pg-fade-in,
+    400ms ease-in-out both pg-slide-in-from-left;
+}
+@keyframes pg-slide-left {
+  to {
+    translate: -60px;
+  }
+}
+@keyframes pg-slide-right {
+  to {
+    translate: 60px;
+  }
+}
+@keyframes pg-slide-in-from-right {
+  from {
+    translate: 60px;
+  }
+}
+@keyframes pg-slide-in-from-left {
+  from {
+    translate: -60px;
+  }
+}
+
+/* Anchors NavBar so it never moves during a page-transition slide — the
+   user's spatial reference point stays fixed while only the content moves.
+   `display: none` on the old snapshot avoids a flash where both the old and
+   new header briefly render on top of each other. */
+::view-transition-group(site-header) {
+  animation: none;
+  z-index: 100;
+}
+::view-transition-old(site-header) {
+  display: none;
+}
+::view-transition-new(site-header) {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(*),
+  ::view-transition-new(*),
+  ::view-transition-group(*) {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
+  }
+}
