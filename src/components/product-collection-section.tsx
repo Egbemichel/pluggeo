@@ -33,6 +33,11 @@ export function ProductCollectionSection({
 }: ProductCollectionSectionProps) {
   const [mobileIndex, setMobileIndex] = useState(0);
 
+  // Real product data (2026-08-29) means this can genuinely be empty (no
+  // products published/featured/in-category yet) — renders nothing rather
+  // than a header promising a collection with an empty grid under it.
+  if (products.length === 0) return null;
+
   const canGoPrev = mobileIndex > 0;
   const canGoNext = mobileIndex + MOBILE_WINDOW < products.length;
   const goPrev = () => setMobileIndex((i) => Math.max(0, i - MOBILE_WINDOW));

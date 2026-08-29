@@ -10,12 +10,17 @@ surface in the app.
   label + key/value attributes, price override, availability), media.
 - **Media**: image *and* video upload via Cloudinary (`next-cloudinary`'s
   `CldUploadWidget`, signed upload — see below), reorder/remove per product.
-- **Categories/collections**: grillz, watches, sets, bracelets, chains (confirm full list
-  against Figma) — create/edit, display order. *Not built yet* — stubbed as "coming soon"
-  in the admin sidebar.
-- **Homepage & page curation**: choose which products/collections are featured and where,
-  across the homepage and other semi-dynamic pages. *Not built yet* — stubbed as "coming
-  soon" in the admin sidebar.
+- **Categories/collections** (built, 2026-08-29): name, slug, display order —
+  create/edit/delete via `/admin/categories`. Deleting a category that still has
+  products assigned fails with a plain Postgres FK-violation error rather than
+  silently orphaning those products (no cascade).
+- **Homepage & page curation** (built, 2026-08-29): `/admin/homepage` curates which
+  published products are `featured` and in what order (`featuredOrder`) — this feeds
+  the real storefront homepage's "Bestsellers" section directly. Full "choose which
+  collections show where across every semi-dynamic page" scope is narrower than that
+  in practice right now — just the one curated list — since that's the only section
+  that needed admin-driven ordering; the Bracelet/Pendant Collection sections and
+  Grillz's collection pull straight from their respective categories instead.
 
 No order management — there's no checkout in scope (see [CLAUDE.md](../CLAUDE.md)).
 
@@ -46,6 +51,17 @@ No order management — there's no checkout in scope (see [CLAUDE.md](../CLAUDE.
   are replace-in-place on every save (delete + re-insert), which matches "send the whole
   current form state," not incremental diffing — fine for a single-admin CMS with no
   concurrent editors.
+- `src/app/admin/categories/actions.ts` — same shape as products' actions file, simpler
+  (name/slug/displayOrder only). `setFeatured`/`getPublishedProductsForHomepage` live in
+  `src/app/admin/products/actions.ts` alongside the rest of the product actions rather
+  than a separate file, since they operate on the same `products` table.
+- **Storefront reads real data now** (2026-08-29) — `src/lib/products.ts` is the one
+  shared query module every public-facing page uses (Shop/Home/Grillz/category/product/
+  related/search), all scoped to `status = "published"`. Every storefront route that
+  reads it is `export const dynamic = "force-dynamic"` — without that, Next prerenders
+  the page once at build time (it has no way to know a plain Drizzle call should ever go
+  stale) and a product an admin publishes/edits never actually appears live until the
+  next deploy. See PROGRESS.md's resolved-decision entry for how this was caught.
 
 ## UX notes
 

@@ -12,6 +12,7 @@ import { BackButton } from "@/components/ui/back-button";
 import { GrillzTopBleedImage } from "@/components/grillz-top-bleed-image";
 import { useBagFlight } from "@/components/bag-flight-provider";
 import { cn } from "@/lib/utils";
+import type { StorefrontProductCard } from "@/lib/products";
 
 // Built from the real Figma node (566:6255), then reworked per the user's explicit
 // layout spec (not fully what the raw node showed):
@@ -47,6 +48,11 @@ export type NavBarProps = {
   links?: NavBarLink[];
   activeHref?: string;
   basketCount?: number;
+  /** Full published catalog, fetched once by StorefrontLayout (a Server
+   * Component) and threaded down to SearchOverlay — see that component's
+   * own comment for why search is a client-side filter over this list
+   * rather than a live query per keystroke. */
+  products?: StorefrontProductCard[];
   className?: string;
 };
 
@@ -59,6 +65,7 @@ export function NavBar({
   links = DEFAULT_LINKS,
   activeHref,
   basketCount: basketCountProp,
+  products = [],
   className,
 }: NavBarProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -227,7 +234,7 @@ export function NavBar({
         }}
       />
 
-      <SearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} />
+      <SearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} products={products} />
     </>
   );
 }

@@ -6,6 +6,27 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+### Added (batch 53 — Categories/Homepage admin; storefront off placeholder data)
+
+- `/admin/categories` (create/edit/delete) and `/admin/homepage` (curate
+  featured products + order) — the admin sidebar's last two "coming soon"
+  stubs are now real.
+- Entire storefront now reads real DB data instead of hardcoded placeholder
+  arrays: Shop, Home, Grillz, category pages, product detail, related
+  products, and search (`src/lib/products.ts`). Every one of those routes
+  is `force-dynamic` — a real bug was caught where `/`, `/shop`, and
+  `/grillz` had been silently statically prerendered at build time despite
+  querying the DB, meaning admin changes wouldn't show up until the next
+  deploy. Empty states throughout ("No products yet," `notFound()` for
+  unknown slugs, sections that render nothing rather than an empty grid).
+
+### Fixed (batch 53 — Cloudinary multi-file upload)
+
+- Choosing more than one file in the admin's media upload widget silently
+  kept only the last one — a stale-closure bug in `MediaUpload`'s upload
+  handler. Fixed by switching its `onChange` to accept a React-style
+  updater function.
+
 ### Fixed (batch 52 — Cloudinary credentials wired, missing client-side API key)
 
 - Real Cloudinary credentials wired into `.env.local` and as a Cloudflare

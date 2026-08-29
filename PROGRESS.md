@@ -14,9 +14,16 @@ Workers via OpenNext, no custom domain yet — free `workers.dev` subdomain).
 GitHub Actions (`.github/workflows/deploy.yml`) auto-deploys on every push to
 `main`, so the `github-sync` skill's auto-push after every prompt now also
 means auto-deploy — no manual step to get a change live. Real Neon Postgres
-is connected and migrated (see the resolved-decision entry below); storefront
-pages still read placeholder arrays, not real queries yet — that's separate,
-unstarted work.
+is connected and migrated (see the resolved-decision entry below).
+
+**The storefront is fully wired to the real DB now** (2026-08-29, see the
+resolved-decision entry below) — no more placeholder product arrays
+anywhere: Shop, Home, Grillz, category pages, product detail, related
+products, and search all query `src/lib/products.ts`. Every one of those
+routes is `force-dynamic` so admin edits show up immediately, not just after
+the next deploy. Category and Homepage-curation admin screens are built
+too. The DB is currently empty (0 products, 0 categories) — every page's
+empty state was verified against that real empty state, not simulated.
 
 **Admin product CRUD is built** (`/admin/products` list, new, edit — see the
 resolved-decision entry below) but **not yet end-to-end verified**: Cloudinary
@@ -41,6 +48,89 @@ pagination.
 
 ## Resolved decisions
 
+- **Categories/Homepage admin built; multi-file upload bug fixed; entire
+  storefront wired off placeholder data onto real DB queries** (2026-08-29,
+  three requests in one pass) —
+  1. **Admin sidebar's remaining two "coming soon" items built for real.**
+     `/admin/categories` — same CRUD shape as products (list/new/edit,
+     `src/app/admin/categories/actions.ts`), just simpler (name/slug/
+     display-order only, no media/variants). Deleting a category that still
+     has products assigned genuinely fails (Postgres FK violation surfaced
+     as a plain error in the confirm dialog) rather than silently orphaning
+     those products — no cascade was added on purpose. `/admin/homepage` —
+     curates the `featured`/`featuredOrder` columns that already existed on
+     `products` but had no admin UI writing to them (new `setFeatured`
+     action); this directly feeds Home's real "Bestsellers" section (item 3
+     below), not a UI built speculatively ahead of need.
+  2. **Multi-file upload bug, root-caused not guessed**: choosing more than
+     one file in the Cloudinary widget silently kept only the last one —
+     `MediaUpload`'s `handleUpload` called `onChange([...items, newItem])`,
+     and Cloudinary's widget fires `onSuccess` once per file in quick
+     succession, before React re-renders with the previous file's update —
+     so every firing closed over the same stale `items` snapshot and each
+     new file's spread overwrote the last, rather than appending. Fixed by
+     switching `MediaUpload`'s `onChange` to accept a React-style updater
+     function (`(prev) => [...prev, newItem]`), which `ProductForm`'s
+     `setMedia` (a plain `useState` setter) already satisfied with zero
+     changes on that side.
+  3. **Storefront off placeholders, onto `src/lib/products.ts`** — one shared
+     query module (`getPublishedProducts`, `getPublishedProductsByCategorySlug`,
+     `getFeaturedProducts`, `getProductDetailBySlug`, `getRelatedProducts`,
+     `getStorefrontCategories`, `getSearchableProducts`), all "published
+     only." Every consumer switched from a hardcoded array to a real query:
+     Shop (split into a Server Component `page.tsx` fetching data +
+     `ShopPageContent`, a Client Component owning the existing interactive
+     state), Home (Bestsellers = admin-curated featured products,
+     Bracelet/Pendant Collection = real category products), Grillz (real
+     `grillz`-category products), `/product/[slug]` (real per-slug query,
+     genuine `notFound()` for an unknown/unpublished slug — previously every
+     slug rendered the identical hardcoded product), `/category/[slug]`
+     (real query, `notFound()` for an unknown category slug), related
+     products (real same-category query, renders nothing when there's
+     none), search (`StorefrontLayout` fetches the full published catalog
+     once and threads it down through `NavBar` to `SearchOverlay`, which
+     does a client-side substring match on title/category — no search
+     backend needed at this catalog's scale). `ProductLineItemCard`'s
+     size/width/gold-color/gold-type fields (real products don't have that
+     specific structured shape — variants store freeform attributes) are
+     now optional, and those summary lines just don't render for search
+     results; `/bag`'s own placeholder line items are unaffected. Every
+     empty-data path renders a real message instead of a blank/broken
+     section — `ProductCollectionSection` and `RelatedPiecesSection` render
+     nothing at all when their list is empty (no header promising a
+     collection over an empty grid), Shop/category pages show "No products
+     yet"/"No products in {category} yet." Verified against the actual live
+     DB state, not simulated: it's genuinely empty right now (0 products, 0
+     categories) — confirmed every page above renders correctly against
+     that, then inserted a real temporary category+featured product directly
+     via SQL and confirmed it appeared correctly on Home, Shop, its category
+     page, and its product page (title/price/description all real, not
+     placeholder), before deleting the test rows.
+  **Real, non-obvious bug found and fixed along the way**: `/`, `/shop`, and
+  `/grillz` (no dynamic route segment) got silently *statically prerendered*
+  at build time despite querying the DB live — confirmed via `next build`'s
+  own output (`○ /` = static). Next has no way to know a plain Drizzle call
+  should ever go stale (it only tracks its own instrumented `fetch()` for
+  that), so without an explicit signal it just froze whatever the DB
+  returned at build time into the page forever, meaning a product an admin
+  publishes or edits would never actually appear on the live site until the
+  next deploy — silently defeating the entire point of building the admin
+  CMS. `/product/[slug]` and `/category/[slug]` were unaffected only because
+  having no `generateStaticParams` already forced them dynamic by default.
+  Fixed by adding `export const dynamic = "force-dynamic"` to `/`, `/shop`,
+  `/grillz`, and `(storefront)/layout.tsx` itself (the shared layout also
+  queries the DB for search and wraps every route including `/bag`, which
+  would otherwise keep a stale search list frozen too). Re-verified via a
+  fresh `next build`: every storefront route now shows `ƒ` (dynamic).
+  **Deliberately not done this pass, flagged rather than silently skipped**:
+  Shop's category/price/sort controls remain decorative — they always were
+  (the old placeholder grid never actually filtered either), and making them
+  real means UI/precedence decisions (does a price chip override custom min/
+  max? does category combine with price?) nobody asked for yet; only
+  pagination became genuinely real (it slices the actual product count now,
+  vs. a hardcoded `TOTAL_PAGES = 12` before). `/bag` still shows placeholder
+  line items — there's no real cart/order table (explicitly out of scope,
+  `CLAUDE.md`), so there's nothing real to wire it to.
 - **Fixed: mobile celebrity dial's click target didn't match what was visually
   on top; CI deploy for the admin CRUD push had silently failed** (2026-08-29,
   reported live by the user right after the admin CRUD push above) —

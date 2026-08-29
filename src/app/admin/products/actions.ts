@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { eq, asc } from "drizzle-orm";
+import { eq, asc, desc } from "drizzle-orm";
 import { db } from "@/db";
 import { products, productMedia, productVariants } from "@/db/schema";
 import { getAdminUser } from "@/lib/admin-auth";
@@ -145,6 +145,27 @@ export async function setProductStatus(id: string, status: "draft" | "published"
   await assertAdmin();
   await db.update(products).set({ status, updatedAt: new Date() }).where(eq(products.id, id));
   revalidatePath("/admin/products");
+}
+
+// Homepage curation ("which products/collections are featured and where" —
+// docs/ADMIN.md): `featured`/`featuredOrder` already existed on the schema
+// for exactly this, just had no admin UI writing to them yet.
+export async function setFeatured(id: string, featured: boolean, featuredOrder: number | null) {
+  await assertAdmin();
+  await db
+    .update(products)
+    .set({ featured, featuredOrder, updatedAt: new Date() })
+    .where(eq(products.id, id));
+  revalidatePath("/admin/homepage");
+  revalidatePath("/");
+}
+
+export async function getPublishedProductsForHomepage() {
+  await assertAdmin();
+  return db.query.products.findMany({
+    where: eq(products.status, "published"),
+    orderBy: [asc(products.featuredOrder), desc(products.createdAt)],
+  });
 }
 
 export async function getProductWithRelations(id: string) {

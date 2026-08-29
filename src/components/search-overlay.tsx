@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import gsap from "gsap";
@@ -15,17 +15,22 @@ import {
 import { useBagFlight } from "@/components/bag-flight-provider";
 import { useLaggedMount } from "@/hooks/use-lagged-mount";
 import { DURATION, EASE, MOTION_QUERY, STAGGER } from "@/lib/motion";
+import type { StorefrontProductCard } from "@/lib/products";
 
 // Opens from either NavBar's desktop search icon or MobileNavDrawer's search
 // icon (see NavBar's own comment for the shared open-state wiring) — built
 // from a pasted screenshot, no Figma node/link. Same dismiss pattern
 // MobileNavDrawer already established: backdrop click + Escape key.
 //
-// No real search backend/catalog query exists yet — typing anything shows
-// the same placeholder result set (same shape ProductLineItemCard needs:
-// size/width/gold color/gold type alongside the usual title/category/price)
-// rather than actually filtering, since every placeholder product on the
-// site shares the same title anyway.
+// Real catalog search (2026-08-29): `products` (the full published catalog)
+// is fetched once by StorefrontLayout (a Server Component) and threaded down
+// via NavBar, since this is a Client Component and can't query the DB
+// itself. No search index/backend — a client-side substring match over
+// title/category is genuinely fine at this catalog's scale (a boutique
+// jewelry shop, not thousands of SKUs); revisit if that assumption stops
+// holding. Real products don't have structured size/width/gold-color/
+// gold-type fields (see ProductLineItemCard's own comment) so those lines
+// just don't render for search results.
 //
 // 2026-08-29: gained its own open/close animation (fade + slight vertical
 // slide on the backdrop+panel) and deferred-navigation-on-result-click, per
@@ -45,36 +50,17 @@ import { DURATION, EASE, MOTION_QUERY, STAGGER } from "@/lib/motion";
 // the actual layout rather than reuse anything meaningful. `useLaggedMount`
 // is what's actually shared (the tricky mount-lag-on-close bookkeeping).
 
-const PLACEHOLDER_IMAGE = { src: "/placeholder-product.svg", alt: "Placeholder product" };
-
-const PLACEHOLDER_RESULTS: ProductLineItem[] = [
-  {
-    href: "/product/placeholder-0",
-    image: PLACEHOLDER_IMAGE,
-    title: "22mm chain with custom clasp",
-    category: "Bracelets",
-    size: "6.5 Inch",
-    width: "5.5 mm",
-    goldColor: "Rose",
-    goldType: "14k",
-    price: 5800,
-    compareAtPrice: 7650,
-    isFromPrice: true,
-  },
-  {
-    href: "/product/placeholder-1",
-    image: PLACEHOLDER_IMAGE,
-    title: "22mm chain with custom clasp",
-    category: "Chains",
-    size: "20 Inch",
-    width: "7 mm",
-    goldColor: "Yellow",
-    goldType: "18k",
-    price: 5800,
-    compareAtPrice: 7650,
-    isFromPrice: true,
-  },
-];
+function toLineItem(product: StorefrontProductCard): ProductLineItem {
+  return {
+    href: product.href,
+    image: product.image,
+    title: product.title,
+    category: product.category,
+    price: product.price,
+    compareAtPrice: product.compareAtPrice,
+    isFromPrice: product.isFromPrice,
+  };
+}
 
 type TransitionType = "nav-forward" | "nav-back";
 type PendingNav = { href: string; transitionTypes: TransitionType[] };
@@ -141,11 +127,21 @@ function SearchResults({
 export type SearchOverlayProps = {
   open: boolean;
   onClose: () => void;
+  products?: StorefrontProductCard[];
 };
 
-export function SearchOverlay({ open, onClose }: SearchOverlayProps) {
+export function SearchOverlay({ open, onClose, products = [] }: SearchOverlayProps) {
   const [query, setQuery] = useState("");
   const { fly } = useBagFlight();
+  const results = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return [];
+    return products
+      .filter(
+        (p) => p.title.toLowerCase().includes(q) || p.category.toLowerCase().includes(q)
+      )
+      .map(toLineItem);
+  }, [products, query]);
   const router = useRouter();
   const [pendingNav, setPendingNav] = useState<PendingNav | null>(null);
   const [mounted, setMounted] = useLaggedMount(open);
@@ -290,9 +286,13 @@ export function SearchOverlay({ open, onClose }: SearchOverlayProps) {
             </button>
           </div>
 
-          {query.trim() !== "" && (
+          {query.trim() !== "" && results.length === 0 && (
+            <p className="text-body-md text-text-secondary">No results for &quot;{query}&quot;.</p>
+          )}
+
+          {results.length > 0 && (
             <SearchResults
-              results={PLACEHOLDER_RESULTS}
+              results={results}
               action={addToBagAction}
               onNavigate={handleResultNavigate}
             />

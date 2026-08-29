@@ -7,6 +7,7 @@ import { ProductGrid } from "@/components/product-grid";
 import { PaginationDial } from "@/components/ui/pagination-dial";
 import { CategoryDial } from "@/components/ui/category-dial";
 import { Button } from "@/components/ui/button";
+import type { StorefrontProductCard } from "@/lib/products";
 
 // Generic per-category template (`/category/[slug]`) — per the user, every
 // piece here is an *existing* component just wired up with the category's
@@ -19,67 +20,73 @@ import { Button } from "@/components/ui/button";
 // covers the header row above this. Footer is already global via
 // StorefrontLayout, nothing to add here for it.
 //
-// Placeholder product/pagination data — no real catalog/category API yet.
+// Real category data (2026-08-29) — `products`/`moreProducts` come from the
+// Server Component wrapper's real query (src/lib/products.ts), replacing
+// the old per-category placeholder generator. Pagination is real (slices
+// `products` client-side by `PAGE_SIZE`); "More from us" has no pagination
+// of its own, matching the original design (one grid, no page control).
 
-const PLACEHOLDER_IMAGE = { src: "/placeholder-product.svg", alt: "Placeholder product" };
-const TOTAL_PAGES = 6;
-const PAGE_DIAL_ITEMS = Array.from({ length: TOTAL_PAGES }, (_, i) => ({
-  id: String(i + 1),
-  label: String(i + 1),
-}));
-
-function makePlaceholderProducts(category: string, prefix: string, count: number) {
-  return Array.from({ length: count }, (_, i) => ({
-    key: `${prefix}-${i}`,
-    href: `/product/placeholder-${prefix}-${i}`,
-    image: PLACEHOLDER_IMAGE,
-    category,
-    title: "22mm chain with custom clasp",
-    price: 5800,
-    compareAtPrice: 7650,
-    isFromPrice: true,
-  }));
-}
+const PAGE_SIZE = 8;
 
 export type CategoryPageContentProps = {
-  /** Title-cased category label, e.g. "Bracelets" — used both as the page
-   * heading and each placeholder product's own category field. */
   category: string;
-  /** Short tagline beside the category name, e.g. "Classy and premium". */
   tagline: string;
+  products: StorefrontProductCard[];
+  moreProducts: StorefrontProductCard[];
 };
 
-export function CategoryPageContent({ category, tagline }: CategoryPageContentProps) {
+export function CategoryPageContent({
+  category,
+  tagline,
+  products,
+  moreProducts,
+}: CategoryPageContentProps) {
   const [page, setPage] = useState(1);
 
-  const gridProducts = makePlaceholderProducts(category, "grid", 8);
-  const moreProducts = makePlaceholderProducts(category, "more", 4);
+  const totalPages = Math.max(1, Math.ceil(products.length / PAGE_SIZE));
+  const pagedProducts = products.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const pageDialItems = Array.from({ length: totalPages }, (_, i) => ({
+    id: String(i + 1),
+    label: String(i + 1),
+  }));
 
   return (
     <div className="flex flex-1 flex-col gap-(--space-9) py-(--space-9)">
       <SectionHeader title={category} subtitle={tagline} />
 
-      <ProductGrid products={gridProducts} columns={4} className="hidden md:grid" />
-      <ProductGrid products={gridProducts} columns={2} className="md:hidden" />
+      {products.length === 0 ? (
+        <p className="rounded-md border border-border-default py-16 text-center text-body-md text-text-secondary">
+          No products in {category} yet — check back soon.
+        </p>
+      ) : (
+        <>
+          <ProductGrid products={pagedProducts} columns={4} className="hidden md:grid" />
+          <ProductGrid products={pagedProducts} columns={2} className="md:hidden" />
 
-      <CategoryDial
-        items={PAGE_DIAL_ITEMS}
-        activeId={String(page)}
-        onActiveChange={(id) => setPage(Number(id))}
-        orientation="horizontal"
-        className="md:hidden"
-      />
-      <PaginationDial
-        currentPage={page}
-        totalPages={TOTAL_PAGES}
-        onPageChange={setPage}
-        className="hidden md:flex"
-      />
+          <CategoryDial
+            items={pageDialItems}
+            activeId={String(page)}
+            onActiveChange={(id) => setPage(Number(id))}
+            orientation="horizontal"
+            className="md:hidden"
+          />
+          <PaginationDial
+            currentPage={page}
+            totalPages={totalPages}
+            onPageChange={setPage}
+            className="hidden md:flex"
+          />
+        </>
+      )}
 
-      <SectionHeader title="More from us" subtitle="WITNESS LUXURY, FIRST HAND" />
+      {moreProducts.length > 0 && (
+        <>
+          <SectionHeader title="More from us" subtitle="WITNESS LUXURY, FIRST HAND" />
 
-      <ProductGrid products={moreProducts} columns={4} className="hidden md:grid" />
-      <ProductGrid products={moreProducts} columns={2} className="md:hidden" />
+          <ProductGrid products={moreProducts} columns={4} className="hidden md:grid" />
+          <ProductGrid products={moreProducts} columns={2} className="md:hidden" />
+        </>
+      )}
 
       <div className="flex flex-wrap items-center gap-(--space-4)">
         <Button

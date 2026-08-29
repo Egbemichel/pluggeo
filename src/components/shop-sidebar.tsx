@@ -13,17 +13,14 @@ import { cn } from "@/lib/utils";
 // shared `PriceFilterPanel`, and its state lives in the parent (ShopPage)
 // instead of locally — needed so the new mobile filter drawer/trigger can read
 // and drive the exact same state as this desktop sidebar.
-
-const CATEGORIES: CategoryDialItem[] = [
-  { id: "watches", label: "Watches" },
-  { id: "chains", label: "Chains" },
-  { id: "pendants", label: "Pendants" },
-  { id: "bracelets", label: "Bracelets" },
-  { id: "sets", label: "Sets" },
-  { id: "grillz", label: "Grillz" },
-];
+//
+// 2026-08-29: category list is now real data (`categories`, admin-managed via
+// /admin/categories), passed down from ShopPage's Server Component wrapper —
+// was a hardcoded 6-item list before, drifting from whatever actually exists
+// in the DB the moment an admin adds/renames/removes a category.
 
 export type ShopSidebarProps = {
+  categories: CategoryDialItem[];
   activeCategory: string;
   onCategoryChange: (id: string) => void;
   priceFilter: PriceFilterState;
@@ -35,6 +32,7 @@ export type ShopSidebarProps = {
 };
 
 export function ShopSidebar({
+  categories,
   activeCategory,
   onCategoryChange,
   priceFilter,
@@ -47,7 +45,7 @@ export function ShopSidebar({
   return (
     <div className={cn("flex flex-col gap-(--space-9)", className)}>
       <CategoryDial
-        items={CATEGORIES}
+        items={categories}
         activeId={activeCategory}
         onActiveChange={onCategoryChange}
       />

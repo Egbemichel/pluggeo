@@ -7,6 +7,7 @@ import { SectionHeader } from "@/components/section-header";
 import { TestimonialSection } from "@/components/testimonial-section";
 import { Pill } from "@/components/ui/pill";
 import { getCelebrities } from "@/lib/celebrities";
+import { getFeaturedProducts, getPublishedProductsByCategorySlug } from "@/lib/products";
 import { PAGE_TRANSITION } from "@/lib/motion";
 
 // The full real Home page — every section here is built from real Figma nodes or
@@ -15,26 +16,33 @@ import { PAGE_TRANSITION } from "@/lib/motion";
 // No more "temporary component showcase" — that scratch section (every atom/
 // molecule demoed in one place) has been retired now that the real page is
 // complete; individual components stay verifiable via the pages that use them.
+//
+// Real product data (2026-08-29): Bestsellers = admin-curated featured
+// products (`/admin/homepage`); Bracelet/Pendant Collection = real products
+// in those categories. Each `ProductCollectionSection` renders nothing when
+// its list is empty (see that component's own comment) rather than an empty
+// grid under a header.
+//
+// `dynamic = "force-dynamic"`: without this, Next has no signal that a
+// plain Drizzle query (not its own instrumented `fetch()`) should ever go
+// stale, so it prerendered this page once at build time and kept serving
+// that same snapshot on every request — confirmed via a real `next build`
+// showing `○ /` (static) despite the DB calls above. That would mean a
+// product an admin publishes/edits/features never actually appears on the
+// live site until the next deploy, defeating the entire point of the admin
+// CMS. Same reasoning applies to every other storefront page with no
+// dynamic route param (`/shop`, `/grillz`) — `/product/[slug]` and
+// `/category/[slug]` already rendered dynamic on their own (no
+// `generateStaticParams`, so Next can't prerender specific slugs).
+export const dynamic = "force-dynamic";
 
-function makePlaceholderProducts(prefix: string, count: number) {
-  return Array.from({ length: count }, (_, i) => ({
-    key: `${prefix}-${i}`,
-    href: `/product/placeholder-${prefix}-${i}`,
-    image: { src: "/placeholder-product.svg", alt: "Placeholder product" },
-    category: "Bracelets",
-    title: "22mm chain with custom clasp",
-    price: 5800,
-    compareAtPrice: 7650,
-    isFromPrice: true,
-  }));
-}
-
-const BESTSELLERS_PLACEHOLDER = makePlaceholderProducts("bestseller", 4);
-const BRACELET_COLLECTION_PLACEHOLDER = makePlaceholderProducts("bracelet-collection", 4);
-const PENDANT_COLLECTION_PLACEHOLDER = makePlaceholderProducts("pendant-collection", 4);
-
-export default function Home() {
-  const celebrities = getCelebrities();
+export default async function Home() {
+  const [celebrities, bestsellers, braceletCollection, pendantCollection] = await Promise.all([
+    Promise.resolve(getCelebrities()),
+    getFeaturedProducts(4),
+    getPublishedProductsByCategorySlug("bracelets").then((r) => r.products.slice(0, 4)),
+    getPublishedProductsByCategorySlug("pendants").then((r) => r.products.slice(0, 4)),
+  ]);
 
   return (
     <ViewTransition {...PAGE_TRANSITION}>
@@ -72,12 +80,11 @@ export default function Home() {
         {/* Built from Figma 603:658 (desktop). Mobile layout corrected against a real
             screenshot (see SectionHeader/ProductCollectionSection): "View all" stays
             inline on mobile, only the chevron relocates below, and mobile shows a
-            real 2-item paginated window rather than a static reflowed grid. The
-            product row itself is still placeholder data — no node ID given yet. */}
+            real 2-item paginated window rather than a static reflowed grid. */}
         <ProductCollectionSection
           title="Bestsellers"
           viewAllHref="/shop"
-          products={BESTSELLERS_PLACEHOLDER}
+          products={bestsellers}
         />
 
         {/* "Our categories" — SectionHeader (title+subtitle, no "View all"/chevron)
@@ -105,13 +112,13 @@ export default function Home() {
           title="Bracelet Collection"
           subtitle="LIMITED STOCK AVAILABLE"
           viewAllHref="/category/bracelets"
-          products={BRACELET_COLLECTION_PLACEHOLDER}
+          products={braceletCollection}
         />
         <ProductCollectionSection
           title="Pendant Collection"
           subtitle="FREE SHIPPING ENDS MIDNIGHT"
           viewAllHref="/category/pendants"
-          products={PENDANT_COLLECTION_PLACEHOLDER}
+          products={pendantCollection}
         />
 
         {/* Built from pasted screenshots (no Figma node) — last section before

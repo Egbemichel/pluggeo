@@ -2,24 +2,17 @@ import { ViewTransition } from "react";
 import { GrillzHeroSection } from "@/components/grillz-hero-section";
 import { ProductCollectionSection } from "@/components/product-collection-section";
 import { GrillzCastSection } from "@/components/grillz-cast-section";
+import { getPublishedProductsByCategorySlug } from "@/lib/products";
 import { PAGE_TRANSITION } from "@/lib/motion";
 
-function makePlaceholderProducts(prefix: string, count: number) {
-  return Array.from({ length: count }, (_, i) => ({
-    key: `${prefix}-${i}`,
-    href: `/product/placeholder-${prefix}-${i}`,
-    image: { src: "/placeholder-product.svg", alt: "Placeholder product" },
-    category: "Bracelets",
-    title: "22mm chain with custom clasp",
-    price: 5800,
-    compareAtPrice: 7650,
-    isFromPrice: true,
-  }));
-}
+// `force-dynamic`: see the Home page's comment on the same line — a plain
+// Drizzle query gives Next no signal to ever re-render after the initial
+// build otherwise.
+export const dynamic = "force-dynamic";
 
-const BESTSELLERS_PLACEHOLDER = makePlaceholderProducts("bestseller", 4);
+export default async function GrillzPage() {
+  const { products } = await getPublishedProductsByCategorySlug("grillz");
 
-export default function GrillzPage() {
   return (
     <ViewTransition {...PAGE_TRANSITION}>
       <div className="flex flex-1 flex-col">
@@ -27,7 +20,7 @@ export default function GrillzPage() {
         <ProductCollectionSection
           title="Best Grillz Collection"
           viewAllHref="/shop"
-          products={BESTSELLERS_PLACEHOLDER}
+          products={products.slice(0, 4)}
         />
         <GrillzCastSection />
       </div>

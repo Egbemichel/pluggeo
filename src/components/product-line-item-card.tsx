@@ -35,10 +35,15 @@ export type ProductLineItem = {
   image: { src: string; alt: string };
   title: string;
   category: string;
-  size: string;
-  width: string;
-  goldColor: string;
-  goldType: string;
+  // Optional: real catalog products don't have these specific structured
+  // keys (variants store freeform attributes, not a fixed size/width/
+  // goldColor/goldType shape) — /bag's own placeholder line items still set
+  // all four, real search results leave them unset and the summary lines
+  // below just don't render.
+  size?: string;
+  width?: string;
+  goldColor?: string;
+  goldType?: string;
   price: number;
   compareAtPrice?: number;
   isFromPrice?: boolean;
@@ -110,18 +115,24 @@ export function ProductLineItemCard({
             <p className="text-h6 font-heading font-bold text-brand-primary">{product.category}</p>
           </div>
 
-          <div className="flex flex-col gap-(--space-1)">
-            <p className="text-body-sm font-sans font-normal text-text-secondary">
-              Size {product.size}
-              <span className="mx-(--space-3) text-border-default">|</span>
-              Width {product.width}
-            </p>
-            <p className="text-body-sm font-sans font-normal text-text-secondary">
-              Gold color {product.goldColor}
-              <span className="mx-(--space-3) text-border-default">|</span>
-              Gold type {product.goldType}
-            </p>
-          </div>
+          {(product.size || product.width || product.goldColor || product.goldType) && (
+            <div className="flex flex-col gap-(--space-1)">
+              {(product.size || product.width) && (
+                <p className="text-body-sm font-sans font-normal text-text-secondary">
+                  Size {product.size}
+                  <span className="mx-(--space-3) text-border-default">|</span>
+                  Width {product.width}
+                </p>
+              )}
+              {(product.goldColor || product.goldType) && (
+                <p className="text-body-sm font-sans font-normal text-text-secondary">
+                  Gold color {product.goldColor}
+                  <span className="mx-(--space-3) text-border-default">|</span>
+                  Gold type {product.goldType}
+                </p>
+              )}
+            </div>
+          )}
 
           <div className="flex flex-wrap items-baseline gap-(--space-2)">
             <span className="text-price font-sans font-medium text-text-primary">

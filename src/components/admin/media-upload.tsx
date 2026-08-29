@@ -20,27 +20,41 @@ export type MediaItem = { type: "image" | "video"; url: string; altText?: string
 
 export type MediaUploadProps = {
   items: MediaItem[];
-  onChange: (items: MediaItem[]) => void;
+  // Accepts a React-style updater, not just a plain array — required so
+  // multi-file uploads work correctly (see handleUpload's comment below).
+  onChange: (update: MediaItem[] | ((prev: MediaItem[]) => MediaItem[])) => void;
 };
 
 export function MediaUpload({ items, onChange }: MediaUploadProps) {
+  // Cloudinary's widget fires `onSuccess` once per file when multiple files
+  // are selected/dropped in one session, in quick succession — before React
+  // has a chance to re-render this component with an updated `items` prop.
+  // Calling `onChange([...items, newItem])` in that situation meant every
+  // firing closed over the SAME stale `items` snapshot, so the second file's
+  // upload silently overwrote the first's instead of appending — which read
+  // as "choosing a second file replaces the first." Using the functional
+  // updater form (matching React's own `setState` contract) fixes this: each
+  // call now reads the latest state at the moment it actually runs, not
+  // whatever `items` looked like when this component last rendered.
   const handleUpload = (result: unknown) => {
     const info = (result as { info?: { secure_url?: string; resource_type?: string } })?.info;
     if (!info?.secure_url) return;
     const type: MediaItem["type"] = info.resource_type === "video" ? "video" : "image";
-    onChange([...items, { type, url: info.secure_url }]);
+    onChange((prev) => [...prev, { type, url: info.secure_url! }]);
   };
 
   const removeAt = (index: number) => {
-    onChange(items.filter((_, i) => i !== index));
+    onChange((prev) => prev.filter((_, i) => i !== index));
   };
 
   const moveTo = (from: number, to: number) => {
-    if (to < 0 || to >= items.length) return;
-    const next = [...items];
-    const [moved] = next.splice(from, 1);
-    next.splice(to, 0, moved);
-    onChange(next);
+    onChange((prev) => {
+      if (to < 0 || to >= prev.length) return prev;
+      const next = [...prev];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      return next;
+    });
   };
 
   return (

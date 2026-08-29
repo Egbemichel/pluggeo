@@ -8,8 +8,8 @@ import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
   { label: "Products", href: "/admin/products", icon: Package01Icon, disabled: false },
-  { label: "Categories", href: "/admin/categories", icon: Store01Icon, disabled: true },
-  { label: "Homepage", href: "/admin/homepage", icon: Home09Icon, disabled: true },
+  { label: "Categories", href: "/admin/categories", icon: Store01Icon, disabled: false },
+  { label: "Homepage", href: "/admin/homepage", icon: Home09Icon, disabled: false },
 ] as const;
 
 export function AdminSidebar() {
