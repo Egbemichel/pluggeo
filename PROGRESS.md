@@ -175,14 +175,35 @@ pagination.
   own `Button` has no `variant`/`size` props at all (fixed CTA style, by
   design) — replaced those two spots with plain styled `<button>`s rather
   than forcing the storefront's CTA button into a role it wasn't built for.
-  **Not yet done**: Cloudinary account credentials (cloud name, API key, API
-  secret) haven't been provided, so `.env.local`/Worker secrets aren't wired
-  with real values yet and the upload flow is unverified end-to-end (only
-  `tsc`/lint/`next build`/`vitest` confirm the code is correct, not that a
-  real upload round-trips through Cloudinary) — next concrete step once
-  credentials arrive. Live-deployment re-verification (the established
-  discipline from the CelebrityShowcase/SearchOverlay incidents) also still
-  pending for the same reason.
+  **Cloudinary credentials received and wired (2026-08-29)**: real cloud
+  name/API key/API secret from the user. Also fixed a gap the original build
+  missed — `next-cloudinary`'s `CldUploadWidget` reads `NEXT_PUBLIC_
+  CLOUDINARY_API_KEY` client-side to accompany the signature it sends
+  directly to Cloudinary (confirmed by grepping the package's own bundled
+  output for `NEXT_PUBLIC_CLOUDINARY_*` reads), which the original plan/code
+  never set — only a non-public `CLOUDINARY_API_KEY` existed, which the
+  widget can't see. Renamed to `NEXT_PUBLIC_CLOUDINARY_API_KEY` throughout
+  (`.env.local`/`.env.local.example`/`src/lib/cloudinary.ts`) — API key isn't
+  actually sensitive by Cloudinary's own convention (only the secret is), so
+  this isn't a security downgrade. `.env.local` now has real values; the
+  Cloudflare Worker secret `CLOUDINARY_API_SECRET` is set (confirmed via
+  `wrangler secret list`); `deploy.yml`'s build step gained the two
+  `NEXT_PUBLIC_CLOUDINARY_*` vars (must be inlined at build time, same
+  reasoning as the Clerk publishable key). Verified without needing a real
+  admin session: the credentials are a genuine, reachable Cloudinary account
+  (hit `api.cloudinary.com/v1_1/de0zvjq6p/resources/image` directly with
+  them, got real account data back) and the app's own `signUploadParams`
+  produces a well-formed signature against the real secret. **Still
+  unverified**: the actual signed-upload round-trip through the browser
+  widget, since that requires a real Clerk Google sign-in as the admin
+  account, which can't be automated here — the user needs to sign in and try
+  a real upload themselves; report back if it fails. **Still needs the user's
+  action**: two new GitHub Actions repo secrets
+  (`NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME`, `NEXT_PUBLIC_CLOUDINARY_API_KEY`) —
+  same "Settings → Secrets and variables → Actions" flow as the first three
+  secrets — I can't add these myself (no `gh` CLI/token in this
+  environment). Until those exist, the next deploy's build step will inline
+  `undefined` for both, and the live widget won't know its cloud name/key.
 - **`SearchOverlay` given its own close animation + deferred-navigation pass**
   (2026-08-29), per the user, closing out the follow-up flagged in the
   previous entry — it had none of either before: `if (!open) return null`

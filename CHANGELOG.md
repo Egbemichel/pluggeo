@@ -6,6 +6,17 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+### Fixed (batch 52 — Cloudinary credentials wired, missing client-side API key)
+
+- Real Cloudinary credentials wired into `.env.local` and as a Cloudflare
+  Worker secret (`CLOUDINARY_API_SECRET`). Found and fixed a gap from the
+  original build: `next-cloudinary`'s upload widget needs
+  `NEXT_PUBLIC_CLOUDINARY_API_KEY` client-side, not the non-public
+  `CLOUDINARY_API_KEY` that existed before — renamed throughout. `deploy.yml`
+  now inlines both `NEXT_PUBLIC_CLOUDINARY_*` vars at build time. Still
+  needs two GitHub Actions repo secrets added manually (cloud name, API
+  key) before the next deploy has them.
+
 ### Fixed (batch 51 — CI deploy failure + celebrity dial click accuracy)
 
 - `deploy.yml`'s `Build and deploy` step was missing `DATABASE_URL`, causing

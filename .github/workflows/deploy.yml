@@ -64,3 +64,10 @@ jobs:
           NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
           NEXT_PUBLIC_CLERK_SIGN_IN_URL: /sign-in
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          # Cloud name + API key are NEXT_PUBLIC_ (next-cloudinary's
+          # CldUploadWidget reads them client-side to talk to Cloudinary
+          # directly) so, like the Clerk key above, they must be inlined at
+          # build time here — CLOUDINARY_API_SECRET is the sensitive one and
+          # deliberately lives as a Cloudflare Worker secret instead, not here.
+          NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME: ${{ secrets.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME }}
+          NEXT_PUBLIC_CLOUDINARY_API_KEY: ${{ secrets.NEXT_PUBLIC_CLOUDINARY_API_KEY }}
