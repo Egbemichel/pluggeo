@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { ArrowDown01Icon } from "@hugeicons/core-free-icons";
 import { Icon } from "@/components/ui/icon";
 import { Pill } from "@/components/ui/pill";
 import { Divider } from "@/components/ui/divider";
 import { useAccordion } from "@/hooks/use-accordion";
+import { VARIANT_ATTRIBUTE_CATEGORIES } from "@/lib/product-attributes";
 import { cn } from "@/lib/utils";
 
 // PDP's variant-selector section, sitting directly under "Add to bag" — built
@@ -14,31 +15,37 @@ import { cn } from "@/lib/utils";
 // already calls out "variant-selection chips" as one of its three confirmed
 // uses, and the collapsible "Customize ⌄" toggle follows the exact pattern
 // PriceFilterPanel's "Custom price" disclosure already established (same
-// ArrowDown01Icon, same rotate-180-when-open). The three lower groups (Width/
-// Gold color/Gold type) sit in one row separated by vertical Dividers with no
-// explicit `length` — that's the self-stretch fallback added for exactly this
-// shape of layout (a Divider spanning a flex row of siblings with variable,
-// content-driven height).
+// ArrowDown01Icon, same rotate-180-when-open).
 //
-// No real variant/inventory data model exists yet (out of scope for this
-// pass) — options and the default selection are placeholder, matching the
-// reference screenshot's own defaults (6.5 Inch / 5mm / Rose / 14k).
+// Real variant data (2026-08-29): `variants` (a product's real
+// `product_variants` rows) replaces the old hardcoded Size/Width/Gold
+// color/Gold type placeholder lists. Renders one chip group per attribute
+// category that's actually present across the product's variants — known
+// categories (`VARIANT_ATTRIBUTE_CATEGORIES`) render in that fixed order,
+// any other key a variant happens to have falls back to appearing after,
+// alphabetically (defensive: the admin form only lets you pick from the
+// known list, but `attributes` is still a flexible JSONB column, so nothing
+// stops old/foreign data from having something else). Renders nothing at
+// all — not even the "Customize" toggle — when the product has no variants,
+// rather than showing an empty or fake selector. Selection is still
+// decorative (doesn't drive price/availability) — same scope boundary as
+// before, just backed by real chip values now instead of placeholder ones.
 
-const SIZES = ["6 Inch", "6.5 Inch", "16 Inch", "18 Inch", "20 Inch", "22 Inch", "24 Inch"];
-const WIDTHS = ["5mm", "7mm"];
-const GOLD_COLORS = ["Rose", "Yellow", "White"];
-const GOLD_TYPES = ["14k", "18k"];
+export type ProductVariantSummary = {
+  label: string;
+  attributes: Record<string, string>;
+};
 
-function OptionGroup<T extends string>({
+function OptionGroup({
   label,
   options,
   value,
   onChange,
 }: {
   label: string;
-  options: T[];
-  value: T;
-  onChange: (value: T) => void;
+  options: string[];
+  value: string;
+  onChange: (value: string) => void;
 }) {
   return (
     <div className="flex flex-col gap-(--space-4)">
@@ -56,13 +63,43 @@ function OptionGroup<T extends string>({
   );
 }
 
-export function ProductCustomize({ className }: { className?: string }) {
+export type ProductCustomizeProps = {
+  variants: ProductVariantSummary[];
+  className?: string;
+};
+
+export function ProductCustomize({ variants, className }: ProductCustomizeProps) {
+  const groups = useMemo(() => {
+    const valuesByKey = new Map<string, Set<string>>();
+    for (const variant of variants) {
+      for (const [key, value] of Object.entries(variant.attributes)) {
+        if (!value) continue;
+        const set = valuesByKey.get(key) ?? new Set<string>();
+        set.add(value);
+        valuesByKey.set(key, set);
+      }
+    }
+
+    const knownKeys = VARIANT_ATTRIBUTE_CATEGORIES.filter((key) => valuesByKey.has(key));
+    const otherKeys = [...valuesByKey.keys()]
+      .filter((key) => !(VARIANT_ATTRIBUTE_CATEGORIES as readonly string[]).includes(key))
+      .sort();
+
+    return [...knownKeys, ...otherKeys].map((key) => ({
+      key,
+      values: [...(valuesByKey.get(key) ?? [])],
+    }));
+  }, [variants]);
+
+  const [selected, setSelected] = useState<Record<string, string>>(() =>
+    Object.fromEntries(groups.map((g) => [g.key, g.values[0]]))
+  );
   const [open, setOpen] = useState(true);
-  const [size, setSize] = useState(SIZES[1]);
-  const [width, setWidth] = useState(WIDTHS[0]);
-  const [goldColor, setGoldColor] = useState(GOLD_COLORS[0]);
-  const [goldType, setGoldType] = useState(GOLD_TYPES[0]);
   const contentRef = useAccordion<HTMLDivElement>(open);
+
+  if (groups.length === 0) return null;
+
+  const [firstGroup, ...restGroups] = groups;
 
   return (
     <div className={cn("flex flex-col gap-(--space-6)", className)}>
@@ -81,20 +118,28 @@ export function ProductCustomize({ className }: { className?: string }) {
       </button>
 
       <div ref={contentRef} className="flex flex-col gap-(--space-6)">
-        <OptionGroup label="Size" options={SIZES} value={size} onChange={setSize} />
+        <OptionGroup
+          label={firstGroup.key}
+          options={firstGroup.values}
+          value={selected[firstGroup.key]}
+          onChange={(value) => setSelected((prev) => ({ ...prev, [firstGroup.key]: value }))}
+        />
 
-        <div className="flex flex-wrap items-stretch gap-(--space-7)">
-          <OptionGroup label="Width" options={WIDTHS} value={width} onChange={setWidth} />
-          <Divider orientation="vertical" />
-          <OptionGroup
-            label="Gold color"
-            options={GOLD_COLORS}
-            value={goldColor}
-            onChange={setGoldColor}
-          />
-          <Divider orientation="vertical" />
-          <OptionGroup label="Gold type" options={GOLD_TYPES} value={goldType} onChange={setGoldType} />
-        </div>
+        {restGroups.length > 0 && (
+          <div className="flex flex-wrap items-stretch gap-(--space-7)">
+            {restGroups.map((group, i) => (
+              <div key={group.key} className="flex items-stretch gap-(--space-7)">
+                {i > 0 && <Divider orientation="vertical" />}
+                <OptionGroup
+                  label={group.key}
+                  options={group.values}
+                  value={selected[group.key]}
+                  onChange={(value) => setSelected((prev) => ({ ...prev, [group.key]: value }))}
+                />
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

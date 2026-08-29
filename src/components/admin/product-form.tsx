@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { Add01Icon, Delete02Icon } from "@hugeicons/core-free-icons";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
@@ -15,7 +15,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { MediaUpload, type MediaItem } from "@/components/admin/media-upload";
-import { createProduct, updateProduct, type ProductInput } from "@/app/admin/products/actions";
+import { createProduct, updateProduct } from "@/app/pluggeo/products/actions";
+import { productInputSchema } from "@/app/pluggeo/products/schema";
+import { VARIANT_ATTRIBUTE_CATEGORIES } from "@/lib/product-attributes";
+import { slugify } from "@/lib/slugify";
+import { cn } from "@/lib/utils";
 
 // Plain HTML form + Server Actions, not react-hook-form — the shadcn `form`
 // primitive assumes react-hook-form, which isn't part of this project's
@@ -23,6 +27,24 @@ import { createProduct, updateProduct, type ProductInput } from "@/app/admin/pro
 // default data-mutation path. Replace-in-place for media/variants (the
 // Server Action deletes and re-inserts both on every save) matches this
 // form's own "send the whole current state" shape, not incremental diffing.
+//
+// UI/UX pass (2026-08-29), per the user asking for real form best
+// practices, not just a working form: auto-generated slug from the name
+// (stops once the admin edits slug directly — `slugTouched`), inline
+// per-field validation errors (using the SAME zod schema the server
+// validates with — `productInputSchema`, extracted to schema.ts since a
+// "use server" file may only export async functions — so client/server
+// validation can never silently drift apart), required-field asterisks,
+// `$`-prefixed price inputs, `<fieldset>`/`<legend>` for each section
+// (proper semantic grouping, not just a styled heading), autofocus on the
+// first field, and a transient success message after an *edit* save
+// (create already redirects to the edit page, which is its own confirmation
+// that the save landed — a toast there would be redundant). Media/variants
+// validation errors surface as one summary line rather than granular
+// per-row messages — those are array-shaped errors zod's `flatten()`
+// doesn't map cleanly to a single field, and the two real failure modes
+// (an empty required variant label, a malformed price) are already obvious
+// from the row itself once you look at it.
 
 export type ProductCategory = { id: string; name: string };
 
@@ -66,14 +88,38 @@ export type ProductFormProps = {
   initialValues: ProductFormInitialValues;
 };
 
+function unusedCategoryFor(attributes: VariantAttributeRow[], currentIndex: number): string {
+  const used = new Set(attributes.filter((_, i) => i !== currentIndex).map((a) => a.key));
+  return VARIANT_ATTRIBUTE_CATEGORIES.find((c) => !used.has(c)) ?? "";
+}
+
 function emptyVariant(): VariantRow {
-  return { label: "", priceOverride: "", available: true, attributes: [{ key: "", value: "" }] };
+  return { label: "", priceOverride: "", available: true, attributes: [{ key: "Size", value: "" }] };
+}
+
+function RequiredMark() {
+  return (
+    <span className="text-destructive" aria-hidden="true">
+      {" "}
+      *
+    </span>
+  );
+}
+
+function FieldError({ id, message }: { id: string; message?: string }) {
+  if (!message) return null;
+  return (
+    <p id={id} role="alert" className="text-xs text-destructive">
+      {message}
+    </p>
+  );
 }
 
 export function ProductForm({ categories, initialValues }: ProductFormProps) {
   const isEditing = Boolean(initialValues.id);
   const [name, setName] = useState(initialValues.name);
   const [slug, setSlug] = useState(initialValues.slug);
+  const [slugTouched, setSlugTouched] = useState(isEditing);
   const [description, setDescription] = useState(initialValues.description);
   const [price, setPrice] = useState(initialValues.price);
   const [compareAtPrice, setCompareAtPrice] = useState(initialValues.compareAtPrice);
@@ -82,8 +128,20 @@ export function ProductForm({ categories, initialValues }: ProductFormProps) {
   const [featured, setFeatured] = useState(initialValues.featured);
   const [media, setMedia] = useState<MediaItem[]>(initialValues.media);
   const [variants, setVariants] = useState<VariantRow[]>(initialValues.variants);
-  const [error, setError] = useState<string | null>(null);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [formError, setFormError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const successTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleNameChange = (value: string) => {
+    setName(value);
+    if (!slugTouched) setSlug(slugify(value));
+  };
+  const handleSlugChange = (value: string) => {
+    setSlug(value);
+    setSlugTouched(true);
+  };
 
   const addVariant = () => setVariants((prev) => [...prev, emptyVariant()]);
   const removeVariant = (index: number) =>
@@ -93,7 +151,9 @@ export function ProductForm({ categories, initialValues }: ProductFormProps) {
   const addAttribute = (variantIndex: number) =>
     setVariants((prev) =>
       prev.map((v, i) =>
-        i === variantIndex ? { ...v, attributes: [...v.attributes, { key: "", value: "" }] } : v
+        i === variantIndex
+          ? { ...v, attributes: [...v.attributes, { key: unusedCategoryFor(v.attributes, -1), value: "" }] }
+          : v
       )
     );
   const removeAttribute = (variantIndex: number, attrIndex: number) =>
@@ -118,14 +178,15 @@ export function ProductForm({ categories, initialValues }: ProductFormProps) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
+    setFormError(null);
+    setSuccessMessage(null);
 
-    const input: ProductInput = {
+    const rawInput = {
       name,
       slug,
       description: description || undefined,
-      price: Number(price),
-      compareAtPrice: compareAtPrice ? Number(compareAtPrice) : undefined,
+      price,
+      compareAtPrice: compareAtPrice || undefined,
       categoryId: categoryId || undefined,
       status,
       featured,
@@ -137,42 +198,102 @@ export function ProductForm({ categories, initialValues }: ProductFormProps) {
           attributes: Object.fromEntries(
             v.attributes.filter((a) => a.key.trim().length > 0).map((a) => [a.key, a.value])
           ),
-          priceOverride: v.priceOverride ? Number(v.priceOverride) : undefined,
+          priceOverride: v.priceOverride || undefined,
           available: v.available,
         })),
     };
 
+    const parsed = productInputSchema.safeParse(rawInput);
+    if (!parsed.success) {
+      const fieldErrors = parsed.error.flatten().fieldErrors;
+      const nextErrors: Record<string, string> = {};
+      for (const [field, messages] of Object.entries(fieldErrors)) {
+        if (messages?.[0]) nextErrors[field] = messages[0];
+      }
+      setErrors(nextErrors);
+      if (nextErrors.media || nextErrors.variants) {
+        setFormError("Check the media/variants sections below — one of them isn't valid.");
+      }
+      // Move focus to the first invalid field so a screen reader / keyboard
+      // user lands exactly where the problem is, not just sees a banner.
+      const firstField = Object.keys(nextErrors)[0];
+      document.getElementById(firstField)?.focus();
+      return;
+    }
+
+    setErrors({});
+
     startTransition(async () => {
       try {
         if (isEditing && initialValues.id) {
-          await updateProduct(initialValues.id, input);
+          await updateProduct(initialValues.id, parsed.data);
+          setSuccessMessage("Product saved.");
+          if (successTimeoutRef.current) clearTimeout(successTimeoutRef.current);
+          successTimeoutRef.current = setTimeout(() => setSuccessMessage(null), 3000);
         } else {
-          await createProduct(input);
+          await createProduct(parsed.data);
         }
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Something went wrong saving this product.");
+        setFormError(err instanceof Error ? err.message : "Something went wrong saving this product.");
       }
     });
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex max-w-3xl flex-col gap-8">
-      {error && (
-        <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          {error}
+    <form onSubmit={handleSubmit} noValidate className="flex max-w-3xl flex-col gap-8">
+      {formError && (
+        <div
+          role="alert"
+          className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+        >
+          {formError}
+        </div>
+      )}
+      {successMessage && (
+        <div
+          role="status"
+          className="rounded-md border border-primary/30 bg-primary/10 px-3 py-2 text-sm text-primary"
+        >
+          {successMessage}
         </div>
       )}
 
-      <section className="flex flex-col gap-4">
-        <h2 className="font-heading text-base">Details</h2>
+      <fieldset className="flex flex-col gap-4">
+        <legend className="font-heading text-base">Details</legend>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="name">Name</Label>
-            <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required />
+            <Label htmlFor="name">
+              Name
+              <RequiredMark />
+            </Label>
+            <Input
+              id="name"
+              autoFocus
+              value={name}
+              onChange={(e) => handleNameChange(e.target.value)}
+              aria-invalid={Boolean(errors.name)}
+              aria-describedby={errors.name ? "name-error" : undefined}
+            />
+            <FieldError id="name-error" message={errors.name} />
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="slug">Slug</Label>
-            <Input id="slug" value={slug} onChange={(e) => setSlug(e.target.value)} required />
+            <Label htmlFor="slug">
+              Slug
+              <RequiredMark />
+            </Label>
+            <Input
+              id="slug"
+              value={slug}
+              onChange={(e) => handleSlugChange(e.target.value)}
+              aria-invalid={Boolean(errors.slug)}
+              aria-describedby={errors.slug ? "slug-error" : "slug-hint"}
+            />
+            {!errors.slug && (
+              <p id="slug-hint" className="text-xs text-muted-foreground">
+                Used in the product URL — auto-filled from the name, editable.
+              </p>
+            )}
+            <FieldError id="slug-error" message={errors.slug} />
           </div>
         </div>
         <div className="flex flex-col gap-1.5">
@@ -186,32 +307,57 @@ export function ProductForm({ categories, initialValues }: ProductFormProps) {
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="price">Price</Label>
-            <Input
-              id="price"
-              type="number"
-              min="0"
-              step="0.01"
-              value={price}
-              onChange={(e) => setPrice(e.target.value)}
-              required
-            />
+            <Label htmlFor="price">
+              Price
+              <RequiredMark />
+            </Label>
+            <div className="relative">
+              <span className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-muted-foreground">
+                $
+              </span>
+              <Input
+                id="price"
+                type="number"
+                min="0"
+                step="0.01"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                className="pl-5.5"
+                aria-invalid={Boolean(errors.price)}
+                aria-describedby={errors.price ? "price-error" : undefined}
+              />
+            </div>
+            <FieldError id="price-error" message={errors.price} />
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="compareAtPrice">Compare-at price</Label>
-            <Input
-              id="compareAtPrice"
-              type="number"
-              min="0"
-              step="0.01"
-              value={compareAtPrice}
-              onChange={(e) => setCompareAtPrice(e.target.value)}
-            />
+            <div className="relative">
+              <span className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-muted-foreground">
+                $
+              </span>
+              <Input
+                id="compareAtPrice"
+                type="number"
+                min="0"
+                step="0.01"
+                value={compareAtPrice}
+                onChange={(e) => setCompareAtPrice(e.target.value)}
+                className="pl-5.5"
+                aria-invalid={Boolean(errors.compareAtPrice)}
+                aria-describedby={errors.compareAtPrice ? "compareAtPrice-error" : "compareAtPrice-hint"}
+              />
+            </div>
+            {!errors.compareAtPrice && (
+              <p id="compareAtPrice-hint" className="text-xs text-muted-foreground">
+                Optional — shown struck through when higher than price.
+              </p>
+            )}
+            <FieldError id="compareAtPrice-error" message={errors.compareAtPrice} />
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label>Category</Label>
+            <Label htmlFor="categoryId">Category</Label>
             <Select value={categoryId || undefined} onValueChange={(value) => setCategoryId(value as string)}>
-              <SelectTrigger className="w-full">
+              <SelectTrigger id="categoryId" className="w-full">
                 <SelectValue placeholder="None" />
               </SelectTrigger>
               <SelectContent>
@@ -226,9 +372,9 @@ export function ProductForm({ categories, initialValues }: ProductFormProps) {
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
-            <Label>Status</Label>
+            <Label htmlFor="status">Status</Label>
             <Select value={status} onValueChange={(value) => setStatus(value as "draft" | "published")}>
-              <SelectTrigger className="w-full">
+              <SelectTrigger id="status" className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -236,22 +382,23 @@ export function ProductForm({ categories, initialValues }: ProductFormProps) {
                 <SelectItem value="published">Published</SelectItem>
               </SelectContent>
             </Select>
+            <p className="text-xs text-muted-foreground">Only published products show on the storefront.</p>
           </div>
           <label className="flex items-center gap-2 pt-6 text-sm">
             <Checkbox checked={featured} onCheckedChange={(checked) => setFeatured(checked === true)} />
-            Featured
+            Featured on homepage
           </label>
         </div>
-      </section>
+      </fieldset>
 
-      <section className="flex flex-col gap-3">
-        <h2 className="font-heading text-base">Media</h2>
+      <fieldset className="flex flex-col gap-3">
+        <legend className="font-heading text-base">Media</legend>
         <MediaUpload items={media} onChange={setMedia} />
-      </section>
+      </fieldset>
 
-      <section className="flex flex-col gap-3">
+      <fieldset className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
-          <h2 className="font-heading text-base">Variants</h2>
+          <legend className="font-heading text-base">Variants</legend>
           <button
             type="button"
             onClick={addVariant}
@@ -264,7 +411,9 @@ export function ProductForm({ categories, initialValues }: ProductFormProps) {
 
         {variants.length === 0 && (
           <p className="text-sm text-muted-foreground">
-            No variants — this product has a single fixed price/attributes.
+            No variants — this product has a single fixed price/attributes. Add a variant
+            for things like size, width, or gold color/type; each one becomes a chip on the
+            product page&apos;s Customize section.
           </p>
         )}
 
@@ -273,22 +422,33 @@ export function ProductForm({ categories, initialValues }: ProductFormProps) {
             <div className="flex items-start justify-between gap-4">
               <div className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-3">
                 <div className="flex flex-col gap-1.5">
-                  <Label>Label</Label>
+                  <Label htmlFor={`variant-${index}-label`}>
+                    Label
+                    <RequiredMark />
+                  </Label>
                   <Input
+                    id={`variant-${index}-label`}
                     value={variant.label}
                     onChange={(e) => updateVariant(index, { label: e.target.value })}
                     placeholder="e.g. Small / 10k"
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <Label>Price override</Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={variant.priceOverride}
-                    onChange={(e) => updateVariant(index, { priceOverride: e.target.value })}
-                  />
+                  <Label htmlFor={`variant-${index}-price`}>Price override</Label>
+                  <div className="relative">
+                    <span className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-muted-foreground">
+                      $
+                    </span>
+                    <Input
+                      id={`variant-${index}-price`}
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={variant.priceOverride}
+                      onChange={(e) => updateVariant(index, { priceOverride: e.target.value })}
+                      className="pl-5.5"
+                    />
+                  </div>
                 </div>
                 <label className="flex items-center gap-2 pt-6 text-sm">
                   <Checkbox
@@ -310,40 +470,62 @@ export function ProductForm({ categories, initialValues }: ProductFormProps) {
 
             <div className="flex flex-col gap-2">
               <Label>Attributes</Label>
-              {variant.attributes.map((attr, attrIndex) => (
-                <div key={attrIndex} className="flex items-center gap-2">
-                  <Input
-                    value={attr.key}
-                    onChange={(e) => updateAttribute(index, attrIndex, { key: e.target.value })}
-                    placeholder="e.g. material"
-                    className="max-w-40"
-                  />
-                  <Input
-                    value={attr.value}
-                    onChange={(e) => updateAttribute(index, attrIndex, { value: e.target.value })}
-                    placeholder="e.g. 10k gold"
-                  />
-                  <button
-                    type="button"
-                    aria-label="Remove attribute"
-                    onClick={() => removeAttribute(index, attrIndex)}
-                    className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-                  >
-                    <Icon icon={Delete02Icon} size={14} />
-                  </button>
-                </div>
-              ))}
+              <p className="text-xs text-muted-foreground">
+                Pick a category (Size, Width, Gold Color, ...) and its value for this
+                variant — the PDP groups every variant&apos;s values by category automatically.
+              </p>
+              {variant.attributes.map((attr, attrIndex) => {
+                const options = VARIANT_ATTRIBUTE_CATEGORIES.filter(
+                  (c) => c === attr.key || !variant.attributes.some((a, i) => i !== attrIndex && a.key === c)
+                );
+                return (
+                  <div key={attrIndex} className="flex items-center gap-2">
+                    <Select
+                      value={attr.key || undefined}
+                      onValueChange={(value) => updateAttribute(index, attrIndex, { key: value as string })}
+                    >
+                      <SelectTrigger className="w-40 shrink-0">
+                        <SelectValue placeholder="Category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {options.map((option) => (
+                          <SelectItem key={option} value={option}>
+                            {option}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      value={attr.value}
+                      onChange={(e) => updateAttribute(index, attrIndex, { value: e.target.value })}
+                      placeholder="e.g. 6.5 Inch"
+                    />
+                    <button
+                      type="button"
+                      aria-label="Remove attribute"
+                      onClick={() => removeAttribute(index, attrIndex)}
+                      className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                    >
+                      <Icon icon={Delete02Icon} size={14} />
+                    </button>
+                  </div>
+                );
+              })}
               <button
                 type="button"
+                disabled={unusedCategoryFor(variant.attributes, -1) === ""}
                 onClick={() => addAttribute(index)}
-                className="self-start text-xs text-muted-foreground hover:text-foreground"
+                className={cn(
+                  "self-start text-xs text-muted-foreground hover:text-foreground",
+                  unusedCategoryFor(variant.attributes, -1) === "" && "cursor-not-allowed opacity-50"
+                )}
               >
                 + Add attribute
               </button>
             </div>
           </div>
         ))}
-      </section>
+      </fieldset>
 
       <div className="flex items-center gap-3">
         <button

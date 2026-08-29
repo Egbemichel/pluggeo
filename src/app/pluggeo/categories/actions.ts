@@ -1,43 +1,34 @@
 "use server";
 
-import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { categories } from "@/db/schema";
 import { getAdminUser } from "@/lib/admin-auth";
+import { categoryInputSchema, type CategoryInput } from "./schema";
 
 async function assertAdmin() {
   const admin = await getAdminUser();
   if (!admin) throw new Error("Unauthorized");
 }
 
-const categoryInputSchema = z.object({
-  name: z.string().min(1, "Name is required"),
-  slug: z
-    .string()
-    .min(1, "Slug is required")
-    .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, "Lowercase letters, numbers, and hyphens only"),
-  displayOrder: z.coerce.number().int(),
-});
-
-export type CategoryInput = z.infer<typeof categoryInputSchema>;
+export type { CategoryInput };
 
 export async function createCategory(rawInput: CategoryInput) {
   await assertAdmin();
   const input = categoryInputSchema.parse(rawInput);
   await db.insert(categories).values(input);
-  revalidatePath("/admin/categories");
-  redirect("/admin/categories");
+  revalidatePath("/pluggeo/categories");
+  redirect("/pluggeo/categories");
 }
 
 export async function updateCategory(id: string, rawInput: CategoryInput) {
   await assertAdmin();
   const input = categoryInputSchema.parse(rawInput);
   await db.update(categories).set(input).where(eq(categories.id, id));
-  revalidatePath("/admin/categories");
-  redirect("/admin/categories");
+  revalidatePath("/pluggeo/categories");
+  redirect("/pluggeo/categories");
 }
 
 export async function deleteCategory(id: string) {
@@ -50,7 +41,7 @@ export async function deleteCategory(id: string) {
   // no "what happens to my products" confirmation step — surfaced to the
   // admin as a plain error rather than silently orphaning products.
   await db.delete(categories).where(eq(categories.id, id));
-  revalidatePath("/admin/categories");
+  revalidatePath("/pluggeo/categories");
 }
 
 export async function getCategoryById(id: string) {

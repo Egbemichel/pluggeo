@@ -5,7 +5,7 @@ import { ImageThumbnail } from "@/components/ui/image-thumbnail";
 import { Icon } from "@/components/ui/icon";
 import { QuantityStepper } from "@/components/ui/quantity-stepper";
 import { AddToBagButton } from "@/components/ui/add-to-bag-button";
-import { ProductCustomize } from "@/components/product-customize";
+import { ProductCustomize, type ProductVariantSummary } from "@/components/product-customize";
 import { currency } from "@/components/product-card";
 import { useReveal } from "@/hooks/use-reveal";
 import { STAGGER } from "@/lib/motion";
@@ -38,8 +38,10 @@ export type ProductDetailSectionProps = {
   price: number;
   compareAtPrice?: number;
   isFromPrice?: boolean;
-  /** Placeholder copy per product — no CMS/admin description field exists yet. */
   description: string;
+  /** The product's real variants — see ProductCustomize's own comment for
+   * how these become chip groups. Empty array hides Customize entirely. */
+  variants: ProductVariantSummary[];
 };
 
 export function ProductDetailSection({
@@ -50,6 +52,7 @@ export function ProductDetailSection({
   compareAtPrice,
   isFromPrice,
   description,
+  variants,
 }: ProductDetailSectionProps) {
   const onSale = compareAtPrice != null && compareAtPrice > price;
   const fieldsRef = useReveal<HTMLDivElement>({
@@ -101,7 +104,7 @@ export function ProductDetailSection({
         </div>
 
         <div data-reveal-item>
-          <ProductCustomize />
+          <ProductCustomize variants={variants} />
         </div>
       </div>
     </div>

@@ -2,12 +2,15 @@ import { auth, currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 
 /**
- * Single-admin gate: Clerk handles Google sign-in, this confirms the signed-in
- * account is the one allowed admin email (there is no roles/permissions system —
- * see docs/AUTH.md). Returns the Clerk user when they're the allowed admin,
- * `null` otherwise — never redirects, so this is safe to call from a Route
- * Handler (e.g. api/cloudinary-sign) or anywhere else a page-navigation
- * `redirect()` wouldn't make sense, not just from a page/layout.
+ * Admin allowlist gate: Clerk handles Google sign-in, this confirms the
+ * signed-in account's email is on the allowed-admins list (there is no
+ * roles/permissions system — every allowed email gets the same full access,
+ * see docs/AUTH.md). `ADMIN_EMAILS` is comma-separated (supports more than
+ * one admin — still just an allowlist, not a roles table) — returns the
+ * Clerk user when they're on it, `null` otherwise. Never redirects, so this
+ * is safe to call from a Route Handler (e.g. api/cloudinary-sign) or
+ * anywhere else a page-navigation `redirect()` wouldn't make sense, not
+ * just from a page/layout.
  */
 export async function getAdminUser() {
   const { userId } = await auth();
@@ -15,12 +18,14 @@ export async function getAdminUser() {
 
   const user = await currentUser();
   const email = user?.primaryEmailAddress?.emailAddress;
-  const allowedEmail = process.env.ADMIN_EMAIL;
+  const allowedEmailsRaw = process.env.ADMIN_EMAILS;
 
-  if (!allowedEmail) {
-    throw new Error("ADMIN_EMAIL is not configured");
+  if (!allowedEmailsRaw) {
+    throw new Error("ADMIN_EMAILS is not configured");
   }
-  if (email !== allowedEmail) return null;
+  const allowedEmails = allowedEmailsRaw.split(",").map((e) => e.trim().toLowerCase());
+
+  if (!email || !allowedEmails.includes(email.toLowerCase())) return null;
 
   return user;
 }

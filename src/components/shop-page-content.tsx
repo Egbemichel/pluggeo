@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { ShopSidebar } from "@/components/shop-sidebar";
 import { ShopControlsBar } from "@/components/shop-controls-bar";
 import { MobileFilterDrawer } from "@/components/mobile-filter-drawer";
@@ -22,20 +22,27 @@ import type { StorefrontProductCard } from "@/lib/products";
 // Real catalog data (2026-08-29), replacing the old hardcoded 6-item
 // placeholder array — `products` is the full published catalog, fetched
 // once by the Server Component wrapper (page.tsx) via `getPublishedProducts()`.
-// Pagination is now real (slices `products` by `PAGE_SIZE`, `TOTAL_PAGES`
-// derived from the actual count) — it was decorative before (a hardcoded
-// `TOTAL_PAGES = 12` unrelated to what was actually shown).
 //
-// Category/price/sort controls are DELIBERATELY still decorative — they
-// always were (clicking a category or price chip never filtered the old
-// placeholder grid either), and implementing real filtering means real
-// product-design decisions (does a price chip override custom min/max? does
-// category filtering combine with price?) that weren't part of what was
-// asked ("no more placeholders" was about the data source, not new filter
-// behavior). Flagged as a real, known follow-up rather than silently left
-// looking finished — see PROGRESS.md.
+// Category/price/sort filtering is real now too (2026-08-29) — per the
+// user: a price-range chip and the custom min/max fields override each
+// other (picking a chip resets custom back to the defaults; editing custom
+// clears the active chip), so exactly one price filter is ever active at a
+// time. Category and price combine (AND, not OR) — an "All" pseudo-category
+// is prepended to the real category list so the filter can be cleared.
+// Pagination is real (slices the *filtered* list).
 
 const PAGE_SIZE = 8;
+const ALL_CATEGORY_ID = "all";
+
+// Numeric bounds for PRICE_RANGES' ids (src/components/price-filter-panel.tsx)
+// — that file only defines display labels, so the bounds live here, next to
+// the one place that actually filters by them.
+const PRICE_RANGE_BOUNDS: Record<string, [number, number]> = {
+  "under-500": [0, 500],
+  "500-1000": [500, 1000],
+  "1000-5000": [1000, 5000],
+  "5000-plus": [5000, Infinity],
+};
 
 export type ShopPageContentProps = {
   products: StorefrontProductCard[];
@@ -43,7 +50,11 @@ export type ShopPageContentProps = {
 };
 
 export function ShopPageContent({ products, categories }: ShopPageContentProps) {
-  const [category, setCategory] = useState(categories[0]?.id ?? "");
+  const categoryItems = useMemo<CategoryDialItem[]>(
+    () => [{ id: ALL_CATEGORY_ID, label: "All" }, ...categories],
+    [categories]
+  );
+  const [category, setCategory] = useState(ALL_CATEGORY_ID);
   const [sort, setSort] = useState<SortDirection>("asc");
   const [layout, setLayout] = useState<LayoutValue>("grid");
   const [page, setPage] = useState(1);
@@ -55,27 +66,76 @@ export function ShopPageContent({ products, categories }: ShopPageContentProps) 
   const [maxPrice, setMaxPrice] = useState(DEFAULT_MAX_PRICE);
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
 
-  const priceFilter = { activePriceRange, customPriceOpen, minPrice, maxPrice };
-  const priceFilterHandlers = {
-    onPriceRangeChange: setActivePriceRange,
-    onCustomPriceOpenChange: setCustomPriceOpen,
-    onMinPriceChange: setMinPrice,
-    onMaxPriceChange: setMaxPrice,
+  // A price chip and the custom range are mutually exclusive — selecting one
+  // resets the other back to its default/inactive state, per the user.
+  const handlePriceRangeChange = (id: string | null) => {
+    setActivePriceRange(id);
+    setMinPrice(DEFAULT_MIN_PRICE);
+    setMaxPrice(DEFAULT_MAX_PRICE);
+  };
+  const handleMinPriceChange = (value: string) => {
+    setMinPrice(value);
+    setActivePriceRange(null);
+  };
+  const handleMaxPriceChange = (value: string) => {
+    setMaxPrice(value);
+    setActivePriceRange(null);
   };
 
-  const totalPages = Math.max(1, Math.ceil(products.length / PAGE_SIZE));
-  const pagedProducts = products.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const priceFilter = { activePriceRange, customPriceOpen, minPrice, maxPrice };
+  const priceFilterHandlers = {
+    onPriceRangeChange: handlePriceRangeChange,
+    onCustomPriceOpenChange: setCustomPriceOpen,
+    onMinPriceChange: handleMinPriceChange,
+    onMaxPriceChange: handleMaxPriceChange,
+  };
+
+  const filteredProducts = useMemo(() => {
+    let result = products;
+
+    if (category !== ALL_CATEGORY_ID) {
+      result = result.filter((p) => p.categorySlug === category);
+    }
+
+    if (activePriceRange) {
+      const [min, max] = PRICE_RANGE_BOUNDS[activePriceRange] ?? [0, Infinity];
+      result = result.filter((p) => p.price >= min && p.price <= max);
+    } else if (minPrice !== DEFAULT_MIN_PRICE || maxPrice !== DEFAULT_MAX_PRICE) {
+      const min = Number(minPrice) || 0;
+      const max = Number(maxPrice) || Infinity;
+      result = result.filter((p) => p.price >= min && p.price <= max);
+    }
+
+    return [...result].sort((a, b) => (sort === "asc" ? a.price - b.price : b.price - a.price));
+  }, [products, category, activePriceRange, minPrice, maxPrice, sort]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pagedProducts = filteredProducts.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE
+  );
   const pageDialItems = Array.from({ length: totalPages }, (_, i) => ({
     id: String(i + 1),
     label: String(i + 1),
   }));
 
+  const changePage = (p: number) => {
+    setPage(p);
+    setSpotlightIndex(0);
+  };
+  const changeCategory = (id: string) => {
+    setCategory(id);
+    setPage(1);
+    setSpotlightIndex(0);
+  };
+
   return (
     <div className="flex flex-1 gap-(--space-9) py-(--space-9)">
       <ShopSidebar
-        categories={categories}
+        categories={categoryItems}
         activeCategory={category}
-        onCategoryChange={setCategory}
+        onCategoryChange={changeCategory}
         priceFilter={priceFilter}
         {...priceFilterHandlers}
         className="hidden w-70 shrink-0 self-start md:sticky md:top-10 md:flex"
@@ -93,9 +153,11 @@ export function ShopPageContent({ products, categories }: ShopPageContentProps) 
           onOpenFilters={() => setFilterDrawerOpen(true)}
         />
 
-        {products.length === 0 ? (
+        {filteredProducts.length === 0 ? (
           <p className="rounded-md border border-border-default py-16 text-center text-body-md text-text-secondary">
-            No products yet — check back soon.
+            {products.length === 0
+              ? "No products yet — check back soon."
+              : "No products match your filters."}
           </p>
         ) : layout === "grid" ? (
           <>
@@ -123,25 +185,19 @@ export function ShopPageContent({ products, categories }: ShopPageContentProps) 
           </div>
         )}
 
-        {products.length > 0 && (
+        {filteredProducts.length > 0 && (
           <>
             <CategoryDial
               items={pageDialItems}
-              activeId={String(page)}
-              onActiveChange={(id) => {
-                setPage(Number(id));
-                setSpotlightIndex(0);
-              }}
+              activeId={String(currentPage)}
+              onActiveChange={(id) => changePage(Number(id))}
               orientation="horizontal"
               className="md:hidden"
             />
             <PaginationDial
-              currentPage={page}
+              currentPage={currentPage}
               totalPages={totalPages}
-              onPageChange={(p) => {
-                setPage(p);
-                setSpotlightIndex(0);
-              }}
+              onPageChange={changePage}
               className="hidden md:flex"
             />
           </>

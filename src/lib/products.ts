@@ -1,6 +1,6 @@
 import { asc, desc, eq, and, ne, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { products, productMedia, categories } from "@/db/schema";
+import { products, productMedia, productVariants, categories } from "@/db/schema";
 
 // Storefront-facing product queries — replaces the hardcoded placeholder
 // arrays that every catalog page (shop/category/home/grillz/related/search)
@@ -8,12 +8,13 @@ import { products, productMedia, categories } from "@/db/schema";
 // (see `StorefrontProductCard`, which matches `ProductCardProps` minus
 // `layout`) and the same "only published products" rule.
 //
-// `isFromPrice` is always `false` here — computing a real variant price
-// range would mean loading every product's variants just for list views
-// (against the drizzle-schema skill's "no per-row queries in a loop" rule,
-// and unnecessary until ProductCustomize itself becomes variant-aware,
-// which it isn't yet — it still renders placeholder options). Flagged
-// rather than silently faked with a hardcoded `true`.
+// `isFromPrice` is always `false` on `StorefrontProductCard` (list/grid
+// views) — computing a real variant price range would mean loading every
+// listed product's variants just to render a grid (against the
+// drizzle-schema skill's "no per-row queries in a loop" rule). The PDP
+// (`StorefrontProductDetail`) DOES load real variants now — see
+// `getProductDetailBySlug` — since that's a single-product query and
+// ProductCustomize needs them to render real chip groups.
 
 const PLACEHOLDER_IMAGE = { src: "/placeholder-product.svg", alt: "Placeholder product" };
 
@@ -43,6 +44,7 @@ export type StorefrontProductDetail = {
   compareAtPrice?: number;
   description: string | null;
   images: { src: string; alt: string }[];
+  variants: { label: string; attributes: Record<string, string> }[];
 };
 
 type ProductRow = typeof products.$inferSelect;
@@ -161,11 +163,14 @@ export async function getProductDetailBySlug(
 
   if (!row) return null;
 
-  const media = await db
-    .select()
-    .from(productMedia)
-    .where(eq(productMedia.productId, row.product.id))
-    .orderBy(asc(productMedia.sortOrder));
+  const [media, variants] = await Promise.all([
+    db
+      .select()
+      .from(productMedia)
+      .where(eq(productMedia.productId, row.product.id))
+      .orderBy(asc(productMedia.sortOrder)),
+    db.select().from(productVariants).where(eq(productVariants.productId, row.product.id)),
+  ]);
 
   return {
     id: row.product.id,
@@ -175,6 +180,7 @@ export async function getProductDetailBySlug(
     categoryId: row.product.categoryId,
     price: Number(row.product.price),
     compareAtPrice: row.product.compareAtPrice ? Number(row.product.compareAtPrice) : undefined,
+    variants: variants.map((v) => ({ label: v.label, attributes: v.attributes })),
     description: row.product.description,
     images: imagesForProduct(media, row.product.name),
   };

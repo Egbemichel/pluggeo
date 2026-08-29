@@ -18,7 +18,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { deleteProduct, setProductStatus } from "@/app/admin/products/actions";
+import { deleteProduct, setProductStatus } from "@/app/pluggeo/products/actions";
 
 export type ProductRowActionsProps = {
   id: string;
@@ -60,7 +60,7 @@ export function ProductRowActions({ id, status }: ProductRowActionsProps) {
           <Icon icon={MoreVerticalIcon} size={16} />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={() => router.push(`/admin/products/${id}/edit`)}>
+          <DropdownMenuItem onClick={() => router.push(`/pluggeo/products/${id}/edit`)}>
             Edit
           </DropdownMenuItem>
           <DropdownMenuItem disabled={isPending} onClick={toggleStatus}>

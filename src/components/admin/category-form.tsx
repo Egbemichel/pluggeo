@@ -1,9 +1,16 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { createCategory, updateCategory, type CategoryInput } from "@/app/admin/categories/actions";
+import { createCategory, updateCategory } from "@/app/pluggeo/categories/actions";
+import { categoryInputSchema } from "@/app/pluggeo/categories/schema";
+import { slugify } from "@/lib/slugify";
+
+// Same UI/UX pass as product-form.tsx (2026-08-29) — see that file's own
+// comment for the reasoning behind each piece (auto-slug, shared
+// client/server zod validation, required marks, fieldset/legend, success
+// message on edit).
 
 export type CategoryFormInitialValues = {
   id?: string;
@@ -22,64 +29,159 @@ export type CategoryFormProps = {
   initialValues: CategoryFormInitialValues;
 };
 
+function RequiredMark() {
+  return (
+    <span className="text-destructive" aria-hidden="true">
+      {" "}
+      *
+    </span>
+  );
+}
+
+function FieldError({ id, message }: { id: string; message?: string }) {
+  if (!message) return null;
+  return (
+    <p id={id} role="alert" className="text-xs text-destructive">
+      {message}
+    </p>
+  );
+}
+
 export function CategoryForm({ initialValues }: CategoryFormProps) {
   const isEditing = Boolean(initialValues.id);
   const [name, setName] = useState(initialValues.name);
   const [slug, setSlug] = useState(initialValues.slug);
+  const [slugTouched, setSlugTouched] = useState(isEditing);
   const [displayOrder, setDisplayOrder] = useState(initialValues.displayOrder);
-  const [error, setError] = useState<string | null>(null);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [formError, setFormError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const successTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleNameChange = (value: string) => {
+    setName(value);
+    if (!slugTouched) setSlug(slugify(value));
+  };
+  const handleSlugChange = (value: string) => {
+    setSlug(value);
+    setSlugTouched(true);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
+    setFormError(null);
+    setSuccessMessage(null);
 
-    const input: CategoryInput = {
-      name,
-      slug,
-      displayOrder: Number(displayOrder),
-    };
+    const parsed = categoryInputSchema.safeParse({ name, slug, displayOrder });
+    if (!parsed.success) {
+      const fieldErrors = parsed.error.flatten().fieldErrors;
+      const nextErrors: Record<string, string> = {};
+      for (const [field, messages] of Object.entries(fieldErrors)) {
+        if (messages?.[0]) nextErrors[field] = messages[0];
+      }
+      setErrors(nextErrors);
+      const firstField = Object.keys(nextErrors)[0];
+      document.getElementById(firstField)?.focus();
+      return;
+    }
+
+    setErrors({});
 
     startTransition(async () => {
       try {
         if (isEditing && initialValues.id) {
-          await updateCategory(initialValues.id, input);
+          await updateCategory(initialValues.id, parsed.data);
+          setSuccessMessage("Category saved.");
+          if (successTimeoutRef.current) clearTimeout(successTimeoutRef.current);
+          successTimeoutRef.current = setTimeout(() => setSuccessMessage(null), 3000);
         } else {
-          await createCategory(input);
+          await createCategory(parsed.data);
         }
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Something went wrong saving this category.");
+        setFormError(err instanceof Error ? err.message : "Something went wrong saving this category.");
       }
     });
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex max-w-md flex-col gap-6">
-      {error && (
-        <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          {error}
+    <form onSubmit={handleSubmit} noValidate className="flex max-w-md flex-col gap-6">
+      {formError && (
+        <div
+          role="alert"
+          className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+        >
+          {formError}
+        </div>
+      )}
+      {successMessage && (
+        <div
+          role="status"
+          className="rounded-md border border-primary/30 bg-primary/10 px-3 py-2 text-sm text-primary"
+        >
+          {successMessage}
         </div>
       )}
 
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="name">Name</Label>
-        <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required />
-      </div>
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="slug">Slug</Label>
-        <Input id="slug" value={slug} onChange={(e) => setSlug(e.target.value)} required />
-      </div>
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="displayOrder">Display order</Label>
-        <Input
-          id="displayOrder"
-          type="number"
-          step="1"
-          value={displayOrder}
-          onChange={(e) => setDisplayOrder(e.target.value)}
-          required
-        />
-      </div>
+      <fieldset className="flex flex-col gap-6">
+        <legend className="sr-only">Category details</legend>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="name">
+            Name
+            <RequiredMark />
+          </Label>
+          <Input
+            id="name"
+            autoFocus
+            value={name}
+            onChange={(e) => handleNameChange(e.target.value)}
+            aria-invalid={Boolean(errors.name)}
+            aria-describedby={errors.name ? "name-error" : undefined}
+          />
+          <FieldError id="name-error" message={errors.name} />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="slug">
+            Slug
+            <RequiredMark />
+          </Label>
+          <Input
+            id="slug"
+            value={slug}
+            onChange={(e) => handleSlugChange(e.target.value)}
+            aria-invalid={Boolean(errors.slug)}
+            aria-describedby={errors.slug ? "slug-error" : "slug-hint"}
+          />
+          {!errors.slug && (
+            <p id="slug-hint" className="text-xs text-muted-foreground">
+              Used in the category URL (/category/{slug || "..."}) — auto-filled from the
+              name, editable.
+            </p>
+          )}
+          <FieldError id="slug-error" message={errors.slug} />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="displayOrder">
+            Display order
+            <RequiredMark />
+          </Label>
+          <Input
+            id="displayOrder"
+            type="number"
+            step="1"
+            value={displayOrder}
+            onChange={(e) => setDisplayOrder(e.target.value)}
+            aria-invalid={Boolean(errors.displayOrder)}
+            aria-describedby={errors.displayOrder ? "displayOrder-error" : "displayOrder-hint"}
+          />
+          {!errors.displayOrder && (
+            <p id="displayOrder-hint" className="text-xs text-muted-foreground">
+              Lower numbers show first (e.g. in the shop&apos;s category picker).
+            </p>
+          )}
+          <FieldError id="displayOrder-error" message={errors.displayOrder} />
+        </div>
+      </fieldset>
 
       <div>
         <button

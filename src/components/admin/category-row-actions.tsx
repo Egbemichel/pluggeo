@@ -18,7 +18,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { deleteCategory } from "@/app/admin/categories/actions";
+import { deleteCategory } from "@/app/pluggeo/categories/actions";
 
 export function CategoryRowActions({ id }: { id: string }) {
   const router = useRouter();
@@ -57,7 +57,7 @@ export function CategoryRowActions({ id }: { id: string }) {
           <Icon icon={MoreVerticalIcon} size={16} />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={() => router.push(`/admin/categories/${id}/edit`)}>
+          <DropdownMenuItem onClick={() => router.push(`/pluggeo/categories/${id}/edit`)}>
             Edit
           </DropdownMenuItem>
           <DropdownMenuItem variant="destructive" onClick={() => setConfirmOpen(true)}>

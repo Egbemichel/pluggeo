@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { setFeatured } from "@/app/admin/products/actions";
+import { setFeatured } from "@/app/pluggeo/products/actions";
 
 export type HomepageProductRow = {
   id: string;

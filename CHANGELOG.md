@@ -6,6 +6,24 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+### Added (batch 54 — real Shop filters; variant-driven PDP; admin form UX; second admin)
+
+- Shop's category/price/sort filters actually filter now — a price-range
+  chip and custom min/max override each other, matching the storefront
+  chevron already existing to switch between them.
+- PDP's Customize section now renders real chip groups from a product's
+  actual variants (grouped by attribute category — Size, Width, Gold
+  Color, ...), hidden entirely for products with no variants. The admin's
+  variant editor picks attribute categories from a fixed dropdown instead
+  of free text, so every product's chip groups stay consistent.
+- Admin product/category forms got a full UI/UX pass: auto-generated slug,
+  inline per-field validation errors (shared zod schema with the server,
+  so they can't drift), required-field marks, `$`-prefixed price inputs,
+  proper `<fieldset>`/`<legend>` grouping, and a save confirmation on edit.
+- Second admin added (`ADMIN_EMAILS`, comma-separated allowlist).
+- Admin dashboard moved from `/admin` to `/pluggeo` for security — the old
+  path is gone, not redirected.
+
 ### Added (batch 53 — Categories/Homepage admin; storefront off placeholder data)
 
 - `/admin/categories` (create/edit/delete) and `/admin/homepage` (curate

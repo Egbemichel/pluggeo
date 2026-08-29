@@ -4,7 +4,7 @@
 
 Single Next.js (App Router, TypeScript) application. No separate backend service —
 the same app serves the public storefront and the admin CMS, gated by Clerk auth on
-the `/admin` route group.
+the `/pluggeo` route group.
 
 ## Deployment target
 
@@ -47,7 +47,7 @@ Exact segment names may shift once real Figma frame names/slugs are confirmed.
 Follow standard Next.js App Router conventions:
 
 - `app/(storefront)/...` — public pages
-- `app/admin/...` — admin CMS, wrapped in Clerk auth middleware
+- `app/pluggeo/...` — admin CMS, wrapped in Clerk auth middleware
 - `app/api/...` or colocated `actions.ts` — only where a Server Action doesn't fit
   (e.g. a sitemap route)
 - `db/` — Drizzle schema and client

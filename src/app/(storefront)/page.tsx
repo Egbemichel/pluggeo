@@ -18,7 +18,7 @@ import { PAGE_TRANSITION } from "@/lib/motion";
 // complete; individual components stay verifiable via the pages that use them.
 //
 // Real product data (2026-08-29): Bestsellers = admin-curated featured
-// products (`/admin/homepage`); Bracelet/Pendant Collection = real products
+// products (`/pluggeo/homepage`); Bracelet/Pendant Collection = real products
 // in those categories. Each `ProductCollectionSection` renders nothing when
 // its list is empty (see that component's own comment) rather than an empty
 // grid under a header.

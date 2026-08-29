@@ -1,4 +1,4 @@
-import { getPublishedProductsForHomepage } from "@/app/admin/products/actions";
+import { getPublishedProductsForHomepage } from "@/app/pluggeo/products/actions";
 import { HomepageFeaturedList } from "@/components/admin/homepage-featured-list";
 
 export const dynamic = "force-dynamic";

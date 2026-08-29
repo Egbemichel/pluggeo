@@ -71,7 +71,9 @@ simplifications) live in [PROGRESS.md](PROGRESS.md), not here.
 
 - No MVP language, no "phase 2" scoping — build the full v1 feature as specified in
   `docs/PROJECT.md` in one pass.
-- Single admin user only. Never scaffold multi-tenant, org, or role/permission systems.
+- Admin access is a flat email allowlist (`ADMIN_EMAILS`, 2026-08-29: two admins), not a
+  user/role system — every allowed email gets identical, unrestricted access. Never
+  scaffold multi-tenant, org, or role/permission systems.
 - Public-facing site has no customer accounts and no checkout — pure browsing.
 - Update `CHANGELOG.md` at the end of each feature, not per-commit.
 
@@ -96,13 +98,13 @@ build with no room to redo work.
 |---|---|
 | `figma-fidelity` | building/updating any storefront screen from a Figma frame |
 | `responsive-parity` | any storefront screen (mobile + desktop both required) |
-| `admin-cms-forms` | `src/app/admin/**` CRUD screens and Server Actions |
+| `admin-cms-forms` | `src/app/pluggeo/**` CRUD screens and Server Actions |
 | `drizzle-schema` | `db/**` changes, any DB query |
 | `image-optimization` | product photography, galleries, upload flow |
 | `seo-metadata` | any `app/(storefront)/**` page |
 | `gsap-motion` | any Client Component using GSAP |
 | `testing-conventions` | writing Vitest/Playwright tests |
-| `security-admin` | auth, Server Actions, or uploads under `/admin` |
+| `security-admin` | auth, Server Actions, or uploads under `/pluggeo` |
 | `performance-budget` | new dependencies, large images, new client-side JS |
 
 Don't invoke every contextual skill on every prompt — that defeats the point. Match them

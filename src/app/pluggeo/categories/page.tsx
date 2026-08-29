@@ -25,7 +25,7 @@ export default async function AdminCategoriesPage() {
           <p className="text-sm text-muted-foreground">{rows.length} total</p>
         </div>
         <Link
-          href="/admin/categories/new"
+          href="/pluggeo/categories/new"
           className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
         >
           New category

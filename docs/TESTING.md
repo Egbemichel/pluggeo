@@ -6,7 +6,7 @@ build window, coverage should prioritize critical paths over exhaustive coverage
 ## Priority order
 
 1. Admin product CRUD (create/edit/delete/publish) — the admin's daily workflow
-2. Auth gating — `/admin` routes reject unauthenticated/non-admin access
+2. Auth gating — `/pluggeo` routes reject unauthenticated/non-admin access
 3. Storefront rendering — home/grillz/category/shop/PDP render correctly from real data
 4. Shop page layout toggle (grid vs. gallery)
 

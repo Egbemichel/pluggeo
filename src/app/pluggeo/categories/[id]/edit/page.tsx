@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getCategoryById } from "@/app/admin/categories/actions";
+import { getCategoryById } from "@/app/pluggeo/categories/actions";
 import { CategoryForm, type CategoryFormInitialValues } from "@/components/admin/category-form";
 
 export default async function EditCategoryPage({

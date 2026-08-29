@@ -1,6 +1,6 @@
 ---
 name: admin-cms-forms
-description: Use when building admin CRUD screens or Server Actions under src/app/admin/** — product/category/image/homepage-curation forms. Validation, error handling, and single-admin UX patterns. Consult for any admin CMS feature work.
+description: Use when building admin CRUD screens or Server Actions under src/app/pluggeo/** — product/category/image/homepage-curation forms. Validation, error handling, and single-admin UX patterns. Consult for any admin CMS feature work.
 ---
 
 # Admin CMS forms
@@ -15,7 +15,7 @@ permission scopes — see `docs/ADMIN.md`).
   `db/schema.ts` table. Validate server-side even though the caller is always the admin
   — requests can still be malformed or forged.
 - **Auth**: every mutating Server Action re-checks `requireAdmin()` itself — don't rely
-  solely on the `/admin` route being gated by middleware (see `security-admin`).
+  solely on the `/pluggeo` route being gated by middleware (see `security-admin`).
 - **Error handling**: Server Actions return a typed result (e.g.
   `{ success: true, data } | { success: false, error }`) so the form can show an inline
   error, rather than throwing and relying on Next's generic error boundary.

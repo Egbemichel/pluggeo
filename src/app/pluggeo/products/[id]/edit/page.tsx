@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { asc } from "drizzle-orm";
 import { db } from "@/db";
 import { categories } from "@/db/schema";
-import { getProductWithRelations } from "@/app/admin/products/actions";
+import { getProductWithRelations } from "@/app/pluggeo/products/actions";
 import { ProductForm, type ProductFormInitialValues } from "@/components/admin/product-form";
 
 export default async function EditProductPage({

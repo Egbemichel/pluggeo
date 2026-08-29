@@ -22,17 +22,27 @@ anywhere: Shop, Home, Grillz, category pages, product detail, related
 products, and search all query `src/lib/products.ts`. Every one of those
 routes is `force-dynamic` so admin edits show up immediately, not just after
 the next deploy. Category and Homepage-curation admin screens are built
-too. The DB is currently empty (0 products, 0 categories) — every page's
-empty state was verified against that real empty state, not simulated.
+too. Shop's category/price/sort filters are now genuinely real (a price
+chip and custom min/max override each other, per the user). The PDP
+Customize section renders real variant chips grouped by category
+(Size/Width/Gold Color/...), hidden entirely when a product has none. The
+DB is currently empty (0 products, 0 categories) — every page's empty state
+was verified against that real empty state, not simulated, and the new
+filter/variant behavior was verified against real temporary rows inserted
+and cleaned up via direct SQL (no admin browser session available to
+Claude — see the multi-admin entry below for why).
 
-**Admin product CRUD is built** (`/admin/products` list, new, edit — see the
-resolved-decision entry below) but **not yet end-to-end verified**: Cloudinary
-credentials (cloud name, API key, API secret) haven't been provided yet, so
-the upload widget can't actually be exercised until `.env.local` and the
-Cloudflare Worker secrets are wired with real values. `tsc`/lint/`next
-build`/`vitest` are all clean against the code as written. **Its first deploy
-attempt actually failed CI** (see the resolved-decision entry below) — fixed,
-but re-confirm the live `/admin` route once the next push deploys.
+**Admin dashboard moved to `/pluggeo`** (2026-08-29, security — old `/admin`
+path retired, no redirect: it now plain 404s). Two admins now share access
+via `ADMIN_EMAILS` (comma-separated allowlist, was a single `ADMIN_EMAIL`).
+
+**Admin product CRUD is built** (`/pluggeo/products` list, new, edit — see
+the resolved-decision entries below). Real Cloudinary credentials are wired
+(`.env.local` + Cloudflare Worker secret + GitHub Actions build-time
+secrets) — the account/signing setup is confirmed working (hit Cloudinary's
+own API directly with the credentials, and the app's `signUploadParams`
+produces a valid signature), but the actual browser upload-widget round
+trip still hasn't been confirmed by the user in a live session.
 
 Scaffolding, design tokens, and ~34 components are built. **Home is fully built,
 top to bottom**: HeroSection → promo strip → Bestsellers (placeholder products) →
@@ -48,6 +58,91 @@ pagination.
 
 ## Resolved decisions
 
+- **Real Shop filters; variant-driven PDP Customize; admin form UX pass;
+  two admins; dashboard moved to `/pluggeo`** (2026-08-29, five requests in
+  one pass) —
+  1. **Shop's category/price/sort filters are real now**, per the user
+     explicitly confirming a price chip and custom min/max should override
+     each other. `ShopPageContent` (`src/components/shop-page-content.tsx`)
+     filters the real product list by category (an "All" pseudo-category is
+     prepended to the real DB category list so the filter can be cleared)
+     and price (chip presets have hardcoded numeric bounds next to the one
+     place that uses them, since `price-filter-panel.tsx` only ever defined
+     display labels), sorts by price, then paginates the *filtered* result
+     — pagination was already real from the previous pass, filtering wasn't.
+     Selecting a price chip resets custom min/max back to defaults;
+     editing custom min/max clears the active chip — exactly one price
+     filter is ever active. Verified against real temporary rows (3
+     products across 2 categories, 3 different price points) inserted
+     directly via SQL: category filter correctly narrowed the grid, the
+     "Under $500" chip correctly isolated the one cheap product, and
+     setting a custom 5000-7000 range correctly cleared that chip *and*
+     re-filtered to the one product actually in range — then cleaned up.
+  2. **PDP Customize is variant-driven now**, replacing the old hardcoded
+     Size/Width/Gold-color/Gold-type placeholder lists. `getProductDetailBySlug`
+     (`src/lib/products.ts`) now also loads the product's real
+     `product_variants` rows (a single-product query, so this doesn't
+     conflict with the batch-query-cost reasoning that still keeps list/grid
+     views from loading variants). `ProductCustomize` groups a product's
+     variants by attribute key into chip rows, ordered by a fixed known list
+     (`VARIANT_ATTRIBUTE_CATEGORIES` in the new `src/lib/product-attributes.ts`
+     — Size/Width/Length/Gold Color/Gold Type/Material/Chain Length/Stone)
+     with any other key falling back to appearing after, alphabetically
+     (defensive — `attributes` is still a flexible JSONB column). Renders
+     nothing at all — not even the "Customize" toggle — for a product with
+     no variants. Selection stays decorative (doesn't drive price/
+     availability), same scope boundary as before, just backed by real chip
+     values now. Verified via real inserted variants (Size/Gold Color chips
+     showing real values on a product that had them) and confirmed the
+     toggle button itself (not just the word "Customize," which also
+     appears in the site's global footer tagline — a real false-positive
+     caught mid-verification) doesn't render at all for a variant-less
+     product.
+  3. **Admin variant attributes are categorized, not freeform text** — the
+     product form's "key" field for each variant attribute is now a
+     `Select` populated from `VARIANT_ATTRIBUTE_CATEGORIES` (same shared
+     list Customize groups by) instead of a plain text input, and a variant
+     can't pick the same category twice (the dropdown filters out categories
+     already used elsewhere in that same variant). This is what makes #2
+     above actually work cleanly — freeform text keys would let "Gold Color"
+     and "Gold color" exist as two different chip groups on the same
+     product.
+  4. **Admin product/category forms got a real UI/UX pass**, per the user
+     asking for actual best practices, not just a working form: auto-
+     generated slug from the name (stops once the admin edits slug
+     directly), inline per-field validation errors using the *same* zod
+     schema the server validates with (`productInputSchema`/
+     `categoryInputSchema` extracted to new `schema.ts` files next to each
+     actions.ts — a `"use server"` file may only export async functions, so
+     the schema couldn't keep living inline there once the client form
+     needed to import it too — client and server validation can now never
+     silently drift apart), required-field asterisks, `$`-prefixed price
+     inputs, `<fieldset>`/`<legend>` for proper section grouping instead of
+     a styled heading, autofocus on the first field, focus moved to the
+     first invalid field on a failed submit (not just a banner), and a
+     transient "Product/Category saved" success message after an *edit*
+     save (create already redirects to the edit page, which is its own
+     confirmation — a toast there would be redundant).
+  5. **Two admins now, dashboard moved for security.** `ADMIN_EMAILS`
+     (comma-separated, `src/lib/admin-auth.ts`) replaces the old single
+     `ADMIN_EMAIL` — added Zensupplius@gmail.com alongside the existing
+     admin, both get identical full access (still just an allowlist, not a
+     roles table). The Cloudflare Worker secret was renamed to match
+     (`ADMIN_EMAILS` set, old `ADMIN_EMAIL` deleted, confirmed via `wrangler
+     secret list`). The entire admin route tree moved `src/app/admin` →
+     `src/app/pluggeo` (`git mv`, preserving history) — every internal
+     link/redirect/`revalidatePath` call, the `@/app/admin/...` import
+     paths, and critically `middleware.ts`'s `createRouteMatcher(["/admin(.*)"])`
+     all updated to match, plus every doc/skill file that referenced the
+     literal old path (`CLAUDE.md`, `docs/AUTH.md`, `docs/ADMIN.md`,
+     `docs/ARCHITECTURE.md`, `docs/TESTING.md`, the `admin-cms-forms`/
+     `security-admin` skills). No redirect from the old path — `/admin` now
+     plain 404s, confirmed live (a real browser check, not just curl, since
+     Clerk's dev-instance redirect handshake needs real cookies/JS — a bare
+     curl 404 on a gated route isn't meaningful either way, documented
+     already from an earlier session). Verified via real browser: `/pluggeo`
+     and `/pluggeo/products` correctly redirect an unauthenticated visitor
+     to `/sign-in?redirect_url=...`, `/admin` 404s.
 - **Categories/Homepage admin built; multi-file upload bug fixed; entire
   storefront wired off placeholder data onto real DB queries** (2026-08-29,
   three requests in one pass) —

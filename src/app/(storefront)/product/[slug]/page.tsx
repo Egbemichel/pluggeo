@@ -36,6 +36,7 @@ export default async function ProductPage({
           price={product.price}
           compareAtPrice={product.compareAtPrice}
           description={product.description ?? "No description yet for this piece."}
+          variants={product.variants}
         />
         <RelatedPiecesSection products={related} />
       </div>
