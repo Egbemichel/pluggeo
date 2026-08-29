@@ -32,6 +32,37 @@ pagination.
 
 ## Resolved decisions
 
+- **`SearchOverlay` given its own close animation + deferred-navigation pass**
+  (2026-08-29), per the user, closing out the follow-up flagged in the
+  previous entry — it had none of either before: `if (!open) return null`
+  with no exit state, and clicking a result navigated away without ever
+  calling a close handler, so the overlay just kept floating (portaled to
+  `<body>`) over the destination page. New shared `useLaggedMount` hook
+  (`src/hooks/use-lagged-mount.ts`) extracts the "mount lags open on close"
+  bookkeeping (previously duplicated inline in `use-drawer-transition.ts`,
+  now refactored to use it too) so this tricky, lint-sensitive ref pattern
+  exists in exactly one place. `SearchOverlay` gained its own fade+slight
+  vertical-slide open/close (not reusing `useDrawerTransition`'s side-slide
+  timeline — a centered top-anchored dropdown is a different enough shape
+  that forcing it through a drawer's `xPercent` animation wouldn't reuse
+  anything meaningful). `ProductLineItemCard` gained an optional `onNavigate`
+  prop so its internal Link's click can be intercepted only by callers that
+  need to (SearchOverlay does; `/bag`'s usage doesn't and is unaffected).
+  **Real debugging detour, not a design flaw**: mid-implementation, result
+  clicks appeared to never navigate at all — traced with instrumentation
+  (probing `document.startViewTransition`, logging network requests) down to
+  the RSC fetch firing correctly but the URL never committing, with *no*
+  view transition even attempted. Turned out to be **dev-server/HMR state
+  corruption from this same file being hot-reloaded dozens of times in one
+  debugging session**, not a real bug — confirmed by restarting the dev
+  server fresh (`rm -rf .next` + restart), after which the identical code
+  worked immediately. Worth remembering for future sessions: if router
+  navigation mysteriously stops committing after heavy edit/reload cycles on
+  the same file, restart the dev server before assuming the code is wrong.
+  Verified (on the fresh server) via Playwright: overlay closes before the
+  URL changes on result-click (same fine-grained ordering check as
+  `MobileNavDrawer`'s fix), and Escape/backdrop/X-button close all still
+  work correctly.
 - **Fixed: dial wave made the dials hard to use; drawer-close/page-transition
   race; loading states flickered/had nothing at `/bag`** (2026-08-29, three
   related live-site UX complaints, one pass) —
@@ -1086,16 +1117,6 @@ collage photos), `public/placeholder-product.svg` (local placeholder, not from F
 
 ## Flagged / worth confirming (not blocking)
 
-- **`SearchOverlay` has the same drawer-close/navigation race as
-  `MobileNavDrawer` did, plus a worse variant**: clicking a search result's
-  link navigates away without ever calling a close handler at all, so the
-  overlay doesn't just race the transition — it never closes and would keep
-  floating over the destination page (portaled to `<body>`, unaffected by
-  the route change) until the user dismisses it manually. Same fix shape as
-  `MobileNavDrawer`'s (defer navigation until a close animation completes)
-  would apply, but `SearchOverlay` doesn't have an exit animation at all
-  today (`if (!open) return null`, no `useDrawerTransition`) — needs its own
-  pass, not a copy-paste of the drawer's fix.
 - **GitHub Actions deploy workflow needs 3 repo secrets added before it can
   run successfully** — `CLOUDFLARE_API_TOKEN`, `DATABASE_URL`,
   `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, via Settings → Secrets and variables →

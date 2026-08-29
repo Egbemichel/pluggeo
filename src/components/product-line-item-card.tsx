@@ -74,6 +74,13 @@ export type ProductLineItemCardProps = {
   action: ProductLineItemAction;
   quantity?: QuantityStepperProps["value"];
   onQuantityChange?: QuantityStepperProps["onChange"];
+  /** Overrides the card's own Link click — if provided, called instead of
+   * letting Link navigate immediately. The caller owns calling
+   * `e.preventDefault()` if it wants to defer/replace the navigation (e.g.
+   * SearchOverlay closing itself first, then navigating once it's actually
+   * gone). Omitted by every caller that doesn't sit inside a closeable
+   * overlay (e.g. /bag), where Link's default behavior is exactly right. */
+  onNavigate?: (e: React.MouseEvent<HTMLAnchorElement>) => void;
 };
 
 export function ProductLineItemCard({
@@ -81,6 +88,7 @@ export function ProductLineItemCard({
   action,
   quantity,
   onQuantityChange,
+  onNavigate,
 }: ProductLineItemCardProps) {
   const onSale = product.compareAtPrice != null && product.compareAtPrice > product.price;
 
@@ -88,6 +96,7 @@ export function ProductLineItemCard({
     <article className="flex flex-col gap-(--space-4) rounded-md border border-border-default p-(--space-5) md:flex-row md:items-start md:gap-(--space-6)">
       <Link
         href={product.href}
+        onClick={onNavigate}
         transitionTypes={["nav-forward"]}
         className="flex min-w-0 gap-(--space-6) md:flex-1"
       >

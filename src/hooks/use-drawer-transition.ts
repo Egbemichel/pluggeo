@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import gsap from "gsap";
+import { useLaggedMount } from "@/hooks/use-lagged-mount";
 import { EASE, DURATION, STAGGER, MOTION_QUERY } from "@/lib/motion";
 
 // Shared open/close choreography for MobileNavDrawer and MobileFilterDrawer
@@ -39,29 +40,13 @@ export function useDrawerTransition({
   itemSelector = "[data-drawer-item]",
   onClosed,
 }: UseDrawerTransitionOptions) {
-  const [mounted, setMounted] = useState(open);
+  const [mounted, setMounted] = useLaggedMount(open);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const onClosedRef = useRef(onClosed);
 
   useLayoutEffect(() => {
     onClosedRef.current = onClosed;
   });
-
-  // "Adjusting state when a prop changes," per React's own docs
-  // (https://react.dev/reference/react/useState#storing-information-from-previous-renders)
-  // — a direct setState call during render (not inside an effect) so
-  // `mounted` flips true in the SAME render `open` does, instead of lagging
-  // a frame behind it. This project's react-hooks lint config is stricter
-  // than React's own documented pattern here (it flags any ref read/write
-  // during render, full stop) — disabled locally rather than working around
-  // a real design constraint with a fake one.
-  const prevOpen = useRef(open);
-  // eslint-disable-next-line react-hooks/refs -- read + write, see comment above
-  if (open !== prevOpen.current) {
-    // eslint-disable-next-line react-hooks/refs -- see comment above
-    prevOpen.current = open;
-    if (open) setMounted(true);
-  }
 
   useEffect(() => {
     const panel = panelRef.current;
@@ -119,7 +104,7 @@ export function useDrawerTransition({
     }
 
     return () => mm.revert();
-  }, [open, mounted, itemSelector]);
+  }, [open, mounted, itemSelector, setMounted]);
 
   return { mounted, panelRef };
 }

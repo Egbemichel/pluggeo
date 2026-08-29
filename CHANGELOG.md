@@ -6,6 +6,18 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+### Fixed (batch 49 — SearchOverlay gets its own close animation + nav fix)
+
+- `SearchOverlay` had no exit animation at all and clicking a search result
+  navigated away without ever closing it, leaving it floating over the
+  destination page. Gave it its own fade+slide open/close (a centered
+  top-anchored dropdown, not reusing the drawer's side-slide) and deferred
+  result-click navigation until the close animation finishes — same fix
+  shape as `MobileNavDrawer`'s, extracted the shared "mount lags open"
+  bookkeeping into a new `useLaggedMount` hook so both use it. Verified the
+  overlay closes before the destination URL changes, and that Escape/
+  backdrop/X-button close all still work.
+
 ### Fixed (batch 48 — dial UX, drawer/page-transition race, loading states)
 
 - **Dials**: removed the "stadium wave" hover/swipe scale animation from
