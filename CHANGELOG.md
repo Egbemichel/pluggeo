@@ -6,6 +6,31 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+### Added (batch 50 — admin product CRUD with Cloudinary image/video upload)
+
+- Real admin dashboard shell (`src/app/admin/layout.tsx` +
+  `src/components/admin/admin-sidebar.tsx`), pattern-ported from
+  `Kiranism/next-shadcn-dashboard-starter` and restyled to Plug Geo's dark
+  tokens — Products is live, Categories/Homepage are stubbed "coming soon."
+- Full product CRUD: list (`/admin/products`, real Drizzle query, thumbnail/
+  status/featured columns, edit/publish-toggle/delete row menu), create/edit
+  form (`/admin/products/new`, `/admin/products/[id]/edit`) covering name,
+  slug, description, price, compare-at price, category, status, featured,
+  media, and a repeatable variant editor (label + flexible key/value
+  attributes + price override + availability).
+- Media upload wired to **Cloudinary**, not Cloudflare R2 — swapped mid-plan
+  per the user, since R2's free tier requires a card on file and
+  Cloudinary's doesn't. Signed direct upload via `next-cloudinary`'s
+  `CldUploadWidget`, a new signing Route Handler
+  (`src/app/api/cloudinary-sign/route.ts`), and `src/lib/cloudinary.ts`.
+- `db/schema.ts`'s `product_images` table renamed to `product_media` with a
+  new `type` (image/video) column, since the admin now uploads both.
+- `src/lib/admin-auth.ts` split into `getAdminUser()` (non-redirecting, for
+  Server Actions/Route Handlers) and `requireAdmin()` (redirecting, for
+  page/layout guards).
+- See `docs/ADMIN.md`/`docs/DATABASE.md` for the full shape. `tsc`/lint/
+  `next build`/`vitest` all clean.
+
 ### Fixed (batch 49 — SearchOverlay gets its own close animation + nav fix)
 
 - `SearchOverlay` had no exit animation at all and clicking a search result

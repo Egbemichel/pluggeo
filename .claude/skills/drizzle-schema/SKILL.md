@@ -19,7 +19,7 @@ work with the schema day to day.
 - Fetch related data (product + images + variants) with a single Drizzle relational
   query or an explicit join, not sequential per-row queries in a loop — the Shop/PDP
   pages will be doing this on every request.
-- Cascade deletes: `product_images` and `product_variants` already cascade on
+- Cascade deletes: `product_media` and `product_variants` already cascade on
   `products` delete — follow the same pattern for any new child table so deleting a
   product doesn't leave orphaned rows.
 - The `attributes` JSONB column on `product_variants` is deliberately flexible across

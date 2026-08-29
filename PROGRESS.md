@@ -18,6 +18,13 @@ is connected and migrated (see the resolved-decision entry below); storefront
 pages still read placeholder arrays, not real queries yet — that's separate,
 unstarted work.
 
+**Admin product CRUD is built** (`/admin/products` list, new, edit — see the
+resolved-decision entry below) but **not yet end-to-end verified**: Cloudinary
+credentials (cloud name, API key, API secret) haven't been provided yet, so
+the upload widget can't actually be exercised until `.env.local` and the
+Cloudflare Worker secrets are wired with real values. `tsc`/lint/`next
+build`/`vitest` are all clean against the code as written.
+
 Scaffolding, design tokens, and ~34 components are built. **Home is fully built,
 top to bottom**: HeroSection → promo strip → Bestsellers (placeholder products) →
 Our categories (real photography) → CelebrityShowcase (real media) →
@@ -32,6 +39,72 @@ pagination.
 
 ## Resolved decisions
 
+- **Admin product CRUD built: shell + list + create/edit form + Cloudinary
+  image/video upload** (2026-08-29) — first real dynamic-data feature of the
+  build (everything storefront-side is still placeholder arrays; this is
+  intentionally scoped narrower, per the user: product CRUD + upload only,
+  not categories/homepage curation or swapping the storefront off
+  placeholders yet). Admin shell (`src/app/admin/layout.tsx` +
+  `src/components/admin/admin-sidebar.tsx`) pattern-ported (not a literal
+  copy) from `Kiranism/next-shadcn-dashboard-starter`, restyled to this
+  project's existing shadcn semantic tokens (`bg-sidebar`, `border-border`,
+  etc. — already defined in `globals.css`, not new) — chosen over `AdminJS`
+  because AdminJS is a foreign Express-mountable backend with no confirmed
+  Cloudflare Workers compatibility, contradicting the locked "single Next.js
+  app, no separate API layer" rule; this template is pure UI patterns with no
+  backend of its own. Sidebar nav: Products (live), Categories/Homepage
+  (stubbed "coming soon," not built this pass).
+  `src/app/admin/products/actions.ts` — `createProduct`/`updateProduct`/
+  `deleteProduct`/`setProductStatus`/`getProductWithRelations`, zod-validated,
+  each independently re-checking admin identity (belt-and-suspenders — Server
+  Actions can be invoked directly even though the route layout already
+  gates). `src/lib/admin-auth.ts` split into `getAdminUser()` (returns
+  `null`, safe for Server Actions/Route Handlers) and `requireAdmin()`
+  (redirects, for page/layout guards) since a browser redirect doesn't make
+  sense for a fetch()/RPC call.
+  **Storage: Cloudinary, not Cloudflare R2** — the plan originally specified
+  R2, but the user interjected mid-implementation: R2's free tier requires a
+  card on file, Cloudinary's doesn't. Researched Cloudinary's own signed-
+  upload pattern before proceeding rather than assuming: a Route Handler
+  (`src/app/api/cloudinary-sign/route.ts` — a Route Handler, not a Server
+  Action, since `next-cloudinary`'s `CldUploadWidget` needs a fetchable
+  `signatureEndpoint` URL per Cloudinary's own widget contract) signs upload
+  params server-side (`src/lib/cloudinary.ts`, API secret never reaches the
+  browser); the browser then uploads directly to Cloudinary, bypassing the
+  Worker entirely (right call regardless of provider — video is too large to
+  comfortably proxy through a Cloudflare Worker request). Net effect: the
+  Cloudinary swap *simplified* the plan versus R2's version, since
+  `next-cloudinary` ships a pre-built widget (drag-and-drop, progress, image
+  *and* video) where R2 would have needed a hand-built dropzone.
+  `db/schema.ts`'s `product_images` renamed to `product_media` with a new
+  `type` (image/video) column, since admin uploads video now too —
+  `drizzle-kit generate`'s rename-detection needs an interactive TTY (can't
+  be scripted), worked around via `--custom` (empty migration scaffold) +
+  hand-written SQL + a manually-corrected `meta/0001_snapshot.json` (`--custom`
+  does NOT re-introspect `schema.ts`, confirmed by grep still showing the old
+  table name after generating) — applied successfully against the real Neon
+  DB, confirmed via direct `information_schema` query.
+  Product form (`src/components/admin/product-form.tsx`) is a plain HTML
+  form + Server Actions, not react-hook-form — shadcn's `form.tsx` primitive
+  assumes it, which isn't this project's stack (confirmed: running `shadcn
+  add form` produced no output/files at all, consistent with the mismatch,
+  not pursued further). Variants use the schema's existing flexible JSONB
+  `attributes` via a repeatable key/value row editor. Media/variants are
+  replace-in-place on every save (delete + re-insert) — correct for a
+  single-admin CMS with no concurrent editors, not a general-purpose pattern.
+  Generated shadcn primitives needed one real fix: `dialog.tsx` referenced
+  `<Button variant="ghost">`/`<Button variant="outline">`, but this project's
+  own `Button` has no `variant`/`size` props at all (fixed CTA style, by
+  design) — replaced those two spots with plain styled `<button>`s rather
+  than forcing the storefront's CTA button into a role it wasn't built for.
+  **Not yet done**: Cloudinary account credentials (cloud name, API key, API
+  secret) haven't been provided, so `.env.local`/Worker secrets aren't wired
+  with real values yet and the upload flow is unverified end-to-end (only
+  `tsc`/lint/`next build`/`vitest` confirm the code is correct, not that a
+  real upload round-trips through Cloudinary) — next concrete step once
+  credentials arrive. Live-deployment re-verification (the established
+  discipline from the CelebrityShowcase/SearchOverlay incidents) also still
+  pending for the same reason.
 - **`SearchOverlay` given its own close animation + deferred-navigation pass**
   (2026-08-29), per the user, closing out the follow-up flagged in the
   previous entry — it had none of either before: `if (!open) return null`

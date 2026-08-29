@@ -8,7 +8,9 @@ row-level multi-tenancy anywhere in the schema. No cart/order/payment tables —
 
 - **product** — name, slug, description, base price, category, status (draft/published),
   featured flag/position (for homepage curation), timestamps
-- **product_image** — product_id, url, alt text, sort order
+- **product_media** — product_id, type (image/video), url, alt text, sort order.
+  Renamed from `product_image` (2026-08-29) once the admin started uploading
+  video alongside photos.
 - **product_variant** — product_id, variant attributes (material/karat, size, chain
   length, etc. — jewelry attributes differ by category, so kept flexible via a JSONB
   `attributes` column rather than rigid columns per category), price override,

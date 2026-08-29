@@ -36,11 +36,20 @@ export const products = pgTable("products", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
-export const productImages = pgTable("product_images", {
+// Renamed from `product_images` (2026-08-29) — the admin now uploads video
+// alongside photos (see docs/ADMIN.md), so a table named "images" holding
+// videos too was misleading. `type` distinguishes how each item renders
+// storefront-side (e.g. ProductSpotlight's coverflow already branches on
+// media type for CelebrityShowcase; product galleries get the same
+// treatment once real data replaces the placeholder arrays).
+export const productMedia = pgTable("product_media", {
   id: uuid("id").primaryKey().defaultRandom(),
   productId: uuid("product_id")
     .notNull()
     .references(() => products.id, { onDelete: "cascade" }),
+  type: text("type", { enum: ["image", "video"] })
+    .notNull()
+    .default("image"),
   url: text("url").notNull(),
   altText: text("alt_text"),
   sortOrder: integer("sort_order").notNull().default(0),
