@@ -6,6 +6,21 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+### Fixed (batch 51 — CI deploy failure + celebrity dial click accuracy)
+
+- `deploy.yml`'s `Build and deploy` step was missing `DATABASE_URL`, causing
+  the previous push (admin CRUD) to fail CI outright — `next build` still
+  evaluates every route module, dynamic ones included, during page-data
+  collection, which trips `db/index.ts`'s eager "not configured" throw. Added
+  `DATABASE_URL` to that step's env, reproduced and confirmed the fix
+  locally.
+- Mobile celebrity dial: clicking a pill could select a different,
+  overlapping neighbor instead — a fixed 46px offset between pills didn't
+  account for real celebrity handles varying from ~90px to ~183px wide.
+  `CategoryDial`'s horizontal branch now measures each pill's real width and
+  spaces neighbors from an overlap budget instead of a fixed step, so the
+  visually topmost pill is always the one that's actually clickable.
+
 ### Added (batch 50 — admin product CRUD with Cloudinary image/video upload)
 
 - Real admin dashboard shell (`src/app/admin/layout.tsx` +

@@ -23,7 +23,9 @@ resolved-decision entry below) but **not yet end-to-end verified**: Cloudinary
 credentials (cloud name, API key, API secret) haven't been provided yet, so
 the upload widget can't actually be exercised until `.env.local` and the
 Cloudflare Worker secrets are wired with real values. `tsc`/lint/`next
-build`/`vitest` are all clean against the code as written.
+build`/`vitest` are all clean against the code as written. **Its first deploy
+attempt actually failed CI** (see the resolved-decision entry below) — fixed,
+but re-confirm the live `/admin` route once the next push deploys.
 
 Scaffolding, design tokens, and ~34 components are built. **Home is fully built,
 top to bottom**: HeroSection → promo strip → Bestsellers (placeholder products) →
@@ -39,6 +41,82 @@ pagination.
 
 ## Resolved decisions
 
+- **Fixed: mobile celebrity dial's click target didn't match what was visually
+  on top; CI deploy for the admin CRUD push had silently failed** (2026-08-29,
+  reported live by the user right after the admin CRUD push above) —
+  1. **CI deploy failure — this is why `/admin` still looked like the old
+     stub.** The previous push's GitHub Actions run genuinely failed (checked
+     via the Actions API directly, not assumed): `Build and deploy` errored
+     with `Failed to collect page data for /admin/products/[id]/edit` →
+     `DATABASE_URL is not configured`, thrown from `db/index.ts`'s
+     module-eval guard. Root cause, reproduced locally by unsetting
+     `DATABASE_URL` and rebuilding: even though every `/admin/**` route is
+     server-rendered on demand (not statically prerendered), `next build`
+     still evaluates every route module — dynamic ones included — during its
+     "collect page data" pass (reading exports like `generateStaticParams`),
+     which executes top-level imports and therefore `db/index.ts`'s eager
+     throw. `deploy.yml`'s `Build and deploy` step only ever passed
+     `DATABASE_URL` to the separate `Run database migrations` step, not to
+     `cf:deploy` itself — added it there too. Since the deploy failed
+     outright, the live Worker just kept serving the *previous* successful
+     deploy with no visible error anywhere except the Actions run itself —
+     "the admin page is still a template" was accurate, not a caching
+     artifact. Re-verified the exact fix locally: rebuilding with
+     `DATABASE_URL` supplied only via process env (not `.env.local`, matching
+     how CI provides it) now succeeds.
+  2. **Dial click-accuracy — a second, previously-unfound cause of "jumpy"
+     dial UX**, layered on top of the wave/no-transition fixes from the entry
+     below (removing the wave alone didn't touch this). Diagnosed with a
+     throwaway Playwright script (not guessed): on the mobile horizontal
+     celebrity dial, clicking exactly on a visually-distinct pill
+     (`@rodwave`) actually selected a *different* pill (`@moneybaggyo`)
+     underneath it — confirmed via `document.elementFromPoint` at the clicked
+     pill's own center resolving to the wrong element. Root cause: the
+     coverflow's absolutely-positioned pills used a fixed 46px offset
+     (`OFFSET_X_STEP`) between neighbors regardless of each pill's actual
+     rendered width — fine for short labels, badly wrong for real celebrity
+     handles ranging from `@rodwave` (~90px) to `@trappyoblockouttt365`
+     (~183px), where a closer-to-center pill's much wider, higher-z-index
+     rectangle silently covered most (sometimes all but an ~18px sliver) of
+     the next pill out. `CategoryDial`'s horizontal branch now measures each
+     pill's real `offsetWidth` post-render (`useLayoutEffect`, re-measured
+     every render since size changes with distance from active, guarded
+     against redundant `setState` so it can't loop) and lays items out from a
+     per-pair overlap budget (`PEEK_OVERLAP = 0.35`) instead of a fixed step
+     — however wide two neighboring labels are, at most ~35% of their
+     combined width overlaps, keeping the intentional coverflow "peeking
+     behind" look while guaranteeing the visually topmost pill at any point
+     is also the one that's actually clickable there. Trade-off, disclosed
+     rather than hidden: correctly-spaced (non-overlapping) pills for these
+     often-long real handles need more horizontal room than the old
+     tightly-overlapped layout, so fewer neighbors are simultaneously
+     reachable within a 375px viewport before being clipped by the strip's
+     `overflow-hidden` — acceptable for a rolodex-style "step through
+     neighbors" interaction (which was always the intended model — swipe-and-
+     release already only ever selects a nearby item), not a regression in
+     what was reachable before, since before, reaching a farther item by
+     clicking on it usually selected the wrong one anyway. Verified via
+     Playwright: clicking each of 3 consecutive real, on-screen neighbors in
+     sequence now selects exactly the clicked pill every time (confirmed
+     both by `aria-current` moving to the right item and a hit-test at the
+     click point resolving to that same pill), vs. before where the same
+     clicks resolved to the wrong neighbor.
+  **Debugging detour worth recording**: mid-diagnosis, a `localhost`
+  DNS-resolution hiccup in the Playwright test harness led to switching the
+  test to `127.0.0.1`, which is silently blocked by Next 16 dev server's
+  cross-origin protection — every JS chunk request came back `403`, so the
+  page never actually hydrated and kept showing server-rendered fallback
+  markup no matter how many times the dev server was restarted or `.next`
+  was cleared. Several minutes were spent suspecting HMR/cache corruption
+  (a real, previously-documented failure mode in this project, see the
+  CelebrityShowcase entry below) before checking response status codes
+  directly revealed the real cause. Switching back to `localhost` (which
+  resolved fine all along) fixed it immediately. Lesson for future sessions:
+  when a fix "isn't taking effect" in a live Playwright check, check the
+  actual HTTP response codes for the JS bundle requests before restarting
+  the dev server — an origin/CORS block looks identical to stale/uncompiled
+  code from the outside (same symptom: old behavior persists no matter what
+  you change), but has a completely different, much faster fix.
 - **Admin product CRUD built: shell + list + create/edit form + Cloudinary
   image/video upload** (2026-08-29) — first real dynamic-data feature of the
   build (everything storefront-side is still placeholder arrays; this is

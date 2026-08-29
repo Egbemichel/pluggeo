@@ -45,9 +45,22 @@ jobs:
       # Cloudflare adapter copies Worker secrets into process.env at request
       # time, so the deployed server code reads them the same way local dev
       # reads .env.local.
+      #
+      # DATABASE_URL IS needed here too, even though every route that reads
+      # it is server-rendered on demand (not statically prerendered) — real
+      # CI failure confirmed this: Next's build still evaluates every route
+      # module (including dynamic ones) during its "collect page data" pass
+      # to read exports like `generateStaticParams`/`dynamic`, and `db/index.ts`
+      # throws eagerly at module-evaluation time if `DATABASE_URL` is unset.
+      # Without this, admin/products/[id]/edit fails "Failed to collect page
+      # data," `cf:deploy` exits non-zero, and the live Worker silently keeps
+      # serving the previous successful deploy — no error surfaces anywhere
+      # except this workflow's own failed run, so a build-breaking change can
+      # look like nothing happened at all on the live site.
       - name: Build and deploy
         run: npm run cf:deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
           NEXT_PUBLIC_CLERK_SIGN_IN_URL: /sign-in
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
