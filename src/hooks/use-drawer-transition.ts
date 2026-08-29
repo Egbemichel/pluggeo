@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import gsap from "gsap";
 import { EASE, DURATION, STAGGER, MOTION_QUERY } from "@/lib/motion";
 
@@ -23,11 +23,29 @@ import { EASE, DURATION, STAGGER, MOTION_QUERY } from "@/lib/motion";
 export type UseDrawerTransitionOptions = {
   open: boolean;
   itemSelector?: string;
+  /** Fires once the close animation has actually finished (panel fully
+   * slid out, unmounted) — not on `open` flipping false, which is when the
+   * animation *starts*. Callers that need to sequence something after the
+   * drawer is genuinely gone (e.g. deferring a navigation so it doesn't
+   * race the drawer's own exit animation) should use this rather than
+   * reacting to `open` themselves. Kept current via a layout effect rather
+   * than depended on directly, so passing a new closure each render doesn't
+   * restart the in-flight close timeline. */
+  onClosed?: () => void;
 };
 
-export function useDrawerTransition({ open, itemSelector = "[data-drawer-item]" }: UseDrawerTransitionOptions) {
+export function useDrawerTransition({
+  open,
+  itemSelector = "[data-drawer-item]",
+  onClosed,
+}: UseDrawerTransitionOptions) {
   const [mounted, setMounted] = useState(open);
   const panelRef = useRef<HTMLDivElement | null>(null);
+  const onClosedRef = useRef(onClosed);
+
+  useLayoutEffect(() => {
+    onClosedRef.current = onClosed;
+  });
 
   // "Adjusting state when a prop changes," per React's own docs
   // (https://react.dev/reference/react/useState#storing-information-from-previous-renders)
@@ -72,7 +90,10 @@ export function useDrawerTransition({ open, itemSelector = "[data-drawer-item]" 
     } else {
       mm.add(MOTION_QUERY.full, () => {
         const tl = gsap.timeline({
-          onComplete: () => setMounted(false),
+          onComplete: () => {
+            setMounted(false);
+            onClosedRef.current?.();
+          },
         });
         tl.to([...items].reverse(), {
           opacity: 0,
@@ -85,7 +106,14 @@ export function useDrawerTransition({ open, itemSelector = "[data-drawer-item]" 
         return () => tl.kill();
       });
       mm.add(MOTION_QUERY.reduced, () => {
-        const tween = gsap.to(panel, { opacity: 0, duration: 0.15, onComplete: () => setMounted(false) });
+        const tween = gsap.to(panel, {
+          opacity: 0,
+          duration: 0.15,
+          onComplete: () => {
+            setMounted(false);
+            onClosedRef.current?.();
+          },
+        });
         return () => tween.kill();
       });
     }

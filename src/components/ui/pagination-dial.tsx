@@ -64,7 +64,7 @@ export function PaginationDial({
               borderRadius: coverflowRadiusForDistance(distance),
               filter: coverflowBlurForDistance(distance),
             }}
-            className="flex shrink-0 items-center justify-center border border-black bg-white font-heading text-[3.75rem] leading-[1.4] font-bold text-text-primary transition-[filter]"
+            className="flex shrink-0 items-center justify-center border border-black bg-white font-heading text-[3.75rem] leading-[1.4] font-bold text-text-primary transition-[filter,width,height,border-radius] duration-300 ease-out"
           >
             {page}
           </button>

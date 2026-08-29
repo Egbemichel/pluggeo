@@ -1,64 +1,41 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
-import gsap from "gsap";
-import { EASE, DURATION, STAGGER, MOTION_QUERY } from "@/lib/motion";
+import { useCallback, useRef } from "react";
 
-// The one shared dial interaction, per the user — CategoryDial and
+// Shared dial pointer-tracking, per the user — CategoryDial and
 // PaginationDial both consume this internally, so every existing render
 // site (celebrity showcase x2, shop sidebar, category page x2, shop page
 // x2) inherits it automatically with zero per-site changes.
 //
-// Pointer Events (not separate mouse/touch handlers) covers desktop hover
-// and mobile swipe with one code path — `pointerType` tells them apart only
-// where the spec actually distinguishes: touch selects on release, mouse
-// does not (click-to-select is untouched, this is a pure hover embellishment
-// layered on top of it).
-//
-// The "stadium wave" is GSAP's own `stagger: { from: <index> }` — it already
-// computes each element's delay by distance from that index in both
-// directions, which *is* a ripple emanating from wherever the pointer
-// currently is. No hand-rolled propagation math needed.
-//
-// Interruption handling: every new trigger calls `gsap.killTweensOf` +
-// `overwrite: "auto"` before starting the next wave, so a wave re-triggered
-// mid-flight restarts cleanly from wherever it currently is — it never
-// queues, glitches, or jumps. `pointercancel`/`pointerleave` always resolves
-// every item back to rest, so an interrupted gesture (e.g. the OS stealing
-// the touch for a system swipe) still settles into a valid end state.
+// 2026-08-29: the "stadium wave" scale animation this used to drive was
+// removed entirely, per the user — it re-triggered a `gsap.to(scale, ...)`
+// on nearly every pointermove frame, fighting for the same elements'
+// `transform` while the coverflow's own click-driven resize (height/
+// font-size/padding, now smoothed via a plain CSS transition — see
+// CategoryDial/PaginationDial) was *also* changing their layout size at the
+// same time. Two independent, uncoordinated size-changing effects on the
+// same buttons is what made the dials read as jumpy and hard to control,
+// especially on longer lists (e.g. the 8 celebrity handles) where most
+// items already collapse to the same minimum coverflow size (see
+// lib/coverflow.ts) and have little room to also absorb a scale wave on
+// top of that. What's left here is purely functional, not decorative:
+// pointer tracking so a touch swipe-and-release still selects whichever
+// item the thumb lands on (`onSelectAtRelease`) — click-to-select (mouse or
+// tap) was always handled by the buttons' own onClick and never depended on
+// this hook. Visual feedback for hover/selection now comes entirely from
+// the coverflow's own size/blur response to `activeId` plus the app-wide
+// global hover-fade rule in globals.css — both already existed independent
+// of the wave, so removing it doesn't leave a feedback gap.
 
 export type UseDialWaveOptions = {
   /** Fires on pointerup for a touch gesture, with whichever item's center
-   * was nearest the release point — this is what "the wave follows the
-   * swipe, whichever item the thumb lands on becomes selected" means. */
+   * was nearest the release point — this is what "swipe across the dial,
+   * whichever item the thumb lands on becomes selected" means. */
   onSelectAtRelease?: (index: number) => void;
-  peakScale?: number;
-  ease?: string;
-  duration?: number;
 };
 
-export function useDialWave({
-  onSelectAtRelease,
-  peakScale = 1.12,
-  ease = EASE.snappy,
-  duration = DURATION.micro,
-}: UseDialWaveOptions) {
+export function useDialWave({ onSelectAtRelease }: UseDialWaveOptions) {
   const itemEls = useRef<(HTMLElement | null)[]>([]);
-  const lastIndex = useRef<number | null>(null);
-  const isPointerDown = useRef(false);
-  const rafId = useRef<number | null>(null);
-  const reducedMotion = useRef(false);
-
-  useEffect(() => {
-    const mm = gsap.matchMedia();
-    mm.add(MOTION_QUERY.reduced, () => {
-      reducedMotion.current = true;
-      return () => {
-        reducedMotion.current = false;
-      };
-    });
-    return () => mm.revert();
-  }, []);
 
   const itemRef = useCallback(
     (index: number) => (el: HTMLElement | null) => {
@@ -84,93 +61,20 @@ export function useDialWave({
     return nearest;
   }, []);
 
-  const settle = useCallback(() => {
-    const els = itemEls.current.filter((el): el is HTMLElement => el !== null);
-    gsap.killTweensOf(els);
-    gsap.to(els, { scale: 1, duration, overwrite: "auto" });
-    lastIndex.current = null;
-  }, [duration]);
-
-  const triggerWaveAt = useCallback(
-    (x: number, y: number) => {
-      if (reducedMotion.current) return;
-      const nearest = nearestIndexToPoint(x, y);
-      if (nearest === lastIndex.current) return;
-      lastIndex.current = nearest;
-
-      const els = itemEls.current.filter((el): el is HTMLElement => el !== null);
-      gsap.killTweensOf(els);
-      gsap.to(els, {
-        scale: peakScale,
-        duration,
-        ease,
-        yoyo: true,
-        repeat: 1,
-        overwrite: "auto",
-        stagger: { each: STAGGER.dialWave, from: nearest },
-      });
-    },
-    [nearestIndexToPoint, peakScale, duration, ease]
-  );
-
-  const scheduleWave = useCallback(
-    (x: number, y: number) => {
-      if (rafId.current != null) return;
-      rafId.current = requestAnimationFrame(() => {
-        rafId.current = null;
-        triggerWaveAt(x, y);
-      });
-    },
-    [triggerWaveAt]
-  );
-
-  const onPointerMove = useCallback(
-    (e: React.PointerEvent) => {
-      if (e.pointerType === "touch" && !isPointerDown.current) return;
-      scheduleWave(e.clientX, e.clientY);
-    },
-    [scheduleWave]
-  );
-
-  const onPointerDown = useCallback(
-    (e: React.PointerEvent) => {
-      isPointerDown.current = true;
-      if (e.pointerType === "touch") scheduleWave(e.clientX, e.clientY);
-    },
-    [scheduleWave]
-  );
-
   const onPointerUp = useCallback(
     (e: React.PointerEvent) => {
-      isPointerDown.current = false;
       if (e.pointerType === "touch") {
         const nearest = nearestIndexToPoint(e.clientX, e.clientY);
         onSelectAtRelease?.(nearest);
       }
-      settle();
     },
-    [nearestIndexToPoint, onSelectAtRelease, settle]
+    [nearestIndexToPoint, onSelectAtRelease]
   );
-
-  const onPointerLeaveOrCancel = useCallback(() => {
-    isPointerDown.current = false;
-    settle();
-  }, [settle]);
-
-  useEffect(() => {
-    return () => {
-      if (rafId.current != null) cancelAnimationFrame(rafId.current);
-    };
-  }, []);
 
   return {
     itemRef,
     containerProps: {
-      onPointerMove,
-      onPointerDown,
       onPointerUp,
-      onPointerCancel: onPointerLeaveOrCancel,
-      onPointerLeave: onPointerLeaveOrCancel,
     },
   };
 }

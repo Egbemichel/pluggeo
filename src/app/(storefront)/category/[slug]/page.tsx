@@ -1,5 +1,6 @@
 import { ViewTransition } from "react";
 import { CategoryPageContent } from "@/components/category-page-content";
+import { minDelay } from "@/lib/min-delay";
 import { PAGE_TRANSITION } from "@/lib/motion";
 
 // Server Component so `params` can stay async per Next.js convention; the
@@ -27,7 +28,10 @@ export default async function CategoryPage({
 }: {
   params: Promise<{ slug: string }>;
 }) {
-  const { slug } = await params;
+  // `Promise.all` with a minimum delay so this route's loading.tsx gets a
+  // real, visible moment instead of flashing for a frame — `params` alone
+  // resolves near-instantly since there's no real data fetch behind it yet.
+  const [{ slug }] = await Promise.all([params, minDelay(400)]);
   const category = toTitleCase(slug);
   const tagline = TAGLINES[slug] ?? "Handcrafted for you";
 

@@ -1,6 +1,7 @@
 import { ViewTransition } from "react";
 import { ProductDetailSection } from "@/components/product-detail-section";
 import { RelatedPiecesSection } from "@/components/related-pieces-section";
+import { minDelay } from "@/lib/min-delay";
 import { PAGE_TRANSITION } from "@/lib/motion";
 
 // First PDP section, built from pasted screenshots (desktop + mobile). Every
@@ -33,7 +34,10 @@ export default async function ProductPage({
 }: {
   params: Promise<{ slug: string }>;
 }) {
-  const { slug } = await params;
+  // `Promise.all` with a minimum delay so this route's loading.tsx gets a
+  // real, visible moment instead of flashing for a frame — `params` alone
+  // resolves near-instantly since there's no real data fetch behind it yet.
+  const [{ slug }] = await Promise.all([params, minDelay(400)]);
 
   return (
     <ViewTransition {...PAGE_TRANSITION}>

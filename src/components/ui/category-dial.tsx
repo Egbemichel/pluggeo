@@ -113,7 +113,7 @@ export function CategoryDial({
                 zIndex: 100 - distance,
                 transform: `translate(-50%, -50%) translateX(${signedDistance * OFFSET_X_STEP}px)`,
               }}
-              className="flex shrink-0 items-center justify-center border border-black bg-white font-heading leading-[1.4] font-bold text-text-primary transition-[filter,transform]"
+              className="flex shrink-0 items-center justify-center border border-black bg-white font-heading leading-[1.4] font-bold text-text-primary transition-[filter,transform,height,font-size,padding,border-radius] duration-300 ease-out"
             >
               {item.label}
             </button>
@@ -144,7 +144,7 @@ export function CategoryDial({
               paddingRight: size * 0.25,
               filter: coverflowBlurForDistance(distance),
             }}
-            className="flex shrink-0 items-center justify-center border border-black bg-white font-heading leading-[1.4] font-bold text-text-primary transition-[filter]"
+            className="flex shrink-0 items-center justify-center border border-black bg-white font-heading leading-[1.4] font-bold text-text-primary transition-[filter,height,font-size,padding,border-radius] duration-300 ease-out"
           >
             {item.label}
           </button>

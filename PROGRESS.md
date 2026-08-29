@@ -32,6 +32,88 @@ pagination.
 
 ## Resolved decisions
 
+- **Fixed: dial wave made the dials hard to use; drawer-close/page-transition
+  race; loading states flickered/had nothing at `/bag`** (2026-08-29, three
+  related live-site UX complaints, one pass) —
+  1. **Dial wave removed.** `CategoryDial`'s vertical orientation (no
+     windowing, renders every item) sizes by `coverflowSizeForDistance`
+     (`lib/coverflow.ts`: `[106, 97, 89, 73]`px) — anything at distance ≥4
+     from the active item floors at the same minimum, so on an 8-item list
+     (the celebrity handles) most items already collapse to one
+     indistinguishable size. On top of that, clicking an item changed
+     `height`/`font-size`/`padding`/`border-radius` via inline styles with
+     **no transition** (only `filter` was covered) — an instant snap every
+     click — while `useDialWave`'s hover/swipe handler re-triggered a
+     `gsap.to(scale, ...)` wave on nearly every `pointermove` frame, fighting
+     over the same elements' `transform` at the same time the coverflow's
+     own un-transitioned resize was changing their layout size. Two
+     independent, uncoordinated size-changing effects on the same buttons is
+     what read as "jumpy" and "I can only see the first and last." Per the
+     user, explicitly even at the cost of the animation itself:
+     `use-dial-wave.ts` had every `gsap`/scale/stagger call stripped —
+     what's left is purely the pointer-tracking needed for touch
+     swipe-and-release-to-select (`onSelectAtRelease`), which was always a
+     distinct, functional feature from the decorative wave, not just its
+     byproduct. Click/tap-to-select was never routed through this hook
+     (buttons' own `onClick`) so it's unaffected. `CategoryDial`/
+     `PaginationDial` both gained a plain CSS `transition-[...] duration-300
+     ease-out` covering the properties that used to snap — smooths the
+     resize-on-click independent of the wave's removal. `STAGGER.dialWave`
+     (now genuinely unused) removed from `lib/motion.ts`; `EASE.snappy`/
+     `DURATION.micro`'s comments updated to drop the stale mention.
+  2. **Drawer-close vs. page-transition race, fixed at the root.** Clicking a
+     navigable link inside `MobileNavDrawer` (e.g. the basket icon) used to
+     fire `onClose()` (starting the drawer's ~0.5–0.7s GSAP close timeline)
+     and the actual navigation *simultaneously*. Per the CSS View
+     Transitions spec, the `::view-transition` pseudo-tree React's
+     `<ViewTransition>` creates renders in the browser's **top layer**,
+     which always paints above *any* regular DOM content regardless of
+     z-index — including the drawer (a `fixed z-50` node, portaled to
+     `<body>` since the earlier z-index fix), which kept animating,
+     oblivious to the page swap happening on top of it. For the transition's
+     duration, the incoming page's snapshot visibly painted over the
+     still-closing drawer underneath — not fixable via z-index (top-layer
+     always wins over regular stacking), only by not starting navigation
+     until the drawer is actually gone. `use-drawer-transition.ts` gained an
+     `onClosed?: () => void` option (fired from the close timeline's real
+     `onComplete`, kept current via a layout-effect ref so a fresh closure
+     each render doesn't restart the in-flight animation).
+     `MobileNavDrawer`'s nav/basket `Link`s now `preventDefault()` their own
+     click (an officially-supported Next.js pattern), stash the intended
+     `{href, transitionTypes}`, call `onClose()`, and only actually
+     `router.push()` once `onClosed` confirms the drawer has unmounted.
+     Verified precisely via Playwright, not eyeballed: sampled the drawer's
+     DOM presence and the URL every 80ms after clicking the basket link —
+     confirmed the drawer disappears (t≈880ms) a full navigation-worth of
+     time *before* the URL actually changes to `/bag` (t≈1120ms), not the
+     reverse. Scoped to `MobileNavDrawer` only (the reported case) —
+     `MobileFilterDrawer` has no navigable links, so it's unaffected;
+     `SearchOverlay`'s result links have the same theoretical race (and
+     today don't even call a close on click, so the overlay never closes at
+     all after navigating via a result) — flagged below as a follow-up
+     rather than folded into this pass.
+  3. **Loading states.** `product/[slug]`/`category/[slug]` both already
+     `await params` with no real data fetch behind it (no DB wiring for
+     these pages yet), so it resolved in single-digit milliseconds — a
+     flash, not a visible loading state. New `src/lib/min-delay.ts`
+     (`minDelay(ms)`) used via
+     `Promise.all([params, minDelay(400)])` in both pages, guaranteeing
+     `loading.tsx` gets a real, visible moment. New `bag/loading.tsx`
+     (same `Spinner` shape as `ProductLoading`) — `/bag`'s page is a Client
+     Component with no server async boundary so it can't get the same
+     `minDelay` treatment, but Next still shows a segment's `loading.tsx`
+     during the route's own code-split fetch on any client-side navigation
+     regardless, and there was previously nothing at all. No separate
+     z-index change made to the loading states themselves — the concrete
+     "other elements on top of it" symptom traced to the same drawer race
+     fix #2 already removes; if a *different*, still-reproducible z-index
+     conflict shows up after this, it needs its own concrete repro rather
+     than a speculative pre-emptive bump.
+  All three verified via `tsc`/lint/`next build`/`vitest` (all clean) plus
+  live Playwright interaction checks (not just static code review) before
+  considering this done, and re-confirmed against the actual deployed site
+  after pushing — not just local/build output — per the lesson from the
+  CelebrityShowcase incident directly above this entry.
 - **Fixed: CelebrityShowcase disappeared entirely on the live site**
   (2026-08-29) — the `node:fs`-scan approach from the entry directly below
   this one turned out unsafe in a way local verification didn't catch: with
@@ -1004,6 +1086,16 @@ collage photos), `public/placeholder-product.svg` (local placeholder, not from F
 
 ## Flagged / worth confirming (not blocking)
 
+- **`SearchOverlay` has the same drawer-close/navigation race as
+  `MobileNavDrawer` did, plus a worse variant**: clicking a search result's
+  link navigates away without ever calling a close handler at all, so the
+  overlay doesn't just race the transition — it never closes and would keep
+  floating over the destination page (portaled to `<body>`, unaffected by
+  the route change) until the user dismisses it manually. Same fix shape as
+  `MobileNavDrawer`'s (defer navigation until a close animation completes)
+  would apply, but `SearchOverlay` doesn't have an exit animation at all
+  today (`if (!open) return null`, no `useDrawerTransition`) — needs its own
+  pass, not a copy-paste of the drawer's fix.
 - **GitHub Actions deploy workflow needs 3 repo secrets added before it can
   run successfully** — `CLOUDFLARE_API_TOKEN`, `DATABASE_URL`,
   `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, via Settings → Secrets and variables →

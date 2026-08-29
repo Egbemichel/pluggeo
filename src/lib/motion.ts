@@ -11,7 +11,7 @@ export const EASE = {
   standard: "power3.out",
   /** Reverse of standard, for exits that aren't drawer slides. */
   standardIn: "power3.in",
-  /** Micro-interactions: hover/click/toggle feedback, dial-wave ripple. */
+  /** Micro-interactions: hover/click/toggle feedback. */
   snappy: "power2.out",
   /** Small "pop" — badge increment, icon merge-into-bag. */
   snappyBack: "back.out(1.7)",
@@ -28,7 +28,7 @@ export const DURATION = {
   entranceMd: 0.5,
   /** Small text line/word group. */
   entranceSm: 0.4,
-  /** Hover/click micro-interaction, dial-wave ripple pulse. */
+  /** Hover/click micro-interaction pulse. */
   micro: 0.25,
   /** Drawer/panel slide, either direction. */
   drawer: 0.45,
@@ -45,8 +45,6 @@ export const STAGGER = {
   tight: 0.06,
   /** Per card/tile in a collage build — matches Spinner's own bar stagger. */
   cards: 0.09,
-  /** Per dial item in the hover/swipe wave ripple. */
-  dialWave: 0.045,
   /** Search results, drawer items. */
   list: 0.08,
 } as const;

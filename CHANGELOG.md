@@ -6,6 +6,32 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+### Fixed (batch 48 — dial UX, drawer/page-transition race, loading states)
+
+- **Dials**: removed the "stadium wave" hover/swipe scale animation from
+  `useDialWave` entirely, per the user — it was fighting for the same
+  elements' `transform` as the coverflow's own instant (untransitioned)
+  resize-on-click, reading as jumpy and hard to control, especially on
+  longer lists (the 8 celebrity handles) where most items already collapse
+  to the same minimum coverflow size. Kept the functional part (touch
+  swipe-and-release-to-select); `CategoryDial`/`PaginationDial` both gained
+  a plain CSS transition on the properties that used to snap instantly, so
+  clicking through either dial now resizes smoothly regardless.
+- **Cross-overlay navigation race**: clicking a link inside the open mobile
+  nav drawer used to start the drawer's close animation and the page
+  transition at the same time — the browser's View Transition renders in
+  the top layer (always above regular content, any z-index), so the
+  incoming page would visibly paint over the still-closing drawer
+  underneath it. Fixed by deferring the actual navigation until the
+  drawer's close animation genuinely finishes (`useDrawerTransition` gained
+  an `onClosed` callback); verified via Playwright that the drawer
+  disappears before the URL changes, not after.
+- **Loading states**: `product/[slug]`/`category/[slug]` resolved their
+  (currently placeholder, near-instant) data in single-digit milliseconds,
+  making their loading fallback flash rather than show — both now enforce a
+  400ms minimum via a new `minDelay()` helper. Added `/bag/loading.tsx`,
+  which previously had none.
+
 ### Fixed (batch 47 — CelebrityShowcase vanished live; reviews had no mobile nav)
 
 - **CelebrityShowcase disappeared entirely on the deployed site** — batch

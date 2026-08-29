@@ -1,13 +1,17 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Cancel01Icon, Search01Icon, ShoppingBasket01Icon } from "@hugeicons/core-free-icons";
 import { Icon } from "@/components/ui/icon";
 import type { NavBarLink } from "@/components/nav-bar";
 import { useDrawerTransition } from "@/hooks/use-drawer-transition";
 import { cn } from "@/lib/utils";
+
+type TransitionType = "nav-forward" | "nav-back";
+type PendingNav = { href: string; transitionTypes: TransitionType[] };
 
 // Built from the real Figma node (592:536, "mobileNavDrawer") — white panel, black
 // 1px border, --shadow-drop, close X top-right, nav links stacked (same Quinn Bold
@@ -48,7 +52,36 @@ export function MobileNavDrawer({
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [open, onClose]);
 
-  const { mounted, panelRef } = useDrawerTransition({ open });
+  const router = useRouter();
+  const [pendingNav, setPendingNav] = useState<PendingNav | null>(null);
+
+  // Navigating away while the drawer is still mid-close-animation used to
+  // race the page transition: React's <ViewTransition> calls
+  // document.startViewTransition() the instant Link's own navigation fires,
+  // and the browser renders that transition's snapshot tree in the "top
+  // layer" — which always paints above *any* regular DOM content,
+  // including this drawer's `fixed z-50` panel, regardless of z-index. The
+  // incoming page would visibly appear on top of the still-animating
+  // drawer underneath it. Fixed by intercepting these Links' navigation
+  // (`preventDefault`, a pattern Next's own Link explicitly supports),
+  // starting the close animation, and only firing the real navigation via
+  // `router.push` once `useDrawerTransition`'s `onClosed` confirms the
+  // drawer has actually finished and unmounted — by then there's nothing
+  // left for the page transition to race against.
+  const { mounted, panelRef } = useDrawerTransition({
+    open,
+    onClosed: () => {
+      if (!pendingNav) return;
+      router.push(pendingNav.href, { transitionTypes: pendingNav.transitionTypes });
+      setPendingNav(null);
+    },
+  });
+
+  const handleNavClick = (e: React.MouseEvent, href: string, transitionTypes: TransitionType[]) => {
+    e.preventDefault();
+    setPendingNav({ href, transitionTypes });
+    onClose();
+  };
 
   if (!mounted) return null;
 
@@ -82,12 +115,13 @@ export function MobileNavDrawer({
         <div className="flex flex-col items-center gap-(--space-6) pt-(--space-9)">
           {links.map((link) => {
             const isActive = link.href === activeHref;
+            const transitionTypes: TransitionType[] = [link.href === "/" ? "nav-back" : "nav-forward"];
             return (
               <Link
                 key={link.href}
                 href={link.href}
-                onClick={onClose}
-                transitionTypes={[link.href === "/" ? "nav-back" : "nav-forward"]}
+                onClick={(e) => handleNavClick(e, link.href, transitionTypes)}
+                transitionTypes={transitionTypes}
                 aria-current={isActive ? "page" : undefined}
                 data-drawer-item
                 className={cn(
@@ -113,7 +147,7 @@ export function MobileNavDrawer({
           <Link
             href="/bag"
             aria-label="Basket"
-            onClick={onClose}
+            onClick={(e) => handleNavClick(e, "/bag", ["nav-forward"])}
             transitionTypes={["nav-forward"]}
             data-drawer-item
             className="relative inline-flex"

