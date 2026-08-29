@@ -3,6 +3,10 @@ name: Deploy to Cloudflare
 on:
   push:
     branches: [main]
+  # Lets a secrets-only change (e.g. adding a new repo secret with no code
+  # change) trigger a fresh deploy from the Actions tab, without needing a
+  # throwaway commit just to re-run the push trigger.
+  workflow_dispatch:
 
 # Only one deploy at a time; a newer push cancels an in-flight older one
 # instead of racing it, since both would otherwise deploy the same Worker.
