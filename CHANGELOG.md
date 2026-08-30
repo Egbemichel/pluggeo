@@ -6,6 +6,16 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+### Investigated (batch 57 — notFound() returning HTTP 200 instead of 404)
+
+- Root-caused, not yet fixed: any dynamic route linked from anywhere in the
+  app via `next/link` (`/category/[slug]`, `/product/[slug]`) loses its
+  correct 404 status when `notFound()` fires — confirmed as upstream
+  Next.js 16.3.2/Turbopack behavior (Next nests the not-found UI within the
+  route's existing layout instead of swapping to the global not-found
+  route), not application code. See `PROGRESS.md` for the full isolation
+  process and options going forward.
+
 ### Fixed (batch 56 — admin sidebar unreachable on mobile; product form UI/UX)
 
 - The admin sidebar (Products/Categories/Homepage) was `hidden` below `md`

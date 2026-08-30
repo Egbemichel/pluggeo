@@ -68,6 +68,56 @@ pagination.
 
 ## Resolved decisions
 
+- **Root-caused: `notFound()` returns HTTP 200 instead of 404 across every
+  dynamic route** (2026-08-30, diagnosed, not yet fixed — a confirmed
+  Next.js/Turbopack framework behavior, not application code) — the earlier
+  guess (Clerk middleware's per-request header-injecting rewrite) was
+  disproven first: narrowing `middleware.ts`'s matcher to exclude
+  `/category`/`/product` entirely removed the `x-clerk-auth-*`/
+  `x-middleware-rewrite` headers but the status stayed 200, so Clerk isn't
+  involved at all.
+  **Real root cause, isolated by elimination** (a byte-identical copy of
+  `/category/[slug]`'s page+loading files at a fresh, unused route path
+  always correctly returned 404 — same DB query, same layout, same
+  `force-dynamic`, same `<ViewTransition>`, even on the literal first
+  request of a brand-new server process with zero prior traffic): a dynamic
+  route becomes affected the moment **anything anywhere in the app renders
+  a `next/link` `<Link href="...">` pointing at it** — confirmed by adding
+  one single throwaway `<Link href="/nftest-linktest/...">` into the shared
+  storefront layout (rendered on every page) pointing at an otherwise-fresh
+  test route: that alone flipped the fresh route's `notFound()` from a
+  correct 404 to the same 200 bug, with no other change. `/category/[slug]`
+  is linked from `CategoryCollage` (home page); `/product/[slug]` is linked
+  from every product card app-wide — both are exactly the kind of route
+  this bug hits, and a brand-new, never-linked route never does. Confirmed
+  via the actual RSC flight payload (not just headers): a correctly-404ing
+  request's router tree resolves to `"c":["","_not-found"]` (Next's global
+  not-found route, full swap, real 404 status); the buggy 200 response's
+  tree instead stays `"c":["","category","<slug>"]` — Next keeps the real
+  route's layout chain mounted and nests the not-found UI as a child slot
+  within it (hence the full page shell — NavBar/Footer — around a
+  "404: This page could not be found." block, and the genuine
+  `"digest":"NEXT_HTTP_ERROR_FALLBACK;404"` marker buried inside that
+  payload even though the outer HTTP status is 200). So this is Next
+  choosing the "nested, nothing else changed" not-found path instead of the
+  "whole-tree swap" path specifically for routes it already has some
+  built-time knowledge of via a static `<Link>` reference — and that nested
+  path doesn't get the response status corrected to 404. Every experimental
+  route/file (`nftest-abc123`, `category-copy-test`, `category-renamed`,
+  `nftest-linktest`, the temporary `<Link>` in `(storefront)/layout.tsx`)
+  was removed afterward — `git status` confirmed a clean tree before moving
+  on, nothing here touched the committed codebase.
+  **Not fixed yet, flagged for a decision**: this is upstream Next.js/
+  Turbopack behavior on a very recent version (16.3.2), not a bug in this
+  app's own code, so there's no small local patch — the realistic options
+  are (a) accept it for now (functionally the page still shows correct
+  not-found content to real users; only the raw HTTP status and SEO
+  crawlers are affected), (b) add a real `not-found.tsx` at the root or per
+  affected segment and see whether that changes which code path Next takes
+  (untested — the app currently has zero custom `not-found.tsx` files
+  anywhere), or (c) file/track it against upstream Next.js and pin/downgrade
+  if a fixed version exists. Needs the user's call on priority before
+  spending more time on a workaround.
 - **Fixed: admin sidebar unreachable on mobile; product form UI/UX pass**
   (2026-08-30, reported live by the user) —
   1. **Mobile admin nav.** `AdminSidebar` (`src/components/admin/
@@ -137,22 +187,11 @@ pagination.
   `next start`: all 6 category-linked pages now return 200 with real content;
   a genuinely unknown slug (`/category/not-a-real-category`) still renders
   the not-found UI correctly.
-  **New, separate bug found while verifying, not yet fixed**: every
-  `notFound()` call in a dynamic route (`/category/[slug]`, `/product/
-  [slug]`, confirmed in both `next dev` and a production `next start` build)
-  returns HTTP 200 instead of 404, even though the not-found UI renders
-  correctly in the body — confirmed via response headers, not guessed. A
-  genuinely nonexistent route with no matching page at all (Next's own
-  routing 404, no custom `notFound()` involved) correctly returns a real
-  404. Every response in this app carries an `x-middleware-rewrite` header
-  from `clerkMiddleware` (its matcher covers virtually every path, not just
-  `/pluggeo`, since Clerk needs auth context available app-wide) — likely
-  interacting with how Next's `notFound()` sets the response status through
-  that rewrite, but not root-caused yet. Impact: SEO crawlers and any
-  status-code-aware client currently see a "200 OK" for a page that's
-  actually not found, on every dynamic-route 404 in the app, not just
-  categories. Flagged for a separate fix — out of scope for the category-404
-  report this entry addresses.
+  **New, separate bug found while verifying** (root-caused 2026-08-30, see
+  the dedicated entry below): every `notFound()` call in a dynamic route
+  returned HTTP 200 instead of 404 — root cause confirmed to be Next 16.3.2/
+  Turbopack itself, not this app's code, and specifically NOT Clerk
+  middleware (an earlier guess, disproven by testing).
 - **Real Shop filters; variant-driven PDP Customize; admin form UX pass;
   two admins; dashboard moved to `/pluggeo`** (2026-08-29, five requests in
   one pass) —
