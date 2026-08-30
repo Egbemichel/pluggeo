@@ -77,6 +77,40 @@ genuinely filter) + grid/list toggle + pagination.
 
 ## Resolved decisions
 
+- **Dropped the admin's "Label" field from the variant editor** (2026-08-30,
+  per the admin, after tracing every use of it: it's never shown to a
+  shopper anywhere, and a blank one used to silently drop the entire row on
+  save — the real "is this row real" signal has always actually been
+  whether it has at least one attribute with at least one value, so that's
+  what gates inclusion now). The variant card's grid goes from 3 columns
+  (Label/Price/Available) to 2 (Price/Available). The DB's `label` column
+  still can't be null, so it's still written on save — just auto-derived
+  from the row's own attributes (`deriveVariantLabel`, e.g. `"Size: 16
+  Inch, 17 Inch"`) rather than typed by the admin, purely so anyone reading
+  the raw data later sees something meaningful. `db/schema.ts` unchanged —
+  no migration needed, since the column itself was never the problem.
+  **The real mental model, restated for the admin (2026-08-30)**: a variant
+  row means "this group of values shares one price and one stock status" —
+  nothing more. Group values into one row only when they cost the same and
+  have the same availability; the moment one value needs a different price
+  or stock status, it goes on its own row. **Flagged, not yet fixed**: when
+  a shopper's selection spans two *different* single-attribute rows at once
+  (e.g. a Size row and a separate Gold Type row both apply), which price
+  wins is currently undefined — `ProductCustomize`'s "most specific wins"
+  tie-break only resolves the case where one row names *more* attributes
+  than another; two equally-specific rows (1 key each) that both match tie
+  arbitrarily by array order today. The correct fix when a *combination*
+  of attributes genuinely has its own price (e.g. "19-21 Inch + Rose Gold"
+  costs more than either alone) is a single row naming both attributes
+  together at the right price — that row already wins automatically today
+  since it's more specific. Proposed to the admin: also make the arbitrary
+  tie-break safer (prefer the higher-priced candidate over an
+  array-order-arbitrary pick, so an unresolved conflict never silently
+  undercharges) — awaiting their go-ahead before touching that logic.
+  Verified via `tsc`/lint/`vitest`/`next build` (all clean); the admin-form
+  click-through itself still relies on code review, same standing caveat
+  as every other admin-UI change this session (real Clerk auth, no
+  headless login path here).
 - **Three small but real PDP/bag/admin bugs, all from the same variant
   rework** (2026-08-30, per the user):
   1. **Customize chips no longer pre-select a default, and the dropdown

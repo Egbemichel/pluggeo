@@ -42,9 +42,9 @@ import { cn } from "@/lib/utils";
 // that the save landed — a toast there would be redundant). Media/variants
 // validation errors surface as one summary line rather than granular
 // per-row messages — those are array-shaped errors zod's `flatten()`
-// doesn't map cleanly to a single field, and the two real failure modes
-// (an empty required variant label, a malformed price) are already obvious
-// from the row itself once you look at it.
+// doesn't map cleanly to a single field, and the one real failure mode
+// (a malformed price override) is already obvious from the row itself
+// once you look at it.
 
 export type ProductCategory = { id: string; name: string };
 
@@ -53,8 +53,13 @@ export type ProductCategory = { id: string; name: string };
 // override/availability, not just a single value (2026-08-30, per the
 // admin). See db/schema.ts's own comment on `productVariants.attributes`.
 type VariantAttributeRow = { key: string; values: string[] };
+// No `label` field (2026-08-30, per the admin: it never showed up anywhere
+// a shopper could see, and a blank one used to silently drop the whole row
+// on save) — a row's DB `label` column still exists and still can't be
+// null, but it's now auto-derived from the row's own attributes right
+// before submit (`deriveVariantLabel`) rather than something the admin has
+// to type. See db/schema.ts's own comment on why the column stays.
 type VariantRow = {
-  label: string;
   priceOverride: string;
   available: boolean;
   attributes: VariantAttributeRow[];
@@ -98,7 +103,19 @@ function unusedCategoryFor(attributes: VariantAttributeRow[], currentIndex: numb
 }
 
 function emptyVariant(): VariantRow {
-  return { label: "", priceOverride: "", available: true, attributes: [{ key: "Size", values: [""] }] };
+  return { priceOverride: "", available: true, attributes: [{ key: "Size", values: [""] }] };
+}
+
+// The DB's `label` column still can't be null (see db/schema.ts) but
+// nothing shopper-facing reads it anymore — this just gives it a real,
+// human-readable value for anyone glancing at the raw data later, built
+// from whatever the row actually holds instead of asking the admin to
+// type one.
+function deriveVariantLabel(attributes: VariantAttributeRow[]): string {
+  return attributes
+    .filter((a) => a.key.trim().length > 0 && a.values.some((v) => v.trim().length > 0))
+    .map((a) => `${a.key}: ${a.values.map((v) => v.trim()).filter(Boolean).join(", ")}`)
+    .join("; ");
 }
 
 function RequiredMark() {
@@ -243,9 +260,14 @@ export function ProductForm({ categories, initialValues }: ProductFormProps) {
       featured,
       media: media.map((m) => ({ type: m.type, url: m.url, altText: m.altText })),
       variants: variants
-        .filter((v) => v.label.trim().length > 0)
+        // A row is only real once it has at least one attribute with at
+        // least one value — that's the actual signal now, not a typed
+        // label (2026-08-30, per the admin: label never meant anything a
+        // shopper could see, and used to silently drop the whole row here
+        // if left blank).
+        .filter((v) => v.attributes.some((a) => a.key.trim() && a.values.some((val) => val.trim())))
         .map((v) => ({
-          label: v.label,
+          label: deriveVariantLabel(v.attributes),
           attributes: Object.fromEntries(
             v.attributes
               .filter((a) => a.key.trim().length > 0)
@@ -483,19 +505,7 @@ export function ProductForm({ categories, initialValues }: ProductFormProps) {
         {variants.map((variant, index) => (
           <div key={index} className="flex flex-col gap-3 rounded-lg border border-border p-4">
             <div className="flex items-start justify-between gap-4">
-              <div className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-3">
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor={`variant-${index}-label`}>
-                    Label
-                    <RequiredMark />
-                  </Label>
-                  <Input
-                    id={`variant-${index}-label`}
-                    value={variant.label}
-                    onChange={(e) => updateVariant(index, { label: e.target.value })}
-                    placeholder="e.g. Small / 10k"
-                  />
-                </div>
+              <div className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor={`variant-${index}-price`}>Price override</Label>
                   <div className="relative">

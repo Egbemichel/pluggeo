@@ -33,7 +33,6 @@ export default async function EditProductPage({
     featured: product.featured,
     media: media.map((m) => ({ type: m.type, url: m.url, altText: m.altText ?? undefined })),
     variants: variants.map((v) => ({
-      label: v.label,
       priceOverride: v.priceOverride ?? "",
       available: v.available,
       attributes: Object.entries(v.attributes).map(([key, values]) => ({ key, values })),

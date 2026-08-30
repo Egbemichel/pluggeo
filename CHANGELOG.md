@@ -6,6 +6,15 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+### Removed (batch 72 — dropped the admin's unused variant "Label" field)
+
+- The variant editor's "Label" field never showed up anywhere a shopper
+  could see, and a blank one used to silently drop the whole row on save.
+  Removed it from the form; a row now counts as real once it has at least
+  one attribute with at least one value. The DB column is still written
+  automatically (auto-derived from the row's attributes, e.g. "Size: 16
+  Inch, 17 Inch") since it can't be null, just no longer typed by hand.
+
 ### Fixed (batch 71 — Customize defaults, bag customization display, admin placeholders)
 
 - The PDP's Customize chips pre-selected a default value in every group and
