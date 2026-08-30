@@ -5,7 +5,7 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  /* Plug Geo primitives (Figma: color/primitive) */
+  /* pluggeo&co primitives (Figma: color/primitive) */
   --color-black: var(--black);
   --color-white: var(--white);
   --color-navy: var(--navy);
@@ -14,7 +14,7 @@
   --color-black-40: var(--black-40);
   --color-black-82: var(--black-82);
 
-  /* Plug Geo semantics (Figma: color/semantic) — class names intentionally mirror
+  /* pluggeo&co semantics (Figma: color/semantic) — class names intentionally mirror
      the Figma token names 1:1 (e.g. bg-surface-dark, text-text-primary). */
   --color-brand-primary: var(--brand-primary);
   --color-text-primary: var(--text-primary);
@@ -25,7 +25,7 @@
   --color-border-default: var(--border-default);
   --color-border-inverse: var(--border-inverse);
 
-  /* shadcn/ui tokens, mapped onto the Plug Geo palette — see docs/DESIGN_SYSTEM.md */
+  /* shadcn/ui tokens, mapped onto the pluggeo&co palette — see docs/DESIGN_SYSTEM.md */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-sidebar-ring: var(--sidebar-ring);
@@ -124,7 +124,7 @@
 }
 
 :root {
-  /* Plug Geo primitives */
+  /* pluggeo&co primitives */
   --black: #000000;
   --white: #ffffff;
   --navy: #141b34;
@@ -133,7 +133,7 @@
   --black-40: rgb(0 0 0 / 0.4);
   --black-82: rgb(0 0 0 / 0.82);
 
-  /* Plug Geo semantics */
+  /* pluggeo&co semantics */
   --brand-primary: var(--navy);
   --text-primary: var(--black);
   --text-secondary: var(--gray);

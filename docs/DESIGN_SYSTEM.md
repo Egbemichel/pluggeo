@@ -150,7 +150,7 @@ e.g. `gap-[var(--space-6)]`, `p-[var(--space-10)]`.
 - `full` — 9999px
 
 `sm`/`md` are wired directly into Tailwind's `--radius-sm`/`--radius-md` theme keys, so
-`rounded-sm`/`rounded-md` now mean Plug Geo's values everywhere, including in the
+`rounded-sm`/`rounded-md` now mean pluggeo&co's values everywhere, including in the
 existing shadcn Button component which already references `var(--radius-md)`. `full`
 needs no custom token — Tailwind's built-in `rounded-full` already means "fully
 rounded." Tiers beyond what Figma defines (`lg`/`xl`/`2xl`/`3xl`/`4xl`, kept for

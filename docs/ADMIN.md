@@ -31,7 +31,7 @@ No order management — there's no checkout in scope (see [CLAUDE.md](../CLAUDE.
 ## Implementation
 
 - Shell (`src/app/pluggeo/layout.tsx` + `src/components/admin/admin-sidebar.tsx`) ported
-  (pattern only, restyled to Plug Geo's dark tokens) from
+  (pattern only, restyled to pluggeo&co's dark tokens) from
   `Kiranism/next-shadcn-dashboard-starter` — see the sidebar+header shape, no auth/
   billing/kanban/chat pages from that template were pulled in.
 - `src/app/pluggeo/products/actions.ts` — Server Actions (`createProduct`, `updateProduct`,

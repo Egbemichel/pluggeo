@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { asc, desc, eq, and, ne, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { products, productMedia, productVariants, categories } from "@/db/schema";
@@ -44,7 +45,7 @@ export type StorefrontProductDetail = {
   compareAtPrice?: number;
   description: string | null;
   images: { src: string; alt: string }[];
-  variants: { label: string; attributes: Record<string, string> }[];
+  variants: { label: string; attributes: Record<string, string>; available: boolean }[];
 };
 
 type ProductRow = typeof products.$inferSelect;
@@ -70,7 +71,7 @@ function toCard(
     image: images[0],
     images,
     imageCount: images.length,
-    category: categoryName ?? "Plug Geo",
+    category: categoryName ?? "pluggeo&co",
     categorySlug,
     title: product.name,
     price: Number(product.price),
@@ -116,7 +117,11 @@ export async function getPublishedProducts(): Promise<StorefrontProductCard[]> {
   return toCards(rows);
 }
 
-export async function getPublishedProductsByCategorySlug(
+// Wrapped in React's `cache()` — both the page component and its
+// `generateMetadata` (needs the same category/products for the SEO
+// description and canonical) call this per request; without dedup that's
+// two identical DB round-trips per page view.
+export const getPublishedProductsByCategorySlug = cache(async function getPublishedProductsByCategorySlug(
   categorySlug: string
 ): Promise<{ category: { id: string; name: string } | null; products: StorefrontProductCard[] }> {
   const [category] = await db
@@ -134,7 +139,7 @@ export async function getPublishedProductsByCategorySlug(
     .orderBy(desc(products.createdAt));
 
   return { category, products: await toCards(rows) };
-}
+});
 
 /** Homepage's "Bestsellers" — curated via the admin's Homepage screen
  * (`featured`/`featuredOrder` on `products`), not a real sales-derived
@@ -152,7 +157,11 @@ export async function getFeaturedProducts(limit = 4): Promise<StorefrontProductC
   return toCards(rows);
 }
 
-export async function getProductDetailBySlug(
+// Wrapped in React's `cache()` — same reasoning as
+// `getPublishedProductsByCategorySlug` above: the PDP's `generateMetadata`
+// (title/description/OG image/Product JSON-LD) and the page component both
+// need the same product per request.
+export const getProductDetailBySlug = cache(async function getProductDetailBySlug(
   slug: string
 ): Promise<StorefrontProductDetail | null> {
   const [row] = await db
@@ -176,15 +185,15 @@ export async function getProductDetailBySlug(
     id: row.product.id,
     slug: row.product.slug,
     title: row.product.name,
-    category: row.categoryName ?? "Plug Geo",
+    category: row.categoryName ?? "pluggeo&co",
     categoryId: row.product.categoryId,
     price: Number(row.product.price),
     compareAtPrice: row.product.compareAtPrice ? Number(row.product.compareAtPrice) : undefined,
-    variants: variants.map((v) => ({ label: v.label, attributes: v.attributes })),
+    variants: variants.map((v) => ({ label: v.label, attributes: v.attributes, available: v.available })),
     description: row.product.description,
     images: imagesForProduct(media, row.product.name),
   };
-}
+});
 
 export async function getRelatedProducts(
   categoryId: string | null,

@@ -116,10 +116,10 @@ export function NavBar({
         <div className="hidden md:grid md:grid-cols-3 md:items-center">
           <div className="justify-self-start">{showBackButton && <BackButton />}</div>
           <div className="flex flex-col items-center justify-self-center gap-(--space-6)">
-            <Link href="/" aria-label="Plug Geo home" transitionTypes={["nav-back"]}>
+            <Link href="/" aria-label="pluggeo&co home" transitionTypes={["nav-back"]}>
               <Image
                 src="/logo.png"
-                alt="Plug Geo"
+                alt="pluggeo&co"
                 width={186}
                 height={108}
                 className="h-auto w-35"
@@ -190,13 +190,13 @@ export function NavBar({
           <div className="justify-self-start">{showBackButton && <BackButton className="size-12" />}</div>
           <Link
             href="/"
-            aria-label="Plug Geo home"
+            aria-label="pluggeo&co home"
             transitionTypes={["nav-back"]}
             className="justify-self-center"
           >
             <Image
               src="/logo.png"
-              alt="Plug Geo"
+              alt="pluggeo&co"
               width={186}
               height={108}
               className="h-auto w-28"

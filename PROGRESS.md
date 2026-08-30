@@ -1,6 +1,6 @@
 # Progress Log
 
-Running state of the Plug Geo build — what's decided, what's built, where it came from,
+Running state of the pluggeo&co build — what's decided, what's built, where it came from,
 and what's still flagged. This is the fast-context file: read it before starting any
 task, update it before finishing one (see the rule in `CLAUDE.md`). It's a *snapshot*,
 not a changelog — organized by topic, kept current, old entries edited/removed rather
@@ -15,6 +15,14 @@ GitHub Actions (`.github/workflows/deploy.yml`) auto-deploys on every push to
 `main`, so the `github-sync` skill's auto-push after every prompt now also
 means auto-deploy — no manual step to get a change live. Real Neon Postgres
 is connected and migrated (see the resolved-decision entry below).
+
+**Brand is pluggeo&co** (renamed 2026-08-30 from Plug Geo, see the
+resolved-decision entry below — the graphic wordmark logo images still read
+"Plugged by Geo," deliberately untouched). **Full SEO pass done**: real
+per-page metadata, `Organization`/`WebSite`/`BreadcrumbList`/`Product`
+JSON-LD, DB-driven `sitemap.ts`/`robots.ts`, a web app manifest, a generated
+default OG image, and a real favicon (replacing Vercel's default) — see the
+same entry for the full list.
 
 **The storefront is fully wired to the real DB now** (2026-08-29, see the
 resolved-decision entry below) — no more placeholder product arrays
@@ -68,6 +76,110 @@ pagination.
 
 ## Resolved decisions
 
+- **Full SEO pass, real favicon, brand renamed to pluggeo&co** (2026-08-30,
+  per the user) —
+  1. **SEO built from a genuinely blank slate** — confirmed via grep that
+     zero pages had any `metadata`/`generateMetadata` export before this;
+     every page inherited the root layout's one generic title/description.
+     New `src/lib/seo.ts` centralizes `SITE_NAME`/`SITE_TAGLINE`/
+     `SITE_DESCRIPTION`/`SITE_URL`/`THEME_COLOR` so these can't drift across
+     the many files that now reference them. Root layout
+     (`src/app/layout.tsx`) gained `metadataBase`, a title template
+     (`%s | pluggeo&co`), full OpenGraph/Twitter defaults, `robots`, and
+     sitewide `Organization`/`WebSite` JSON-LD. Every real storefront page
+     now has its own `metadata`/`generateMetadata`: Home (explicit canonical
+     + description), Shop, Grillz (static), Category/Product `[slug]`
+     (dynamic, real DB data — title/description/canonical/OG per category or
+     product). `/bag` (a Client Component page, which can't export
+     `metadata` itself — added a thin `layout.tsx` just to carry it) and
+     `/sign-in` are `noindex` (no unique catalog content); `/pluggeo`'s
+     layout also declares `noindex` as defense-in-depth alongside the new
+     `robots.ts` disallow (Clerk already blocks crawlers from rendering it
+     at all).
+  2. **Structured data**: `Organization`/`WebSite` sitewide; `BreadcrumbList`
+     on category and product pages; full `Product` schema on the PDP (name,
+     description, image(s), category, brand, and an `Offer` with real
+     price/USD/availability) — verified end-to-end against a real temporary
+     product inserted via SQL (title/description/price/image all correct in
+     the rendered JSON-LD and OG/Twitter tags), then deleted. Availability
+     defaults to `InStock` — there's no real inventory/stock model
+     (checkout/orders are explicitly out of scope, `CLAUDE.md`), so this is
+     the correct default absent a real signal; if every variant on a product
+     is explicitly marked unavailable, that's the one real signal this app
+     does track, and now flips it to `OutOfStock`.
+  3. **`sitemap.ts`/`robots.ts`/`manifest.ts`** (Next's file conventions,
+     replacing the nonexistent static equivalents) — sitemap is DB-driven
+     (`force-dynamic`, same staleness trap as every other DB-backed route in
+     this app) and lists every real published category/product plus
+     `/`/`/shop`/`/grillz`; robots disallows `/pluggeo`/`/sign-in` and points
+     at the sitemap. Verified live: real category slugs appear in
+     `/sitemap.xml`, `/robots.txt` content is correct.
+  4. **Default OG image** (`src/app/opengraph-image.tsx`, `next/og`
+     `ImageResponse`) — navy background, the same crown mark as the new
+     favicon, `pluggeo&co` wordmark in the real Quinn font loaded from disk.
+     Product pages instead use the product's own real photo directly as
+     their OG/Twitter image (simpler and better for e-commerce shares than a
+     generated composite) — `metadataBase` resolves it to an absolute URL
+     whether it's a real Cloudinary URL or the relative placeholder SVG
+     fallback.
+  5. **Query dedup**: `getPublishedProductsByCategorySlug`/
+     `getProductDetailBySlug` (`src/lib/products.ts`) wrapped in React's
+     `cache()` — each page's own `generateMetadata` now calls the same query
+     the page component calls, and without dedup that's two identical DB
+     round-trips per request. `getProductDetailBySlug`'s returned
+     `variants` also gained a real `available` field (previously dropped),
+     needed for the `Offer.availability` JSON-LD signal above.
+  6. **Real favicon, replacing Vercel's default** — `sharp` (already a
+     transitive dependency) rendered a hand-authored crown SVG (matching the
+     crown motif already in the real wordmark logo,
+     `public/logo.png`/`logo-mark.png` — visual continuity with the existing
+     brand rather than an invented new mark) into `src/app/favicon.ico`
+     (16/32/48px, real multi-size ICO with embedded PNG frames, not a
+     renamed PNG), `icon.png` (192px), and `apple-icon.png` (180px) — all
+     three are Next's file-based icon convention, so no manual `<link>` tags
+     were needed. Colors are the real design tokens (`--navy`/`--white`),
+     not invented ones. Verified: legible at 16px, correct `<link rel="icon"
+     />`/`apple-touch-icon` tags render on every page.
+  7. **Brand renamed "Plug Geo" → "pluggeo&co"** sitewide — metadata/title,
+     nav/footer logo `alt`/`aria-label`, admin header (both the desktop
+     sidebar and the mobile sheet added earlier today), the
+     uncategorized-product fallback label, every doc (`CLAUDE.md`,
+     `docs/*.md`) that named the brand, and this file's own ongoing
+     references (its dated historical entries were left as accurate
+     records of what was true when written, per this file's own "snapshot,
+     not a changelog" rule only applying to current-state sections).
+     **Deliberately left untouched**: the actual graphic wordmark logo
+     assets (`public/logo.png`/`logo-mark.png`, a script "Plugged by Geo"
+     mark with a crown motif) — that's designed artwork, not text, and
+     regenerating it wasn't asked for. Their `alt`/`aria-label` now says
+     "pluggeo&co" regardless (standard practice for a logo functioning as a
+     home link — its accessible name is the current brand name, not
+     necessarily what the pixels literally spell). Flag if the graphic logo
+     should be redone to match.
+  8. **Long-flagged e2e mismatch finally resolved, not just renamed** — the
+     home page had zero real `<h1>` anywhere (confirmed via grep; the hero's
+     "Best collection" headline is an `<h2>` per Figma), which is what
+     `e2e/home.spec.ts`'s stale "heading not found" assertion had actually
+     been pointing at all along (see the entry below this one). Added a
+     visually-hidden (`sr-only`) keyword-carrying `<h1>` at the top of the
+     home page — doesn't touch the visual design at all, just gives
+     crawlers/screen readers a real page-level heading, which is a baseline
+     SEO/accessibility requirement a page shouldn't ship without. Updated
+     the test to match: `toBeAttached()` (an `sr-only` element correctly
+     fails `toBeVisible()`) asserting the real new brand name.
+  **Not independently visually verified end-to-end in a real browser**: same
+  standing limitation as everything else in this session — launching an
+  actual Chromium instance against `localhost` in this environment fails
+  with `net::ERR_CONNECTION_RESET` (tried directly via Playwright's API with
+  `--no-sandbox`, not just the test runner), a pre-existing environment
+  constraint, not something this change caused. Verified as thoroughly as
+  possible without one: full `next build`, then real `curl` inspection of
+  the actual rendered `<head>`/JSON-LD/`sitemap.xml`/`robots.txt`/manifest
+  output (not just reading the source), plus a temporary real product
+  inserted via SQL specifically to verify the Product-page path end to end.
+  Ask the user to confirm the favicon/OG image/share preview look right in
+  a real browser and on a real social-share debugger (e.g. Facebook's
+  Sharing Debugger, Twitter's Card Validator) once live.
 - **Root-caused: `notFound()` returns HTTP 200 instead of 404 across every
   dynamic route** (2026-08-30, diagnosed, not yet fixed — a confirmed
   Next.js/Turbopack framework behavior, not application code) — the earlier
@@ -1488,8 +1600,17 @@ pagination.
   scaffolding, unnoticed until this pass.
 - `ADMIN_EMAIL` in `.env.local` is still empty — still needs a real value before
   `/admin` is actually reachable (`requireAdmin()` throws if it's unset).
-- **Brand name**: Plug Geo (confirmed 2026-08-24 — an earlier voice-dictated "Plug Deal"
-  was a transcription error).
+- **Brand name**: pluggeo&co (renamed 2026-08-30, per the user — was Plug Geo,
+  itself confirmed 2026-08-24 after an earlier voice-dictated "Plug Deal"
+  transcription error). Renamed sitewide: metadata/title, nav/footer logo alt
+  text and aria-labels, admin header, product-fallback-category label, docs,
+  and this file. The actual graphic wordmark logo assets
+  (`public/logo.png`/`logo-mark.png`, a script "Plugged by Geo" mark with a
+  crown motif) were deliberately left untouched — that's designed artwork,
+  not text, and regenerating it wasn't asked for; flag if it should change
+  too. Text alt/aria-label on that logo now says "pluggeo&co" regardless
+  (standard practice — a logo's accessible name is the current brand name,
+  not necessarily the pixels).
 - **Scope**: checkout/cart/orders/payments are explicitly OUT — catalog/showcase site
   only. `orders`/`order_items` tables removed from the schema.
 - **Figma access**: no Dev Mode seat (free plan), so no official Figma MCP/Code Connect
@@ -1621,12 +1742,6 @@ collage photos), `public/placeholder-product.svg` (local placeholder, not from F
   Worth a real click-through once someone's at a browser: `/admin` should
   redirect to `/sign-in`, and signing in with the allowed Google account
   should land on the admin stub.
-- **`e2e/home.spec.ts` fails against current markup** — asserts a heading with
-  the text "Plug Geo" is visible on `/`, but that text only ever appears as
-  image `alt`/`aria-label`, never as a real heading anywhere in the app.
-  Confirmed pre-existing (not touched by the animation pass that surfaced it
-  during the full verification gate) — either the test or the markup needs a
-  decision, not obvious which was intended.
 - Basket icon behavior (ProductCard's add-to-basket, NavBar's basket link) is
   unconfirmed — there's no checkout in scope, so it's likely a wishlist/inquiry action,
   not a real cart. Currently inert.

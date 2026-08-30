@@ -52,7 +52,7 @@ Follow standard Next.js App Router conventions:
   (e.g. a sitemap route)
 - `db/` — Drizzle schema and client
 - `components/ui/` — shadcn/ui primitives (restyled, see COMPONENTS.md)
-- `components/` — Plug Geo-specific composed components
+- `components/` — pluggeo&co-specific composed components
 - `lib/` — shared utilities
 
 ## Environments

@@ -1,13 +1,21 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { UserButton } from "@clerk/nextjs";
 import { requireAdmin } from "@/lib/admin-auth";
 import { AdminSidebar, AdminMobileNav } from "@/components/admin/admin-sidebar";
 
-// Shell ported (pattern only, restyled to Plug Geo's dark/navy tokens, not a
+// Shell ported (pattern only, restyled to pluggeo&co's dark/navy tokens, not a
 // literal copy) from Kiranism/next-shadcn-dashboard-starter's sidebar+header
 // layout — see the approved plan for why that template was picked. Single
 // admin, no roles, so no per-item permission checks beyond the one
 // `requireAdmin()` gate this layout already does for every /admin/* route.
+
+// robots.ts already disallows `/pluggeo` entirely, and Clerk's auth gate
+// blocks crawlers from ever rendering this anyway — this is defense-in-depth
+// for the same reason as bag/layout.tsx and sign-in/page.tsx.
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const user = await requireAdmin();

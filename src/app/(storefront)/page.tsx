@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { ViewTransition } from "react";
 import { CategoryCollage } from "@/components/category-collage";
 import { CelebrityShowcase } from "@/components/celebrity-showcase";
@@ -9,6 +10,14 @@ import { Pill } from "@/components/ui/pill";
 import { getCelebrities } from "@/lib/celebrities";
 import { getFeaturedProducts, getPublishedProductsByCategorySlug } from "@/lib/products";
 import { PAGE_TRANSITION } from "@/lib/motion";
+import { SITE_NAME, SITE_TAGLINE, SITE_DESCRIPTION } from "@/lib/seo";
+
+export const metadata: Metadata = {
+  title: `${SITE_NAME} — ${SITE_TAGLINE}`,
+  description: SITE_DESCRIPTION,
+  alternates: { canonical: "/" },
+  openGraph: { url: "/" },
+};
 
 // The full real Home page — every section here is built from real Figma nodes or
 // user-provided screenshots (see PROGRESS.md for the source of each). Testimonials
@@ -47,6 +56,16 @@ export default async function Home() {
   return (
     <ViewTransition {...PAGE_TRANSITION}>
       <div className="flex flex-1 flex-col gap-16 py-8">
+        {/* Visually hidden — the hero's own "Best collection" headline (an <h2>)
+            carries the visual weight per Figma, but the page had no real <h1>
+            at all before this (confirmed via grep — only ever appeared as
+            image alt/aria-label text, never a heading; this is what
+            e2e/home.spec.ts's long-flagged "heading not found" mismatch in
+            PROGRESS.md was actually pointing at). One real, keyword-carrying
+            h1 per page is a baseline SEO/accessibility requirement. */}
+        <h1 className="sr-only">
+          pluggeo&co — Luxury Jewelry, Watches, Grillz, Chains &amp; Bracelets
+        </h1>
         <HeroSection />
 
         {/* Built from Figma 603:657 (desktop) + 611:664 (mobile, described not seen:

@@ -32,7 +32,7 @@ import { EASE, MOTION_QUERY } from "@/lib/motion";
 // useViewportEnter unobserves after the first fire, and a fresh route mount
 // (real navigation) is what "page load" means here, not scroll position.
 
-const MAIN_IMAGE = { src: "/hero/hero-main.png", alt: "Plug Geo — best collection" };
+const MAIN_IMAGE = { src: "/hero/hero-main.png", alt: "pluggeo&co — best collection" };
 
 const MOBILE_IMAGES = [
   MAIN_IMAGE,

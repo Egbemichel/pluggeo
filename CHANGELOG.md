@@ -6,6 +6,27 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+### Added (batch 58 — full SEO pass, real favicon, brand renamed to pluggeo&co)
+
+- Every storefront page now has real per-page metadata (title/description/
+  canonical/OpenGraph/Twitter) — previously every page inherited one generic
+  root title. Sitewide `Organization`/`WebSite` JSON-LD, plus `BreadcrumbList`
+  and full `Product` (price/currency/availability) structured data on
+  category/product pages.
+- New `sitemap.ts` (DB-driven, real categories/products) and `robots.ts`
+  (disallows `/pluggeo`/`/sign-in`), replacing the nonexistent static
+  equivalents. New web app manifest.
+- New default social-share image (`opengraph-image.tsx`, navy background +
+  crown mark + wordmark); product pages use the product's own real photo
+  instead.
+- Real favicon (`favicon.ico`/`icon.png`/`apple-icon.png`) generated from a
+  crown mark matching the existing wordmark logo's motif, replacing the
+  default Vercel/Next icon.
+- Brand renamed "Plug Geo" → "pluggeo&co" sitewide (metadata, nav/footer/
+  admin text, docs) — the graphic wordmark logo images were left untouched.
+- Home page gained a real (visually-hidden) `<h1>` — it had none at all
+  before, resolving a long-flagged `e2e/home.spec.ts` mismatch for good.
+
 ### Investigated (batch 57 — notFound() returning HTTP 200 instead of 404)
 
 - Root-caused, not yet fixed: any dynamic route linked from anywhere in the

@@ -14,7 +14,7 @@ import type { StorefrontProductCard } from "@/lib/products";
 // and the duplicated JSX is only a few lines — not worth a shared
 // abstraction for that.
 //
-// Header copy is written for Plug Geo specifically rather than reusing the
+// Header copy is written for pluggeo&co specifically rather than reusing the
 // reference's generic placeholder wording, matching the voice already used
 // elsewhere on the site ("Buy once, wear forever", "Where artistry meets
 // innovation", "You dream it, we make it").

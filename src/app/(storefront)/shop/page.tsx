@@ -1,7 +1,16 @@
+import type { Metadata } from "next";
 import { ViewTransition } from "react";
 import { ShopPageContent } from "@/components/shop-page-content";
 import { getPublishedProducts, getStorefrontCategories } from "@/lib/products";
 import { PAGE_TRANSITION } from "@/lib/motion";
+
+export const metadata: Metadata = {
+  title: "Shop All Jewelry",
+  description:
+    "Browse the full pluggeo&co catalog — custom grillz, diamond watches, gold chains, bracelets, pendants, and jewelry sets.",
+  alternates: { canonical: "/shop" },
+  openGraph: { url: "/shop" },
+};
 
 // Server Component so real data can be fetched here and handed to
 // ShopPageContent (a Client Component — filters/sort/pagination/layout are

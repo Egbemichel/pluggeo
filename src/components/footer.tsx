@@ -65,7 +65,7 @@ export function Footer({ className }: FooterProps) {
         <div className="flex items-center gap-(--space-1) font-sans font-light text-text-primary">
           <span aria-hidden>©</span>
           <span>Copyright</span>
-          <Image src="/logo-mark.png" alt="Plug Geo" width={80} height={46} className="h-6 w-auto" />
+          <Image src="/logo-mark.png" alt="pluggeo&co" width={80} height={46} className="h-6 w-auto" />
           <span>,{new Date().getFullYear()}</span>
         </div>
 

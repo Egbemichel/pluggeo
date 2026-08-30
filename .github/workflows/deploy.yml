@@ -67,6 +67,10 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
           NEXT_PUBLIC_CLERK_SIGN_IN_URL: /sign-in
+          # Not secret (a public URL) — src/lib/seo.ts's metadataBase/canonical/
+          # sitemap base, baked in at build time since robots.ts/manifest.ts
+          # have no dynamic data of their own to force a runtime render.
+          NEXT_PUBLIC_SITE_URL: https://pluggeo.egbemichel39.workers.dev
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           # Cloud name + API key are NEXT_PUBLIC_ (next-cloudinary's
           # CldUploadWidget reads them client-side to talk to Cloudinary

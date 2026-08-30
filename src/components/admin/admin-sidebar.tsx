@@ -62,7 +62,7 @@ export function AdminSidebar() {
 
   return (
     <aside className="hidden w-56 shrink-0 border-r border-border bg-sidebar px-3 py-4 md:flex md:flex-col">
-      <div className="mb-6 px-2 font-heading text-lg text-sidebar-foreground">Plug Geo Admin</div>
+      <div className="mb-6 px-2 font-heading text-lg text-sidebar-foreground">pluggeo&co Admin</div>
       <nav aria-label="Admin" className="flex flex-col gap-1">
         <NavLinks pathname={pathname} />
       </nav>
@@ -94,7 +94,7 @@ export function AdminMobileNav() {
         <DialogPrimitive.Backdrop className="fixed inset-0 z-50 bg-black/40 duration-150 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0" />
         <DialogPrimitive.Popup className="fixed inset-y-0 left-0 z-50 flex h-full w-64 max-w-[80vw] flex-col border-r border-border bg-sidebar px-3 py-4 outline-none duration-200 data-open:animate-in data-open:slide-in-from-left-full data-closed:animate-out data-closed:slide-out-to-left-full">
           <div className="mb-6 flex items-center justify-between px-2">
-            <span className="font-heading text-lg text-sidebar-foreground">Plug Geo Admin</span>
+            <span className="font-heading text-lg text-sidebar-foreground">pluggeo&co Admin</span>
             <DialogPrimitive.Close
               aria-label="Close admin menu"
               className="flex size-8 items-center justify-center rounded-md text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"

@@ -1,6 +1,6 @@
-# Plug Geo — Root Rules
+# pluggeo&co — Root Rules
 
-Plug Geo (confirmed spelling) is a luxury jewelry ecommerce platform (watches, grills,
+pluggeo&co (confirmed spelling) is a luxury jewelry ecommerce platform (watches, grills,
 jewelry sets, bracelets, chains) with a streetwear/rapper-luxury aesthetic. Full build,
 no MVP — every v1 feature ships in one pass. Hard deadline: 5 days from project start.
 
@@ -23,7 +23,7 @@ chat history.
 
 ## Stack (locked)
 - Next.js (App Router, TypeScript), single app, deployed to Cloudflare via OpenNext/Workers
-- Styling: Tailwind + shadcn/ui, restyled to the Plug Geo dark/navy palette (navy,
+- Styling: Tailwind + shadcn/ui, restyled to the pluggeo&co dark/navy palette (navy,
   black, white, gray — no gold/accent color, see `docs/DESIGN_SYSTEM.md`)
 - Animation: GSAP for motion/interaction beyond standard CSS transitions
 - Data fetching: React Server Components + Server Actions by default; add React Query only
@@ -40,7 +40,7 @@ chat history.
 
 ## Docs index
 - [PROGRESS.md](PROGRESS.md) — running build state; read first, update last (see above)
-- [docs/PROJECT.md](docs/PROJECT.md) — what Plug Geo is, full feature list, out-of-scope
+- [docs/PROJECT.md](docs/PROJECT.md) — what pluggeo&co is, full feature list, out-of-scope
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — app structure, rendering strategy, deployment
 - [docs/DATABASE.md](docs/DATABASE.md) — entities, schema, Drizzle conventions
 - [docs/API.md](docs/API.md) — route handlers vs server actions, conventions

@@ -1,6 +1,6 @@
 # Components
 
-Base: shadcn/ui primitives, heavily restyled to match the Plug Geo design system —
+Base: shadcn/ui primitives, heavily restyled to match the pluggeo&co design system —
 not stock shadcn styling. Tokens driving the restyle come from
 [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md).
 
@@ -46,7 +46,7 @@ Hugeicons equivalent manually rather than assuming the CLI substituted them.
 ## Conventions
 
 - `components/ui/` — restyled shadcn primitives (button, input, dialog, etc.)
-- `components/` — Plug Geo-specific composed components (ProductCard, CollectionGrid,
+- `components/` — pluggeo&co-specific composed components (ProductCard, CollectionGrid,
   AdminProductForm, etc.)
 - Prefer composing restyled primitives over one-off styled components where a primitive
   already covers the case

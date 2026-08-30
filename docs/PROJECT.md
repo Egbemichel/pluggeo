@@ -2,7 +2,7 @@
 
 ## What it is
 
-Plug Geo is a luxury jewelry ecommerce brand — watches, grills, jewelry sets, bracelets,
+pluggeo&co is a luxury jewelry ecommerce brand — watches, grills, jewelry sets, bracelets,
 and chains, with a streetwear/rapper-luxury aesthetic (diamonds, gold, high-shine product
 photography). The site sells directly to consumers; there is no marketplace or
 multi-seller component.
