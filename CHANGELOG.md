@@ -6,6 +6,22 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+### Fixed (batch 56 — admin sidebar unreachable on mobile; product form UI/UX)
+
+- The admin sidebar (Products/Categories/Homepage) was `hidden` below `md`
+  with no mobile equivalent — all 3 nav items were completely unreachable on
+  mobile. Added a hamburger trigger in the admin header opening a
+  left-anchored sheet, built on the same `@base-ui/react/dialog` primitive
+  already used elsewhere in this project.
+- Product form's dense 8-field "Details" section split into `Basic info` /
+  `Pricing` / `Organization`, each fieldset now a real bordered card instead
+  of a plain legend line.
+- Admin `Input`/`Textarea`/`Select` corner radius reduced from
+  `--radius-lg` (20px) to `--radius-sm` (8px) — the only consumers of that
+  radius outside their own component tree, so storefront styling is
+  unaffected. Their focus transition broadened to animate border+ring
+  together instead of colors only.
+
 ### Fixed (batch 55 — home-page category tiles 404ing)
 
 - Every category tile on the home page except Grillz (`/category/bracelets`,

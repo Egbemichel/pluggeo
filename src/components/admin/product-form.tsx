@@ -258,8 +258,8 @@ export function ProductForm({ categories, initialValues }: ProductFormProps) {
         </div>
       )}
 
-      <fieldset className="flex flex-col gap-4">
-        <legend className="font-heading text-base">Details</legend>
+      <fieldset className="flex flex-col gap-4 rounded-md border border-border bg-card px-4 py-5 sm:px-6">
+        <legend className="px-2 font-heading text-base font-semibold">Basic info</legend>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="name">
@@ -305,7 +305,11 @@ export function ProductForm({ categories, initialValues }: ProductFormProps) {
             rows={4}
           />
         </div>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      </fieldset>
+
+      <fieldset className="flex flex-col gap-4 rounded-md border border-border bg-card px-4 py-5 sm:px-6">
+        <legend className="px-2 font-heading text-base font-semibold">Pricing</legend>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="price">
               Price
@@ -354,6 +358,12 @@ export function ProductForm({ categories, initialValues }: ProductFormProps) {
             )}
             <FieldError id="compareAtPrice-error" message={errors.compareAtPrice} />
           </div>
+        </div>
+      </fieldset>
+
+      <fieldset className="flex flex-col gap-4 rounded-md border border-border bg-card px-4 py-5 sm:px-6">
+        <legend className="px-2 font-heading text-base font-semibold">Organization</legend>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="categoryId">Category</Label>
             <Select value={categoryId || undefined} onValueChange={(value) => setCategoryId(value as string)}>
@@ -369,8 +379,6 @@ export function ProductForm({ categories, initialValues }: ProductFormProps) {
               </SelectContent>
             </Select>
           </div>
-        </div>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="status">Status</Label>
             <Select value={status} onValueChange={(value) => setStatus(value as "draft" | "published")}>
@@ -384,21 +392,21 @@ export function ProductForm({ categories, initialValues }: ProductFormProps) {
             </Select>
             <p className="text-xs text-muted-foreground">Only published products show on the storefront.</p>
           </div>
-          <label className="flex items-center gap-2 pt-6 text-sm">
-            <Checkbox checked={featured} onCheckedChange={(checked) => setFeatured(checked === true)} />
-            Featured on homepage
-          </label>
         </div>
+        <label className="flex items-center gap-2 text-sm">
+          <Checkbox checked={featured} onCheckedChange={(checked) => setFeatured(checked === true)} />
+          Featured on homepage
+        </label>
       </fieldset>
 
-      <fieldset className="flex flex-col gap-3">
-        <legend className="font-heading text-base">Media</legend>
+      <fieldset className="flex flex-col gap-3 rounded-md border border-border bg-card px-4 py-5 sm:px-6">
+        <legend className="px-2 font-heading text-base font-semibold">Media</legend>
         <MediaUpload items={media} onChange={setMedia} />
       </fieldset>
 
-      <fieldset className="flex flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <legend className="font-heading text-base">Variants</legend>
+      <fieldset className="flex flex-col gap-3 rounded-md border border-border bg-card px-4 py-5 sm:px-6">
+        <legend className="px-2 font-heading text-base font-semibold">Variants</legend>
+        <div className="flex items-center justify-end">
           <button
             type="button"
             onClick={addVariant}

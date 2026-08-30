@@ -38,6 +38,13 @@ entry below for why).
 **Admin dashboard moved to `/pluggeo`** (2026-08-29, security — old `/admin`
 path retired, no redirect: it now plain 404s). Two admins now share access
 via `ADMIN_EMAILS` (comma-separated allowlist, was a single `ADMIN_EMAIL`).
+The admin sidebar (Products/Categories/Homepage) now has a real mobile
+equivalent — a hamburger trigger in the header opening a left-anchored
+sheet — since it was previously `hidden` below `md` with no replacement at
+all, making all three nav items unreachable on mobile (see the
+resolved-decision entry below). The product form is also now split into
+four visually distinct sections (Basic info/Pricing/Organization/Media/
+Variants) instead of one dense "Details" block.
 
 **Admin product CRUD is built** (`/pluggeo/products` list, new, edit — see
 the resolved-decision entries below). Real Cloudinary credentials are wired
@@ -61,6 +68,54 @@ pagination.
 
 ## Resolved decisions
 
+- **Fixed: admin sidebar unreachable on mobile; product form UI/UX pass**
+  (2026-08-30, reported live by the user) —
+  1. **Mobile admin nav.** `AdminSidebar` (`src/components/admin/
+     admin-sidebar.tsx`) was `hidden` below `md` with nothing replacing it —
+     the 3 nav items (Products/Categories/Homepage) had no way to be reached
+     on mobile at all, confirmed by reading the component (`hidden w-56 ...
+     md:flex`, no mobile branch). Fixed by adding `AdminMobileNav`, a
+     hamburger trigger + left-anchored sheet built on the same
+     `@base-ui/react/dialog` primitive `dialog.tsx` already uses elsewhere —
+     verified against the installed package's own source
+     (`node_modules/@base-ui/react/dialog/{trigger,close}/*.js`) that
+     `Dialog.Trigger`/`Dialog.Close` render real `<button>`s and accept
+     `className`/`children` directly, since this is the first place in the
+     codebase actually using those two (only `Popup`/`Backdrop` had prior
+     usage to lean on). Wired into `src/app/pluggeo/layout.tsx`'s header,
+     next to "Back to site". Shares the same `NAV_ITEMS` and link markup as
+     the desktop sidebar via one `NavLinks` helper so the two can't drift.
+  2. **Product form split into real sections.** The old single "Details"
+     `<fieldset>` crammed 8 fields (name/slug/description/price/
+     compare-at-price/category/status/featured) under one legend with no
+     visual separation. Split into `Basic info` / `Pricing` / `Organization`
+     (Media/Variants were already their own fieldsets), and every fieldset
+     now gets a real visual boundary (`rounded-md border border-border
+     bg-card`) instead of just a plain legend line — the native
+     `<fieldset>`/`<legend>` semantics (screen readers still announce the
+     group) are kept, just made visually obvious too.
+  3. **Input/Textarea/Select corner radius reduced.** These three (`src/
+     components/ui/{input,textarea,select}.tsx`) were the only consumers of
+     `rounded-lg` (`--radius-lg` = 1.25rem/20px) outside their own shared
+     component tree — confirmed via grep that only `src/components/admin/**`
+     imports them, so changing them doesn't touch the storefront's own
+     separately-styled inputs. Switched to `rounded-sm` (`--radius-sm` =
+     0.5rem/8px, an existing design token, not a new hardcoded value) — an
+     exact match for the 8px the user asked for. Also broadened
+     `transition-colors` to `transition-all duration-150` on the same three
+     so the border/ring change on focus reads as a real animated transition,
+     not an instant snap — these already were the project's own base-ui/
+     shadcn-pattern components (same family as `dialog.tsx`/`select.tsx`'s
+     existing open/close animations), just under-animated on the plain
+     focus state specifically.
+  **Not independently visually verified**: same standing limitation as
+  every other admin-only change in this log — no real Clerk session
+  available to Claude, so the mobile sheet and the resection product form
+  couldn't be screenshotted behind auth. Verified instead via `tsc`/lint/
+  `next build`/`vitest` (all clean, every `/pluggeo/*` route compiles) and
+  by checking the exact base-ui API usage against the installed package's
+  own source rather than assuming it. Ask the user to confirm live and
+  report back if anything looks off.
 - **Fixed: every home-page category tile except Grillz 404'd** (2026-08-30,
   reported live by users) — root cause was a data gap, not a code bug.
   `CategoryCollage` (home page) is a hardcoded list of 6 tiles (Bracelets/
