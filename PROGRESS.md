@@ -25,12 +25,15 @@ the next deploy. Category and Homepage-curation admin screens are built
 too. Shop's category/price/sort filters are now genuinely real (a price
 chip and custom min/max override each other, per the user). The PDP
 Customize section renders real variant chips grouped by category
-(Size/Width/Gold Color/...), hidden entirely when a product has none. The
-DB is currently empty (0 products, 0 categories) — every page's empty state
-was verified against that real empty state, not simulated, and the new
-filter/variant behavior was verified against real temporary rows inserted
-and cleaned up via direct SQL (no admin browser session available to
-Claude — see the multi-admin entry below for why).
+(Size/Width/Gold Color/...), hidden entirely when a product has none.
+The `categories` table now has the 6 rows the storefront's hardcoded
+category tiles assume exist (bracelets/pendants/chains/watches/grillz/
+sets — see the resolved-decision entry below); `products` is still empty
+(0 rows) — every page's empty-product state was verified against that
+real empty state, not simulated, and the filter/variant behavior was
+verified against real temporary rows inserted and cleaned up via direct
+SQL (no admin browser session available to Claude — see the multi-admin
+entry below for why).
 
 **Admin dashboard moved to `/pluggeo`** (2026-08-29, security — old `/admin`
 path retired, no redirect: it now plain 404s). Two admins now share access
@@ -58,6 +61,43 @@ pagination.
 
 ## Resolved decisions
 
+- **Fixed: every home-page category tile except Grillz 404'd** (2026-08-30,
+  reported live by users) — root cause was a data gap, not a code bug.
+  `CategoryCollage` (home page) is a hardcoded list of 6 tiles (Bracelets/
+  Pendants/Chains/Watches/Grillz/Sets) linking to `/category/<slug>`, fully
+  decoupled from the admin-managed `categories` table. `/category/[slug]/
+  page.tsx` looks up a matching DB row via `getPublishedProductsByCategorySlug`
+  and correctly calls `notFound()` when none exists — genuine, intentional
+  behavior (see the storefront-wiring entry below), not a bug. The
+  `categories` table had zero rows (confirmed via a direct query against the
+  live Neon DB), so all 5 `/category/*` links 404'd for real. Grillz was the
+  one exception only because it's a separate dedicated page (`/grillz`) that
+  calls the same lookup but never checks whether a category was found —
+  it silently rendered zero products instead of 404ing, which meant
+  Grillz-tagged products couldn't actually be queried either, for the same
+  underlying reason. Fixed by inserting the 6 missing category rows directly
+  via SQL (slugs matching `CategoryCollage`'s hardcoded hrefs exactly:
+  bracelets/pendants/chains/watches/grillz/sets, `display_order` 0-5) — no
+  code change needed. Verified against the live DB and a real `next build`/
+  `next start`: all 6 category-linked pages now return 200 with real content;
+  a genuinely unknown slug (`/category/not-a-real-category`) still renders
+  the not-found UI correctly.
+  **New, separate bug found while verifying, not yet fixed**: every
+  `notFound()` call in a dynamic route (`/category/[slug]`, `/product/
+  [slug]`, confirmed in both `next dev` and a production `next start` build)
+  returns HTTP 200 instead of 404, even though the not-found UI renders
+  correctly in the body — confirmed via response headers, not guessed. A
+  genuinely nonexistent route with no matching page at all (Next's own
+  routing 404, no custom `notFound()` involved) correctly returns a real
+  404. Every response in this app carries an `x-middleware-rewrite` header
+  from `clerkMiddleware` (its matcher covers virtually every path, not just
+  `/pluggeo`, since Clerk needs auth context available app-wide) — likely
+  interacting with how Next's `notFound()` sets the response status through
+  that rewrite, but not root-caused yet. Impact: SEO crawlers and any
+  status-code-aware client currently see a "200 OK" for a page that's
+  actually not found, on every dynamic-route 404 in the app, not just
+  categories. Flagged for a separate fix — out of scope for the category-404
+  report this entry addresses.
 - **Real Shop filters; variant-driven PDP Customize; admin form UX pass;
   two admins; dashboard moved to `/pluggeo`** (2026-08-29, five requests in
   one pass) —

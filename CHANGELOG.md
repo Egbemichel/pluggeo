@@ -6,6 +6,19 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+### Fixed (batch 55 — home-page category tiles 404ing)
+
+- Every category tile on the home page except Grillz (`/category/bracelets`,
+  `/pendants`, `/chains`, `/watches`, `/sets`) 404'd, because the
+  `categories` table had zero rows while the storefront's hardcoded tiles
+  assumed 6 categories existed. Fixed by creating the 6 missing category
+  rows (`bracelets`/`pendants`/`chains`/`watches`/`grillz`/`sets`) — no code
+  change needed, `notFound()` on a genuinely unknown slug was already
+  correct, intentional behavior.
+- Found, not yet fixed: every `notFound()` call in a dynamic route
+  (`/category/[slug]`, `/product/[slug]`) returns HTTP 200 instead of 404
+  even though the not-found UI renders correctly — see `PROGRESS.md`.
+
 ### Added (batch 54 — real Shop filters; variant-driven PDP; admin form UX; second admin)
 
 - Shop's category/price/sort filters actually filter now — a price-range
