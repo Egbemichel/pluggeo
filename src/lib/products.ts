@@ -45,7 +45,12 @@ export type StorefrontProductDetail = {
   compareAtPrice?: number;
   description: string | null;
   images: { src: string; alt: string }[];
-  variants: { label: string; attributes: Record<string, string>; available: boolean }[];
+  variants: {
+    label: string;
+    attributes: Record<string, string>;
+    available: boolean;
+    priceOverride: number | null;
+  }[];
 };
 
 type ProductRow = typeof products.$inferSelect;
@@ -189,7 +194,12 @@ export const getProductDetailBySlug = cache(async function getProductDetailBySlu
     categoryId: row.product.categoryId,
     price: Number(row.product.price),
     compareAtPrice: row.product.compareAtPrice ? Number(row.product.compareAtPrice) : undefined,
-    variants: variants.map((v) => ({ label: v.label, attributes: v.attributes, available: v.available })),
+    variants: variants.map((v) => ({
+      label: v.label,
+      attributes: v.attributes,
+      available: v.available,
+      priceOverride: v.priceOverride != null ? Number(v.priceOverride) : null,
+    })),
     description: row.product.description,
     images: imagesForProduct(media, row.product.name),
   };

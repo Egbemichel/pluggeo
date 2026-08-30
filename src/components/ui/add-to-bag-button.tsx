@@ -18,22 +18,24 @@ import { cn } from "@/lib/utils";
 export type AddToBagButtonProps = {
   variant?: "icon" | "labeled";
   className?: string;
+  disabled?: boolean;
 };
 
-export function AddToBagButton({ variant = "icon", className }: AddToBagButtonProps) {
+export function AddToBagButton({ variant = "icon", className, disabled }: AddToBagButtonProps) {
   const { fly } = useBagFlight();
 
   if (variant === "labeled") {
     return (
       <Button
         type="button"
+        disabled={disabled}
         onClick={(e: React.MouseEvent<HTMLButtonElement>) => fly(e.currentTarget)}
         className={cn(
           "uppercase bg-white border border-brand-primary text-brand-primary text-h3",
           className
         )}
       >
-        Add to bag
+        {disabled ? "Out of stock" : "Add to bag"}
         <Icon icon={ShoppingBasketAdd01Icon} size={24} className="text-brand-primary" />
       </Button>
     );
@@ -43,8 +45,12 @@ export function AddToBagButton({ variant = "icon", className }: AddToBagButtonPr
     <button
       type="button"
       aria-label="Add to bag"
+      disabled={disabled}
       onClick={(e) => fly(e.currentTarget)}
-      className={cn("flex size-9 items-center justify-center text-brand-primary md:size-12", className)}
+      className={cn(
+        "flex size-9 items-center justify-center text-brand-primary md:size-12 disabled:pointer-events-none disabled:opacity-50",
+        className
+      )}
     >
       {/* Icon's `size` prop sets the SVG's width/height attributes (48, the
           desktop value) — the size-* classes below win over those via CSS, so

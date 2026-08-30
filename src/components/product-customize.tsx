@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ArrowDown01Icon } from "@hugeicons/core-free-icons";
 import { Icon } from "@/components/ui/icon";
 import { Pill } from "@/components/ui/pill";
@@ -27,13 +27,24 @@ import { cn } from "@/lib/utils";
 // known list, but `attributes` is still a flexible JSONB column, so nothing
 // stops old/foreign data from having something else). Renders nothing at
 // all — not even the "Customize" toggle — when the product has no variants,
-// rather than showing an empty or fake selector. Selection is still
-// decorative (doesn't drive price/availability) — same scope boundary as
-// before, just backed by real chip values now instead of placeholder ones.
+// rather than showing an empty or fake selector.
+//
+// Selection now drives price/availability (2026-08-30) — previously
+// decorative. `onSelectionChange` reports the single variant row whose own
+// attributes fully match the current chip selection (or `null` when nothing
+// matches, e.g. a combination the admin never actually stocked as its own
+// row), letting the parent (ProductDetailSection) swap in that variant's
+// `priceOverride`/`available` instead of the base product's. A variant only
+// needs to specify the attribute keys it actually varies by — matching
+// checks the variant's own keys against the current selection, not every
+// rendered group — so a product doesn't need one fully-specified row per
+// possible combination for this to work.
 
 export type ProductVariantSummary = {
   label: string;
   attributes: Record<string, string>;
+  available: boolean;
+  priceOverride: number | null;
 };
 
 function OptionGroup({
@@ -66,9 +77,12 @@ function OptionGroup({
 export type ProductCustomizeProps = {
   variants: ProductVariantSummary[];
   className?: string;
+  /** Called whenever the current chip selection resolves to a different
+   * real variant row (or to no match at all) — see file comment. */
+  onSelectionChange?: (variant: ProductVariantSummary | null) => void;
 };
 
-export function ProductCustomize({ variants, className }: ProductCustomizeProps) {
+export function ProductCustomize({ variants, className, onSelectionChange }: ProductCustomizeProps) {
   const groups = useMemo(() => {
     const valuesByKey = new Map<string, Set<string>>();
     for (const variant of variants) {
@@ -96,6 +110,24 @@ export function ProductCustomize({ variants, className }: ProductCustomizeProps)
   );
   const [open, setOpen] = useState(true);
   const contentRef = useAccordion<HTMLDivElement>(open);
+
+  // The variant (if any) whose own attributes fully match the current
+  // selection — see file comment for why a variant only needs to specify
+  // the keys it varies by, not every rendered group.
+  const activeVariant = useMemo(() => {
+    const candidates = variants.filter((v) => {
+      const entries = Object.entries(v.attributes).filter(([, value]) => value);
+      return entries.length > 0 && entries.every(([key, value]) => selected[key] === value);
+    });
+    if (candidates.length === 0) return null;
+    return candidates.reduce((mostSpecific, v) =>
+      Object.keys(v.attributes).length > Object.keys(mostSpecific.attributes).length ? v : mostSpecific
+    );
+  }, [variants, selected]);
+
+  useEffect(() => {
+    onSelectionChange?.(activeVariant);
+  }, [activeVariant, onSelectionChange]);
 
   if (groups.length === 0) return null;
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { BadgeInfoIcon } from "@hugeicons/core-free-icons";
 import { ImageThumbnail } from "@/components/ui/image-thumbnail";
 import { Icon } from "@/components/ui/icon";
@@ -54,7 +55,17 @@ export function ProductDetailSection({
   description,
   variants,
 }: ProductDetailSectionProps) {
-  const onSale = compareAtPrice != null && compareAtPrice > price;
+  // The variant matching the customer's current chip selection, if any —
+  // see ProductCustomize's file comment. `priceOverride` swaps in for the
+  // base price and `available` disables Add to Bag, so selecting a variant
+  // is no longer decorative.
+  const [activeVariant, setActiveVariant] = useState<ProductVariantSummary | null>(null);
+  const displayPrice = activeVariant?.priceOverride ?? price;
+  const available = activeVariant?.available ?? true;
+  // A variant's own override price is a fixed final price, not a discount
+  // off the base compareAtPrice — the strikethrough only makes sense while
+  // showing the base price itself.
+  const onSale = activeVariant == null && compareAtPrice != null && compareAtPrice > price;
   const fieldsRef = useReveal<HTMLDivElement>({
     direction: "up",
     stagger: STAGGER.list,
@@ -75,8 +86,8 @@ export function ProductDetailSection({
           </h1>
           <div className="flex flex-wrap items-baseline gap-(--space-2)">
             <span className="text-h5 font-sans font-bold text-text-primary md:text-h4">
-              {isFromPrice ? "From " : ""}
-              {currency.format(price)}
+              {isFromPrice && activeVariant == null ? "From " : ""}
+              {currency.format(displayPrice)}
             </span>
             {onSale && (
               <span className="text-h5 font-sans font-bold text-text-secondary line-through md:text-h4">
@@ -84,6 +95,11 @@ export function ProductDetailSection({
               </span>
             )}
           </div>
+          {!available && (
+            <span className="text-body-sm font-sans font-bold text-destructive">
+              Out of stock in this option
+            </span>
+          )}
         </div>
 
         <div data-reveal-item className="flex items-start gap-(--space-3)">
@@ -98,13 +114,14 @@ export function ProductDetailSection({
         {/* Same button as ProductSpotlight's (Shop's list-layout featured
             section) "ADD TO BAG" — per the user, this is that exact button,
             not a new one. Now genuinely wired: launches the flying-icon
-            confirmation toward the navbar bag icon. */}
+            confirmation toward the navbar bag icon. Disabled when the
+            selected variant is explicitly marked unavailable. */}
         <div data-reveal-item>
-          <AddToBagButton variant="labeled" />
+          <AddToBagButton variant="labeled" disabled={!available} />
         </div>
 
         <div data-reveal-item>
-          <ProductCustomize variants={variants} />
+          <ProductCustomize variants={variants} onSelectionChange={setActiveVariant} />
         </div>
       </div>
     </div>

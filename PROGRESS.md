@@ -63,19 +63,79 @@ produces a valid signature), but the actual browser upload-widget round
 trip still hasn't been confirmed by the user in a live session.
 
 Scaffolding, design tokens, and ~34 components are built. **Home is fully built,
-top to bottom**: HeroSection → promo strip → Bestsellers (placeholder products) →
-Our categories (real photography) → CelebrityShowcase (real media) →
-Bracelet Collection → Pendant Collection (placeholder products) →
-TestimonialSection (real reviewer photos) → Footer (shared layout). The old
-"temporary component showcase" scratch section has been retired now that the
-real page is complete — Home is a plain Server Component again (no direct
-`useState`; interactivity lives in the leaf components that need it, except
-`getCelebrities()`'s filesystem scan, which now also runs there). Shop has
-real (placeholder-data) integration: sidebar + controls + grid/list toggle +
-pagination.
+top to bottom**: HeroSection → promo strip → Bestsellers (real, admin-curated
+featured products) → Our categories (real photography) → CelebrityShowcase
+(real media) → Bracelet Collection → Pendant Collection (real, per-category DB
+products) → TestimonialSection (real reviewer photos, static copy — no reviews
+table exists or is planned, see `docs/DATABASE.md`) → Footer (shared layout).
+The old "temporary component showcase" scratch section has been retired now
+that the real page is complete — Home is a plain Server Component again (no
+direct `useState`; interactivity lives in the leaf components that need it,
+except `getCelebrities()`'s filesystem scan, which now also runs there). Shop
+has real DB integration: sidebar + controls (category/price/sort all
+genuinely filter) + grid/list toggle + pagination.
 
 ## Resolved decisions
 
+- **Fixed: PDP variant selection was decorative — now drives price/
+  availability; app-wide audit of remaining static/placeholder data**
+  (2026-08-30, per the user reporting `/bag` showing static items and asking
+  what "Price override" actually does) —
+  1. **Price override is live now.** `product_variants.price_override` was
+     captured by the admin form and persisted to the DB, but
+     `getProductDetailBySlug` (`src/lib/products.ts`) dropped it before it
+     ever reached the storefront, and `ProductCustomize` only tracked chip
+     selection as local UI state with no effect on price/availability —
+     confirmed by reading the full path (admin form → Server Action → DB →
+     storefront query → PDP) rather than assumed. Fixed: `variants` now
+     includes `priceOverride` (`number | null`) alongside the existing
+     `available`. `ProductCustomize` gained an `onSelectionChange` callback
+     that reports the one real variant row whose own attributes fully match
+     the current chip selection (a variant only needs to specify the keys it
+     actually varies by, not every rendered group — matching checks the
+     variant's own keys against the selection, and picks the
+     most-specific/most-keys match if more than one partially matches).
+     `ProductDetailSection` uses that to swap the displayed price for the
+     matched variant's `priceOverride` (falling back to the base price when
+     no override or no match), suppresses the base `compareAtPrice`
+     strikethrough while an override is active (it's a fixed final price,
+     not a discount off the base price), shows "Out of stock in this
+     option" and disables "Add to bag" (`AddToBagButton` gained a `disabled`
+     prop) when the matched variant is marked unavailable. Verified two
+     ways: `tsc`/lint/`vitest`/`next build` all clean, and a real DB
+     round-trip (temp category+product+two variants — one
+     available/priceOverride, one unavailable/no override — inserted via
+     the app's own `db`/schema, queried through the real
+     `getProductDetailBySlug`, confirmed both fields come back correctly,
+     then cleaned up) confirms the server-side data path end to end. The
+     client-side chip-click interaction itself couldn't be verified in a
+     real browser — no Playwright-reachable browser session in this
+     environment, same standing limitation documented elsewhere in this
+     file — so this is reasoned-correct and data-path-verified, not
+     click-verified; flag if a real variant selection doesn't visibly change
+     the price.
+  2. **App-wide audit of what's still static, per the user's explicit ask**
+     — re-read Home, Shop, Grillz, category, PDP, related products, and
+     search end to end (not just PROGRESS.md's own claims, which turned out
+     to have several stale "(placeholder products)" mentions from before
+     the 2026-08-29 real-DB wiring pass — corrected throughout this file).
+     All of those are genuinely DB-backed today. Two things are static by
+     *design*, not bugs:
+     - **`/bag`** — real local state (quantity/remove work, subtotal
+       recalculates) seeded from two hardcoded line items, no persistence.
+       This is unchanged and deliberately so: `CLAUDE.md`'s "Out of scope"
+       section explicitly forbids scaffolding cart state, checkout flows,
+       or order tables for this build, and there's no cart/order table in
+       `db/schema.ts` to wire real "Add to bag" clicks into. The "Add to
+       bag" flying-icon animation and navbar badge count (`BagFlightProvider`)
+       are real and already documented as visual-only for the same reason.
+       Making `/bag` real would mean lifting that scope rule — flagged for
+       the user rather than done unilaterally, since it's a locked project
+       decision, not an oversight.
+     - **`TestimonialSection`'s reviewer quotes/photos** — static marketing
+       copy by design; there's no reviews table in `db/schema.ts` and none
+       is planned in `docs/DATABASE.md`, so this isn't "backend data" that
+       got missed, unlike the price-override gap above.
 - **Fixed: real product photos not showing anywhere on the storefront**
   (2026-08-30, reported live by users) — `next.config.ts` had zero `images`
   configuration at all. `next/image` refuses to optimize any external
@@ -396,9 +456,10 @@ pagination.
      with any other key falling back to appearing after, alphabetically
      (defensive — `attributes` is still a flexible JSONB column). Renders
      nothing at all — not even the "Customize" toggle — for a product with
-     no variants. Selection stays decorative (doesn't drive price/
-     availability), same scope boundary as before, just backed by real chip
-     values now. Verified via real inserted variants (Size/Gold Color chips
+     no variants. Selection stayed decorative at this point (didn't drive
+     price/availability yet) — **now superseded, see the 2026-08-30
+     resolved-decision entry above**: selection drives `priceOverride`/
+     `available` today. Verified via real inserted variants (Size/Gold Color chips
      showing real values on a product that had them) and confirmed the
      toggle button itself (not just the word "Customize," which also
      appears in the site's global footer tagline — a real false-positive
@@ -1773,13 +1834,13 @@ choreography), `hooks/use-accordion.ts` (shared dropdown/disclosure open/close),
 
 | Route | Status |
 |---|---|
-| `/` (Home) | **Fully built**, top to bottom, real (mobile+desktop): HeroSection → promo strip → Bestsellers (placeholder products) → Our categories (real photography) → CelebrityShowcase (real media) → Bracelet/Pendant Collection (placeholder products) → TestimonialSection (real reviewer photos) → Footer. No more scratch/showcase content on this page |
-| `/shop` | Real integration: ShopSidebar + ShopControlsBar + ProductGrid/ProductList toggle + PaginationDial + ProductSpotlight (list layout), placeholder product data |
-| `/grillz` | Hero (real images, back button, full-bleed) → Best Grillz Collection (ProductCollectionSection) → GrillzCastSection → Footer. Placeholder product data |
-| `/category/[slug]` | Real (placeholder-data) integration, built purely from existing components: SectionHeader + ProductGrid + pagination dial + "More from us" + Explore more Button. Shares NavBar's back-button variant with Grillz. Has a ProductGridSkeleton-based `loading.tsx` |
-| `/product/[slug]` | First section built (real, placeholder-data): image gallery + category/title/price/description/"Add to bag". Shares NavBar's back-button variant with Grillz/category/bag. Has a Spinner-based `loading.tsx` |
-| `/bag` | "My shopping bag" — real local state (quantity/remove work, subtotal recalculates), placeholder-seeded, no persistence/checkout — see its resolved-decision entry for the scope boundary. Shares NavBar's back-button variant with Grillz/category/product |
-| `/admin` | Still a placeholder stub |
+| `/` (Home) | **Fully built**, top to bottom, real data throughout (mobile+desktop): HeroSection → promo strip → Bestsellers (real, admin-curated) → Our categories (real photography) → CelebrityShowcase (real media) → Bracelet/Pendant Collection (real, per-category DB products) → TestimonialSection (real reviewer photos, static copy — no reviews table) → Footer. No more scratch/showcase content on this page |
+| `/shop` | Real integration: ShopSidebar + ShopControlsBar (category/price/sort genuinely filter) + ProductGrid/ProductList toggle + PaginationDial + ProductSpotlight (list layout), real DB product data |
+| `/grillz` | Hero (real images, back button, full-bleed) → Best Grillz Collection (ProductCollectionSection) → GrillzCastSection → Footer. Real `grillz`-category DB product data |
+| `/category/[slug]` | Real DB integration, built purely from existing components: SectionHeader + ProductGrid + pagination dial + "More from us" + Explore more Button. Shares NavBar's back-button variant with Grillz. Has a ProductGridSkeleton-based `loading.tsx` |
+| `/product/[slug]` | Real per-slug DB query, real `Product`/`BreadcrumbList` JSON-LD, real variant chips that now drive price/availability (see resolved-decision entry below) — image gallery + category/title/price/description/"Add to bag". Shares NavBar's back-button variant with Grillz/category/bag. Has a Spinner-based `loading.tsx` |
+| `/bag` | "My shopping bag" — real local state (quantity/remove work, subtotal recalculates), placeholder-seeded, no persistence/checkout **by design** — checkout/cart/orders are explicitly out of scope (`CLAUDE.md`), so there's no cart table to wire this to; see its resolved-decision entry for the scope boundary. Shares NavBar's back-button variant with Grillz/category/product |
+| `/pluggeo` (admin) | Fully built: product/category CRUD, homepage curation, Cloudinary media upload — moved from `/admin` for security (old path 404s) |
 
 ## Assets pulled from Figma
 

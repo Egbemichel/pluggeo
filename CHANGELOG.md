@@ -6,6 +6,25 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+### Fixed (batch 60 — PDP variant price/availability were decorative)
+
+- `product_variants.price_override` was captured by the admin form and saved
+  to the DB, but the storefront never read it back, and selecting a variant
+  chip on the PDP was purely local UI state with no effect on price or
+  availability. `getProductDetailBySlug` now returns each variant's
+  `priceOverride`; `ProductCustomize` reports the variant matching the
+  current selection; `ProductDetailSection` swaps in that variant's price
+  (or the base price if none matches/no override) and disables "Add to bag"
+  with an "Out of stock in this option" message when the matched variant is
+  unavailable.
+- App-wide audit of remaining static/placeholder data, per a user report
+  that `/bag` still showed static items: everything else (Home, Shop,
+  Grillz, category pages, PDP, related products, search) is genuinely
+  DB-backed — confirmed by re-reading the current code, not just prior
+  notes, which had drifted stale in a few spots (fixed in `PROGRESS.md`).
+  `/bag`'s static line items and `TestimonialSection`'s static reviewer
+  copy are unchanged, by design — see `PROGRESS.md` for why.
+
 ### Fixed (batch 59 — real product photos not showing)
 
 - `next.config.ts` had no `images.remotePatterns` at all, so `next/image`
