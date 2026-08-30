@@ -124,9 +124,15 @@ function ProductInfo({
           column eats into the info width), the compare-price drops to its own
           line as a whole unit — never breaks mid-string ("From" / "$5,800.00"
           split ugly) and never overflows/overlaps the basket icon (plain
-          whitespace-nowrap with no wrap-capable container did, at desktop). */}
+          whitespace-nowrap with no wrap-capable container did, at desktop).
+          Price is one step larger and bold vs. the title's regular weight
+          (2026-08-30, per the user: title/price read as "the same size"
+          with no real hierarchy between them, unlike category-vs-title's
+          obvious jump) — text-body-md/text-price (16px/22px) vs. the
+          title's text-body-sm/text-card-title (14px/20px), font-bold vs.
+          the title's font-normal, at both breakpoints. */}
       <div className="flex flex-wrap items-baseline gap-(--space-1)">
-        <span className="text-body-sm font-sans font-medium whitespace-nowrap text-text-primary md:text-price">
+        <span className="text-body-md font-sans font-bold whitespace-nowrap text-text-primary md:text-price">
           {isFromPrice ? "From " : ""}
           {currency.format(price)}
         </span>

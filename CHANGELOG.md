@@ -6,6 +6,15 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+### Fixed (batch 64 — product card title/price had no visual hierarchy)
+
+- The price on product cards/list rows (`ProductInfo`, shared by Shop's
+  grid and list layouts) was the same 14px size as the title on mobile,
+  only a touch heavier — read as "the same size" with no real hierarchy,
+  unlike the obvious category-vs-title jump. Price is now a clear step
+  larger and bold at both breakpoints (16px bold vs. the title's 14px
+  regular on mobile; 22px bold vs. 20px regular on desktop).
+
 ### Fixed (batch 63 — image-size follow-up, per live user feedback)
 
 - Reverted the previous batch's wider `ProductCard` row thumbnail — it

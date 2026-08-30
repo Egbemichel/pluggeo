@@ -77,6 +77,24 @@ genuinely filter) + grid/list toggle + pagination.
 
 ## Resolved decisions
 
+- **`ProductCard`'s title/price given real visual hierarchy** (2026-08-30,
+  per the user: on the product list/grid info block, the title and price
+  read as "the same size" with no clear distinction, unlike the obvious
+  jump between category and title) — `ProductInfo`'s shared price span
+  (used identically by both "card"/grid and "row"/list layouts, so this
+  fixes both at once) was `text-body-sm font-medium` on mobile — literally
+  the same 14px size token the title uses, just one weight step up, easy
+  to miss. Bumped to `text-body-md font-bold` (16px vs. the title's 14px,
+  bold vs. the title's regular) at mobile, and `md:font-bold` alongside
+  the existing `md:text-price` (22px vs. the title's 20px `text-card-title`)
+  at desktop — price is now a clear step larger *and* bolder than the
+  title at both breakpoints, not just a subtly heavier one at the same
+  size. The struck-through compare-at price is untouched (still small/
+  secondary/line-through) — it's a "was" price, not something that should
+  compete with the real price for attention. Verified via `tsc`/lint/
+  `vitest`/`next build` (all clean); the actual visual hierarchy read
+  couldn't be confirmed in a real browser, same standing limitation noted
+  throughout this file.
 - **Follow-up correction on the image-size pass below: reverted the row
   thumbnail bump, made the PDP main image uncropped, loosened Spotlight's
   size caps further** (2026-08-30, the user tried the previous pass live
