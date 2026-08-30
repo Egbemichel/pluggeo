@@ -113,6 +113,7 @@ export default async function ProductPage({
       />
       <div className="flex flex-1 flex-col gap-(--space-12) py-(--space-9)">
         <ProductDetailSection
+          slug={product.slug}
           images={product.images}
           category={product.category}
           title={product.title}

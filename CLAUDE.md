@@ -58,9 +58,16 @@ chat history.
 
 ## Out of scope
 
-- **Checkout/cart/orders/payments**: explicitly out of scope for this build. Don't
-  scaffold cart state, checkout flows, order tables, or payment integrations. The
-  storefront is a catalog/showcase — browsing and product detail only.
+- **Checkout/orders/payments**: explicitly out of scope for this build. Don't scaffold
+  checkout flows, order tables, or payment integrations. "Checkout" on `/bag` stays a
+  plain, inert button — no checkout flow exists to send it to.
+- **`/bag` itself is real** (2026-08-30, per the user): it reflects genuine "Add to bag"
+  activity from anywhere on the site — real product/variant data, quantities, and
+  totals — backed by client-side state (`BagFlightProvider`, `src/components/
+  bag-flight-provider.tsx`) persisted to `localStorage`, not a database cart/order
+  table. No customer accounts exist to key a server-side cart to (see Auth above), so
+  this intentionally stays device-local rather than synced across devices/sessions.
+  Still no checkout/orders/payments beyond this — don't scaffold those.
 
 ## Open decisions (blocking — see chat, not guessed)
 

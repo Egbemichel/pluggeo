@@ -156,6 +156,10 @@ export function ProductCard({
   className,
 }: ProductCardProps) {
   const onSale = compareAtPrice != null && compareAtPrice > price;
+  // `href` is unique per product, so it doubles as the cart line's id — see
+  // CartLineItem's own comment for why (no separate product-id prop exists
+  // on this component today, and none is needed for this).
+  const cartItem = { id: href, href, image, title, category, price, compareAtPrice, isFromPrice };
 
   if (layout === "row") {
     const rowContent = (
@@ -200,7 +204,7 @@ export function ProductCard({
             {rowContent}
           </Link>
         )}
-        <AddToBagButton />
+        <AddToBagButton item={cartItem} />
       </article>
     );
   }
@@ -240,7 +244,7 @@ export function ProductCard({
             onSale={onSale}
           />
         </Link>
-        <AddToBagButton className="shrink-0" />
+        <AddToBagButton item={cartItem} className="shrink-0" />
       </div>
     </article>
   );

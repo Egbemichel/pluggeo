@@ -77,6 +77,49 @@ genuinely filter) + grid/list toggle + pagination.
 
 ## Resolved decisions
 
+- **`/bag` is a real shopping bag now — scope decision lifted, per the user**
+  (2026-08-30, explicit follow-up to the audit entry directly below: "I want
+  you to make /bag to reflect real add to bag activity") — `CLAUDE.md`'s
+  "Out of scope" section previously forbade any cart state at all; the user
+  explicitly asked to lift that specifically for the bag itself (checkout/
+  orders/payments remain out of scope, unchanged) — `CLAUDE.md`/
+  `docs/PROJECT.md` updated to reflect this rather than left contradicting
+  reality.
+  - **What changed**: `BagFlightProvider` (`src/components/
+    bag-flight-provider.tsx`) — previously just the flying-icon animation +
+    an incrementing counter — now owns real cart line items too
+    (`items`/`addItem`/`removeItem`/`setQuantity`), persisted to
+    `localStorage` under `pluggeo-cart`. No customer accounts exist to key a
+    server-side cart to (Auth is admin-only), so this deliberately stays
+    device-local rather than a DB cart/order table — consistent with
+    `CLAUDE.md` still forbidding order tables. Every real "Add to bag" site-
+    wide now carries its actual product (and, on the PDP, selected variant)
+    data through `fly()`, landing it in `/bag` the moment the flying-icon
+    animation completes (same "counter increments at arrival, not before"
+    timing as before, just now a real line item instead of a number).
+  - **Call sites updated**: `ProductCard` (grid + row layouts), `ProductSpotlight`,
+    `ProductDetailSection` (PDP — uses the currently-selected variant's
+    matched price/label, see the price-override entry below, and the
+    previously-decorative `QuantityStepper` now actually sets how many are
+    added, resetting to 1 after), and `SearchOverlay` (previously *all*
+    result rows shared one `fly(sourceEl)` handler with no idea which
+    product was clicked — harmless while it only incremented a counter, a
+    real bug once it needed to add a specific product; fixed by having
+    `SearchResults` build a per-row action bound to that row's own product).
+  - **`/bag` itself** now reads `items`/`removeItem`/`setQuantity` from
+    `useBagFlight()` instead of two hardcoded `INITIAL_ITEMS` — quantity/
+    remove work exactly as before, just against the shared real cart.
+    `ProductLineItemCard`'s old placeholder-only `size`/`width`/`goldColor`/
+    `goldType` fields (nothing real ever set them) were removed outright and
+    replaced with one `variantLabel` field showing the real
+    `product_variants.label` a line was added with, when one was selected.
+  - **Verified**: `tsc`/lint/`vitest`/`next build` all clean. The actual
+    click-through (add from a card, see it land in `/bag`, adjust quantity,
+    remove, reload and confirm it persists) couldn't be verified in a real
+    browser — same standing no-Playwright-browser-session limitation as the
+    price-override entry below — so this is reasoned-correct and typecheck-
+    verified, not click-verified; flag if an "Add to bag" click doesn't
+    actually produce a line item in `/bag`.
 - **Fixed: PDP variant selection was decorative — now drives price/
   availability; app-wide audit of remaining static/placeholder data**
   (2026-08-30, per the user reporting `/bag` showing static items and asking
@@ -121,17 +164,11 @@ genuinely filter) + grid/list toggle + pagination.
      the 2026-08-29 real-DB wiring pass — corrected throughout this file).
      All of those are genuinely DB-backed today. Two things are static by
      *design*, not bugs:
-     - **`/bag`** — real local state (quantity/remove work, subtotal
-       recalculates) seeded from two hardcoded line items, no persistence.
-       This is unchanged and deliberately so: `CLAUDE.md`'s "Out of scope"
-       section explicitly forbids scaffolding cart state, checkout flows,
-       or order tables for this build, and there's no cart/order table in
-       `db/schema.ts` to wire real "Add to bag" clicks into. The "Add to
-       bag" flying-icon animation and navbar badge count (`BagFlightProvider`)
-       are real and already documented as visual-only for the same reason.
-       Making `/bag` real would mean lifting that scope rule — flagged for
-       the user rather than done unilaterally, since it's a locked project
-       decision, not an oversight.
+     - **`/bag`** — at this point still seeded from two hardcoded line items
+       with no persistence, per the (then-locked) `CLAUDE.md` scope rule
+       against any cart state. **Now superseded, see the resolved-decision
+       entry directly above**: the user explicitly asked to lift that
+       specifically for the bag itself, and it's real today.
      - **`TestimonialSection`'s reviewer quotes/photos** — static marketing
        copy by design; there's no reviews table in `db/schema.ts` and none
        is planned in `docs/DATABASE.md`, so this isn't "backend data" that
@@ -1839,7 +1876,7 @@ choreography), `hooks/use-accordion.ts` (shared dropdown/disclosure open/close),
 | `/grillz` | Hero (real images, back button, full-bleed) → Best Grillz Collection (ProductCollectionSection) → GrillzCastSection → Footer. Real `grillz`-category DB product data |
 | `/category/[slug]` | Real DB integration, built purely from existing components: SectionHeader + ProductGrid + pagination dial + "More from us" + Explore more Button. Shares NavBar's back-button variant with Grillz. Has a ProductGridSkeleton-based `loading.tsx` |
 | `/product/[slug]` | Real per-slug DB query, real `Product`/`BreadcrumbList` JSON-LD, real variant chips that now drive price/availability (see resolved-decision entry below) — image gallery + category/title/price/description/"Add to bag". Shares NavBar's back-button variant with Grillz/category/bag. Has a Spinner-based `loading.tsx` |
-| `/bag` | "My shopping bag" — real local state (quantity/remove work, subtotal recalculates), placeholder-seeded, no persistence/checkout **by design** — checkout/cart/orders are explicitly out of scope (`CLAUDE.md`), so there's no cart table to wire this to; see its resolved-decision entry for the scope boundary. Shares NavBar's back-button variant with Grillz/category/product |
+| `/bag` | "My shopping bag" — **real cart** (2026-08-30): items come from `BagFlightProvider`'s shared state, persisted to `localStorage`, populated by real "Add to bag" clicks site-wide (quantity/remove genuinely update it). Checkout stays a plain, inert button — checkout/orders/payments remain out of scope (`CLAUDE.md`). Shares NavBar's back-button variant with Grillz/category/product |
 | `/pluggeo` (admin) | Fully built: product/category CRUD, homepage curation, Cloudinary media upload — moved from `/admin` for security (old path 404s) |
 
 ## Assets pulled from Figma

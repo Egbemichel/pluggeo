@@ -3,33 +3,53 @@
 import { ShoppingBasketAdd01Icon } from "@hugeicons/core-free-icons";
 import { Icon } from "@/components/ui/icon";
 import { Button } from "@/components/ui/button";
-import { useBagFlight } from "@/components/bag-flight-provider";
+import { useBagFlight, type CartLineItem } from "@/components/bag-flight-provider";
 import { cn } from "@/lib/utils";
 
 // Shared Add-to-Bag trigger — wraps useBagFlight so every "add to bag"
 // control site-wide (ProductCard's corner icon, PDP's full-width button)
-// launches the same flying-icon animation instead of each wiring its own
-// click handler. `variant="icon"` replaces ProductCard's previously-unwired
-// local AddToBasketButton; `variant="labeled"` replaces the PDP's
-// previously-unwired Button (styling copied verbatim from what those two
-// already had — this isn't a new visual design, just the first time either
-// actually does something on click).
+// launches the same flying-icon animation and lands the same real line item
+// in `/bag`, instead of each wiring its own click handler. `variant="icon"`
+// replaces ProductCard's previously-unwired local AddToBasketButton;
+// `variant="labeled"` replaces the PDP's previously-unwired Button (styling
+// copied verbatim from what those two already had).
+//
+// `item`/`quantity` (2026-08-30): every caller now owns building the real
+// `CartLineItem` for whatever product (and, on the PDP, whichever variant)
+// it's actually showing — this component has no product data of its own.
 
 export type AddToBagButtonProps = {
   variant?: "icon" | "labeled";
   className?: string;
   disabled?: boolean;
+  item: CartLineItem;
+  quantity?: number;
+  /** Fires immediately on click (not on flight-landing) — e.g. the PDP uses
+   * this to reset its quantity stepper back to 1 right away. */
+  onAdded?: () => void;
 };
 
-export function AddToBagButton({ variant = "icon", className, disabled }: AddToBagButtonProps) {
+export function AddToBagButton({
+  variant = "icon",
+  className,
+  disabled,
+  item,
+  quantity = 1,
+  onAdded,
+}: AddToBagButtonProps) {
   const { fly } = useBagFlight();
+
+  const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    fly(e.currentTarget, item, quantity);
+    onAdded?.();
+  };
 
   if (variant === "labeled") {
     return (
       <Button
         type="button"
         disabled={disabled}
-        onClick={(e: React.MouseEvent<HTMLButtonElement>) => fly(e.currentTarget)}
+        onClick={handleClick}
         className={cn(
           "uppercase bg-white border border-brand-primary text-brand-primary text-h3",
           className
@@ -46,7 +66,7 @@ export function AddToBagButton({ variant = "icon", className, disabled }: AddToB
       type="button"
       aria-label="Add to bag"
       disabled={disabled}
-      onClick={(e) => fly(e.currentTarget)}
+      onClick={handleClick}
       className={cn(
         "flex size-9 items-center justify-center text-brand-primary md:size-12 disabled:pointer-events-none disabled:opacity-50",
         className

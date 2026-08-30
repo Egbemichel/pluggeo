@@ -26,24 +26,20 @@ import { currency } from "@/components/product-card";
 // it gets its own full-width row below the Link instead. Desktop matches
 // the reference's side-by-side placement, where there's room for both.
 //
-// The two variant-summary lines (Size/Width, Gold color/Gold type) mirror
-// ProductCustomize's own fields — each line item just shows one arbitrary
-// configuration, not a "currently selected" state.
+// The variant-summary line shows the real `product_variants.label` a line
+// was added with (e.g. "10 / Rose Gold") — real variant data doesn't have a
+// fixed size/width/gold-color/gold-type shape (attributes are freeform), so
+// this just surfaces whatever the admin actually typed as that variant's
+// label, if any.
 
 export type ProductLineItem = {
   href: string;
   image: { src: string; alt: string };
   title: string;
   category: string;
-  // Optional: real catalog products don't have these specific structured
-  // keys (variants store freeform attributes, not a fixed size/width/
-  // goldColor/goldType shape) — /bag's own placeholder line items still set
-  // all four, real search results leave them unset and the summary lines
-  // below just don't render.
-  size?: string;
-  width?: string;
-  goldColor?: string;
-  goldType?: string;
+  /** The real variant's own `label`, when a line was added with one
+   * selected — omitted for a line added with no variant chosen. */
+  variantLabel?: string;
   price: number;
   compareAtPrice?: number;
   isFromPrice?: boolean;
@@ -115,23 +111,10 @@ export function ProductLineItemCard({
             <p className="text-h6 font-heading font-bold text-brand-primary">{product.category}</p>
           </div>
 
-          {(product.size || product.width || product.goldColor || product.goldType) && (
-            <div className="flex flex-col gap-(--space-1)">
-              {(product.size || product.width) && (
-                <p className="text-body-sm font-sans font-normal text-text-secondary">
-                  Size {product.size}
-                  <span className="mx-(--space-3) text-border-default">|</span>
-                  Width {product.width}
-                </p>
-              )}
-              {(product.goldColor || product.goldType) && (
-                <p className="text-body-sm font-sans font-normal text-text-secondary">
-                  Gold color {product.goldColor}
-                  <span className="mx-(--space-3) text-border-default">|</span>
-                  Gold type {product.goldType}
-                </p>
-              )}
-            </div>
+          {product.variantLabel && (
+            <p className="text-body-sm font-sans font-normal text-text-secondary">
+              {product.variantLabel}
+            </p>
           )}
 
           <div className="flex flex-wrap items-baseline gap-(--space-2)">

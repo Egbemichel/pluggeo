@@ -29,8 +29,8 @@ within the 5-day build window.
 - **Product detail page (PDP)** — images, price, description, variant selection if
   applicable
 
-This is a catalog/showcase site — no cart, no checkout, no orders. See "Out of scope"
-in [CLAUDE.md](../CLAUDE.md).
+This is a catalog/showcase site with a real shopping bag (`/bag`) — no checkout, no
+orders, no payments. See "Out of scope" in [CLAUDE.md](../CLAUDE.md).
 
 ### Admin CMS (Google sign-in, admin-only)
 
@@ -40,7 +40,8 @@ in [CLAUDE.md](../CLAUDE.md).
 
 ## Explicitly out of scope for v1
 
-- Checkout, cart, orders, payments — see [CLAUDE.md](../CLAUDE.md)
+- Checkout, orders, payments — see [CLAUDE.md](../CLAUDE.md). (`/bag` itself is real,
+  not out of scope — see [CLAUDE.md](../CLAUDE.md)'s "Out of scope" section.)
 
 Otherwise: nothing else is deferred — everything above ships in the first pass. If
 something can't fit in 5 days, that's a timeline call to raise with the user, not a

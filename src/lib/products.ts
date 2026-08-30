@@ -241,9 +241,9 @@ export async function getStorefrontCategories(): Promise<StorefrontCategory[]> {
 // Client-side substring search over the full published catalog — no search
 // index/backend exists (small boutique catalog, not a scale where that's
 // needed yet). Returns the same card shape SearchOverlay already renders
-// via ProductLineItemCard's optional size/width/goldColor/goldType fields
-// left unset (real products don't have those specific structured keys —
-// see ProductLineItemCard's own comment).
+// via ProductLineItemCard, with no variant selected (search results add the
+// base product, not a specific variant — see ProductLineItemCard's own
+// comment).
 export async function getSearchableProducts(): Promise<StorefrontProductCard[]> {
   return getPublishedProducts();
 }

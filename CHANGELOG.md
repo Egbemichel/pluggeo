@@ -6,6 +6,28 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+### Added (batch 61 — /bag is a real shopping bag)
+
+- `/bag` reflects genuine "Add to bag" activity from anywhere on the site
+  now, instead of two hardcoded line items. Scope decision: `CLAUDE.md`
+  previously ruled out any cart state; the user explicitly asked to lift
+  that for the bag itself (checkout/orders/payments remain out of scope,
+  unchanged) — `CLAUDE.md`/`docs/PROJECT.md` updated accordingly.
+- `BagFlightProvider` now owns real cart line items (add/remove/set
+  quantity), persisted to `localStorage` — no customer accounts exist to
+  key a server-side cart to, so this stays device-local by design, not a
+  database cart/order table. Every "Add to bag" control site-wide
+  (`ProductCard`, `ProductSpotlight`, the PDP, search results) now passes
+  its real product — and, on the PDP, the selected variant's matched price/
+  label — into the shared cart, landing the moment the flying-icon
+  animation completes.
+- Fixed a latent bug found while wiring this up: every search-result row
+  shared one `fly()` handler with no idea which product was clicked
+  (harmless while it only incremented a counter, wrong once it needed to
+  add a specific product to the bag).
+- The PDP's quantity stepper actually affects how many are added now
+  (previously decorative), resetting to 1 after a successful add.
+
 ### Fixed (batch 60 — PDP variant price/availability were decorative)
 
 - `product_variants.price_override` was captured by the admin form and saved

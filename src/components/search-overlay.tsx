@@ -75,11 +75,13 @@ type PendingNav = { href: string; transitionTypes: TransitionType[] };
 // screen, this is interaction-triggered like the dial wave or add-to-bag.
 function SearchResults({
   results,
-  action,
+  getAction,
   onNavigate,
 }: {
   results: ProductLineItem[];
-  action: ProductLineItemAction;
+  /** Built per-row, not once — each result is a different real product, so
+   * its "Add to bag" click needs to carry that specific product's data. */
+  getAction: (product: ProductLineItem) => ProductLineItemAction;
   onNavigate: (e: React.MouseEvent<HTMLAnchorElement>, href: string) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -115,7 +117,7 @@ function SearchResults({
         <div key={product.href} data-reveal-item>
           <ProductLineItemCard
             product={product}
-            action={action}
+            action={getAction(product)}
             onNavigate={(e) => onNavigate(e, product.href)}
           />
         </div>
@@ -148,15 +150,27 @@ export function SearchOverlay({ open, onClose, products = [] }: SearchOverlayPro
   const shellRef = useRef<HTMLDivElement | null>(null);
   const onClosedRef = useRef<(() => void) | null>(null);
 
-  // Module-level constants can't call hooks, so the action object (needs
-  // `fly` from context) is built once per render here instead — cheap,
-  // and PLACEHOLDER_RESULTS.map already creates new element props every
-  // render regardless.
-  const addToBagAction = {
+  // Module-level constants can't call hooks, so this factory (needs `fly`
+  // from context) is built once per render here instead — cheap, and
+  // `results.map` already creates new element props every render regardless.
+  // Built per-row (not one shared action) so each result's click carries
+  // that specific product's real data into the cart, not whichever result
+  // happened to render first.
+  const getAddToBagAction = (product: ProductLineItem): ProductLineItemAction => ({
     label: "Add to bag",
     icon: ShoppingBagAddIcon,
-    onClick: (sourceEl: HTMLButtonElement) => fly(sourceEl),
-  };
+    onClick: (sourceEl: HTMLButtonElement) =>
+      fly(sourceEl, {
+        id: product.href,
+        href: product.href,
+        image: product.image,
+        title: product.title,
+        category: product.category,
+        price: product.price,
+        compareAtPrice: product.compareAtPrice,
+        isFromPrice: product.isFromPrice,
+      }),
+  });
 
   const handleClose = useCallback(() => {
     onClose();
@@ -293,7 +307,7 @@ export function SearchOverlay({ open, onClose, products = [] }: SearchOverlayPro
           {results.length > 0 && (
             <SearchResults
               results={results}
-              action={addToBagAction}
+              getAction={getAddToBagAction}
               onNavigate={handleResultNavigate}
             />
           )}

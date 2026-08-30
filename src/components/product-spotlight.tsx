@@ -263,7 +263,19 @@ export function ProductSpotlight({ product, className }: ProductSpotlightProps) 
               <span className="text-body-sm font-sans font-light">Details</span>
             </Pill>
           </Link>
-          <AddToBagButton variant="labeled" />
+          <AddToBagButton
+            variant="labeled"
+            item={{
+              id: product.href,
+              href: product.href,
+              image: product.images[0],
+              title: product.title,
+              category: product.category,
+              price: product.price,
+              compareAtPrice: product.compareAtPrice,
+              isFromPrice: product.isFromPrice,
+            }}
+          />
         </div>
       </div>
     </div>

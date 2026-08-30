@@ -32,6 +32,9 @@ import { STAGGER } from "@/lib/motion";
 // on a PDP, so this fires without scrolling; run-once, same as Hero/Categories.
 
 export type ProductDetailSectionProps = {
+  /** Used to build this product's `/product/[slug]` href for its own cart
+   * line item — the PDP doesn't link to itself anywhere else. */
+  slug: string;
   images: { src: string; alt: string }[];
   category: string;
   title: string;
@@ -46,6 +49,7 @@ export type ProductDetailSectionProps = {
 };
 
 export function ProductDetailSection({
+  slug,
   images,
   category,
   title,
@@ -60,6 +64,7 @@ export function ProductDetailSection({
   // base price and `available` disables Add to Bag, so selecting a variant
   // is no longer decorative.
   const [activeVariant, setActiveVariant] = useState<ProductVariantSummary | null>(null);
+  const [quantity, setQuantity] = useState(1);
   const displayPrice = activeVariant?.priceOverride ?? price;
   const available = activeVariant?.available ?? true;
   // A variant's own override price is a fixed final price, not a discount
@@ -71,6 +76,19 @@ export function ProductDetailSection({
     stagger: STAGGER.list,
     distance: 28,
   });
+
+  const href = `/product/${slug}`;
+  const cartItem = {
+    id: activeVariant ? `${href}::${activeVariant.label}` : href,
+    href,
+    image: images[0],
+    title,
+    category,
+    price: displayPrice,
+    compareAtPrice: activeVariant ? undefined : compareAtPrice,
+    isFromPrice: activeVariant ? false : isFromPrice,
+    variantLabel: activeVariant?.label,
+  };
 
   return (
     <div className="grid gap-(--space-9) md:grid-cols-5 md:items-start md:gap-(--space-12)">
@@ -108,16 +126,25 @@ export function ProductDetailSection({
         </div>
 
         <div data-reveal-item className="self-start">
-          <QuantityStepper />
+          <QuantityStepper value={quantity} onChange={setQuantity} />
         </div>
 
         {/* Same button as ProductSpotlight's (Shop's list-layout featured
             section) "ADD TO BAG" — per the user, this is that exact button,
-            not a new one. Now genuinely wired: launches the flying-icon
-            confirmation toward the navbar bag icon. Disabled when the
+            not a new one. Genuinely wired: launches the flying-icon
+            confirmation toward the navbar bag icon and lands the currently
+            selected variant + quantity in the real cart, then resets the
+            stepper back to 1 (matches ordinary storefront behavior — the
+            next click starts a fresh "how many more"). Disabled when the
             selected variant is explicitly marked unavailable. */}
         <div data-reveal-item>
-          <AddToBagButton variant="labeled" disabled={!available} />
+          <AddToBagButton
+            variant="labeled"
+            disabled={!available}
+            item={cartItem}
+            quantity={quantity}
+            onAdded={() => setQuantity(1)}
+          />
         </div>
 
         <div data-reveal-item>
