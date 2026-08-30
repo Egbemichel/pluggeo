@@ -16,16 +16,33 @@ All notable changes to this project are documented here, following
 - New `sitemap.ts` (DB-driven, real categories/products) and `robots.ts`
   (disallows `/pluggeo`/`/sign-in`), replacing the nonexistent static
   equivalents. New web app manifest.
-- New default social-share image (`opengraph-image.tsx`, navy background +
-  crown mark + wordmark); product pages use the product's own real photo
+- New default social-share image (`opengraph-image.png`, navy background +
+  crown mark + wordmark — a static file, not `next/og`'s `ImageResponse`;
+  see Fixed below for why); product pages use the product's own real photo
   instead.
 - Real favicon (`favicon.ico`/`icon.png`/`apple-icon.png`) generated from a
   crown mark matching the existing wordmark logo's motif, replacing the
   default Vercel/Next icon.
+- New `pageMetadata()` helper (`src/lib/seo.ts`) every static page's
+  metadata now goes through, so title/canonical/OG/Twitter can't silently
+  drift out of sync between pages again.
 - Brand renamed "Plug Geo" → "pluggeo&co" sitewide (metadata, nav/footer/
   admin text, docs) — the graphic wordmark logo images were left untouched.
 - Home page gained a real (visually-hidden) `<h1>` — it had none at all
   before, resolving a long-flagged `e2e/home.spec.ts` mismatch for good.
+
+### Fixed (batch 58, continued — broken deploy + missing og:image/doubled title)
+
+- The first push of the SEO batch above broke the live deploy: `next/og`'s
+  `ImageResponse` (used for the default OG image) bundled ~1.4 MB of
+  wasm/font binaries into the Worker, pushing it over Cloudflare's 3 MiB
+  free-tier size limit. Replaced with a static `opengraph-image.png`.
+- Every page's `og:image`/`twitter:image` was silently missing except the
+  Product page's — a page's own `openGraph`/`twitter` metadata replaces
+  rather than merges the root layout's per-field. Home's `<title>` also
+  doubled the brand name for the same class of reason. Both fixed via the
+  new `pageMetadata()` helper; re-verified with real `curl` checks against
+  every page.
 
 ### Investigated (batch 57 — notFound() returning HTTP 200 instead of 404)
 

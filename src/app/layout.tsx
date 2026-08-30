@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
 import { Inter } from "next/font/google";
 import localFont from "next/font/local";
-import { SITE_NAME, SITE_TAGLINE, SITE_DESCRIPTION, SITE_URL, THEME_COLOR } from "@/lib/seo";
+import { SITE_NAME, SITE_TAGLINE, SITE_DESCRIPTION, SITE_URL, THEME_COLOR, DEFAULT_OG_IMAGE } from "@/lib/seo";
 import "./globals.css";
 
 // Figma font/family "body" = Inter, "heading" = Quinn (licensed, local file).
@@ -52,11 +52,13 @@ export const metadata: Metadata = {
     description: SITE_DESCRIPTION,
     url: SITE_URL,
     locale: "en_US",
+    images: [DEFAULT_OG_IMAGE],
   },
   twitter: {
     card: "summary_large_image",
     title: `${SITE_NAME} — ${SITE_TAGLINE}`,
     description: SITE_DESCRIPTION,
+    images: [DEFAULT_OG_IMAGE],
   },
 };
 

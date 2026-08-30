@@ -5,14 +5,14 @@ import { ProductCollectionSection } from "@/components/product-collection-sectio
 import { GrillzCastSection } from "@/components/grillz-cast-section";
 import { getPublishedProductsByCategorySlug } from "@/lib/products";
 import { PAGE_TRANSITION } from "@/lib/motion";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Custom Grillz",
   description:
     "Custom-fit gold and diamond grillz from pluggeo&co — the streetwear-luxury staple, made to order.",
-  alternates: { canonical: "/grillz" },
-  openGraph: { url: "/grillz" },
-};
+  path: "/grillz",
+});
 
 // `force-dynamic`: see the Home page's comment on the same line — a plain
 // Drizzle query gives Next no signal to ever re-render after the initial

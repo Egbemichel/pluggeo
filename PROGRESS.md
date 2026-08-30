@@ -114,14 +114,20 @@ pagination.
      `/`/`/shop`/`/grillz`; robots disallows `/pluggeo`/`/sign-in` and points
      at the sitemap. Verified live: real category slugs appear in
      `/sitemap.xml`, `/robots.txt` content is correct.
-  4. **Default OG image** (`src/app/opengraph-image.tsx`, `next/og`
-     `ImageResponse`) — navy background, the same crown mark as the new
-     favicon, `pluggeo&co` wordmark in the real Quinn font loaded from disk.
-     Product pages instead use the product's own real photo directly as
-     their OG/Twitter image (simpler and better for e-commerce shares than a
-     generated composite) — `metadataBase` resolves it to an absolute URL
-     whether it's a real Cloudinary URL or the relative placeholder SVG
-     fallback.
+  4. **Default OG image** — navy background, the same crown mark as the new
+     favicon, `pluggeo&co` wordmark in the real Quinn font. **Started as a
+     `next/og` `ImageResponse` route** (`opengraph-image.tsx`, font loaded
+     from disk at request time) but that broke the live deploy — see the
+     "Worker size" entry below — so it's now a static, pre-rendered
+     `src/app/opengraph-image.png` (Next's file-based convention treats a
+     static image file identically to the `.tsx` generator for metadata
+     purposes; same visual result, zero runtime cost, flattened to RGB via
+     `sharp` since alpha-channel OG images render inconsistently across
+     social platforms). Product pages instead use the product's own real
+     photo directly as their OG/Twitter image (simpler and better for
+     e-commerce shares than a generated composite) — `metadataBase` resolves
+     it to an absolute URL whether it's a real Cloudinary URL or the
+     relative placeholder SVG fallback.
   5. **Query dedup**: `getPublishedProductsByCategorySlug`/
      `getProductDetailBySlug` (`src/lib/products.ts`) wrapped in React's
      `cache()` — each page's own `generateMetadata` now calls the same query
@@ -167,6 +173,39 @@ pagination.
      SEO/accessibility requirement a page shouldn't ship without. Updated
      the test to match: `toBeAttached()` (an `sr-only` element correctly
      fails `toBeVisible()`) asserting the real new brand name.
+  9. **Live deploy failure, root-caused and fixed**: the first push of this
+     batch broke CI — `Worker exceeded the size limit of 3 MiB` (Cloudflare's
+     free-tier cap; the Worker script's gzip size was 3217.76 KiB). The
+     `opengraph-image.tsx` `ImageResponse` route was the cause: `next/og`
+     bundles `@vercel/og`'s `resvg.wasm` (1.35 MB) + `yoga.wasm` (70 KB) +
+     a fallback font binary into the server function purely because that one
+     file imported it, even though the route itself never got exercised by
+     most requests. Confirmed by inspecting the actual `.open-next` output
+     before/after (`opennextjs-cloudflare build` without deploying) —
+     `handler.mjs` dropped from ~11.6 MB to ~7.4 MB uncompressed and its
+     gzip size to ~2.0 MB, comfortably under the limit — before pushing the
+     fix in entry 4 above.
+  10. **Two real bugs found while re-verifying after that fix, both now
+      fixed**: (a) every page's `og:image`/`twitter:image` was silently
+      missing except the Product page's — a page's own `openGraph`/`twitter`
+      metadata object replaces rather than deep-merges the root layout's
+      per-field, so any page declaring its own (even partial) `openGraph`
+      lost the inherited image entirely; the file-convention
+      `opengraph-image.png` auto-injection does not survive that. (b) the
+      Home page's `<title>` doubled the brand name
+      ("pluggeo&co — ... | pluggeo&co") — its `title` was a plain string
+      equal to the root's own `title.default`, but a page-level string title
+      always runs through the parent's `%s | pluggeo&co` template regardless
+      of whether it happens to match the default. Both were only caught by
+      literally curling the rendered `<head>` of Home/Shop before and after
+      — reading the source gave no hint either was wrong. Fixed by adding
+      `pageMetadata()` to `src/lib/seo.ts` (a small shared builder every
+      static page now calls, so this class of per-page inconsistency can't
+      recur) and, for Home specifically, dropping its own `title` entirely
+      so the untemplated root default flows through untouched. Re-verified
+      the same way: real `curl` against Home/Shop/Grillz/Category/Product
+      after the fix, all five showing correct, non-doubled titles and a
+      resolvable absolute `og:image`/`twitter:image` on every one.
   **Not independently visually verified end-to-end in a real browser**: same
   standing limitation as everything else in this session — launching an
   actual Chromium instance against `localhost` in this environment fails

@@ -5,7 +5,7 @@ import { CategoryPageContent } from "@/components/category-page-content";
 import { getPublishedProductsByCategorySlug, getFeaturedProducts } from "@/lib/products";
 import { minDelay } from "@/lib/min-delay";
 import { PAGE_TRANSITION } from "@/lib/motion";
-import { SITE_NAME, SITE_URL } from "@/lib/seo";
+import { SITE_NAME, SITE_URL, pageMetadata } from "@/lib/seo";
 
 // Server Component so `params`/the real category query can be awaited;
 // CategoryPageContent (a Client Component) just owns pagination state.
@@ -32,12 +32,7 @@ export async function generateMetadata({
   const title = category.name;
   const description = `Shop ${category.name} at ${SITE_NAME} — ${TAGLINES[slug] ?? "handcrafted, streetwear-luxury jewelry"}.`;
 
-  return {
-    title,
-    description,
-    alternates: { canonical: `/category/${slug}` },
-    openGraph: { title, description, url: `/category/${slug}` },
-  };
+  return pageMetadata({ title, description, path: `/category/${slug}` });
 }
 
 export default async function CategoryPage({

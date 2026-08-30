@@ -10,13 +10,31 @@ import { Pill } from "@/components/ui/pill";
 import { getCelebrities } from "@/lib/celebrities";
 import { getFeaturedProducts, getPublishedProductsByCategorySlug } from "@/lib/products";
 import { PAGE_TRANSITION } from "@/lib/motion";
-import { SITE_NAME, SITE_TAGLINE, SITE_DESCRIPTION } from "@/lib/seo";
+import { SITE_NAME, SITE_TAGLINE, SITE_DESCRIPTION, DEFAULT_OG_IMAGE } from "@/lib/seo";
 
+// Deliberately doesn't set `title` here — the root layout's `title.default`
+// (`{SITE_NAME} — {SITE_TAGLINE}`) is already exactly what this page wants,
+// and setting the same string again as a page-level `title` would go
+// through the root's `%s | pluggeo&co` template and double the brand name
+// (confirmed by a real `curl` check: "pluggeo&co — ... | pluggeo&co").
+// `openGraph`/`twitter` still need to be explicit — a page's own `openGraph`
+// object replaces rather than deep-merges with the root layout's, which is
+// what silently dropped `images` everywhere before this was caught.
 export const metadata: Metadata = {
-  title: `${SITE_NAME} — ${SITE_TAGLINE}`,
   description: SITE_DESCRIPTION,
   alternates: { canonical: "/" },
-  openGraph: { url: "/" },
+  openGraph: {
+    title: `${SITE_NAME} — ${SITE_TAGLINE}`,
+    description: SITE_DESCRIPTION,
+    url: "/",
+    images: [DEFAULT_OG_IMAGE],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: `${SITE_NAME} — ${SITE_TAGLINE}`,
+    description: SITE_DESCRIPTION,
+    images: [DEFAULT_OG_IMAGE],
+  },
 };
 
 // The full real Home page — every section here is built from real Figma nodes or
