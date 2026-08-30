@@ -76,6 +76,27 @@ pagination.
 
 ## Resolved decisions
 
+- **Fixed: real product photos not showing anywhere on the storefront**
+  (2026-08-30, reported live by users) — `next.config.ts` had zero `images`
+  configuration at all. `next/image` refuses to optimize any external
+  hostname that isn't explicitly allowlisted via `images.remotePatterns`,
+  and every real product photo lives on Cloudinary (`res.cloudinary.com`,
+  uploaded via the admin's `next-cloudinary` widget) — confirmed directly,
+  not guessed: hit `/_next/image?url=<a real product's real Cloudinary
+  URL>` and got a genuine `400 "url" parameter is not allowed`. This never
+  surfaced earlier because the DB was empty of real products until a user
+  added one (the first real product, "Presidential Rolex Rose Gold",
+  created directly through the admin) — every prior verification pass used
+  either placeholder local assets (`public/placeholder-product.svg`, never
+  affected — only external URLs go through this check) or temporary SQL
+  rows this session inserted with fake Cloudinary-shaped URLs that were
+  never actually rendered through a live browser. Fixed by adding
+  `images.remotePatterns` for `res.cloudinary.com` to `next.config.ts`.
+  Verified against the real product: the same exact `/_next/image` request
+  that 400'd before now returns a real 200 with real image bytes (confirmed
+  by actually viewing the downloaded image — it's the real photo), and the
+  real product page's rendered HTML contains all 4 of that product's real
+  Cloudinary image URLs.
 - **Full SEO pass, real favicon, brand renamed to pluggeo&co** (2026-08-30,
   per the user) —
   1. **SEO built from a genuinely blank slate** — confirmed via grep that

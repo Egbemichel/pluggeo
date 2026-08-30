@@ -6,6 +6,14 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+### Fixed (batch 59 — real product photos not showing)
+
+- `next.config.ts` had no `images.remotePatterns` at all, so `next/image`
+  refused to load any Cloudinary-hosted photo (every real product image) —
+  confirmed via a real 400 from `/_next/image` on a real product's real URL,
+  invisible until the DB actually had a real product with real photos.
+  Added `res.cloudinary.com` to `images.remotePatterns`.
+
 ### Added (batch 58 — full SEO pass, real favicon, brand renamed to pluggeo&co)
 
 - Every storefront page now has real per-page metadata (title/description/
