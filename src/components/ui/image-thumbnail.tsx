@@ -6,16 +6,14 @@ import { ImageLightbox } from "@/components/ui/image-lightbox";
 import { cn } from "@/lib/utils";
 
 // Rebuilt against a real PDP screenshot (desktop + mobile) — no Figma node/
-// link this time. Not used anywhere else in the app yet, so free to redesign
-// without regressing another page. One shared card frame (rounded-xl, thin
-// border-border-default) holds a wide/landscape main image (aspect-[8/5], not
-// square — a square main image read "far too big" against this reference) on
-// top and the 3 thumbnails (aspect-[4/3]) in a row below, each individually
-// rounded-md with tight gaps — a noticeably tighter, "photo mount" look than
-// a plain image-plus-separate-thumbnail-row. The reference doesn't show any
-// visible highlight on a selected thumbnail (a static screenshot can't
-// capture a post-click state), so non-active thumbnails just dim slightly —
-// the only real feedback that clicking one did something, without adding a
+// link this time. One shared card frame (rounded-xl, thin
+// border-border-default) holds the main image on top and the 3 thumbnails
+// (aspect-[4/3]) in a row below, each individually rounded-md with tight
+// gaps — a noticeably tighter, "photo mount" look than a plain
+// image-plus-separate-thumbnail-row. The reference doesn't show any visible
+// highlight on a selected thumbnail (a static screenshot can't capture a
+// post-click state), so non-active thumbnails just dim slightly — the only
+// real feedback that clicking one did something, without adding a
 // border/ring the design doesn't show.
 //
 // Click-to-enlarge (2026-08-30, per the user): the main image isn't a
@@ -24,6 +22,15 @@ import { cn } from "@/lib/utils";
 // links to the PDP). Arrowing through the lightbox also moves this
 // component's own `activeIndex`, so the thumbnail row reflects wherever the
 // customer navigated to once they close it.
+//
+// Main image, uncropped (2026-08-30, per the user): was aspect-[8/5] +
+// object-cover, which crops whatever doesn't fit that fixed landscape
+// shape — real product photos aren't all 8:5, so a portrait or square photo
+// lost real content off its edges. Switched to aspect-square (bigger than
+// 8/5 was at the same width, ~60% more height) + object-contain, which
+// always shows the complete photo — any mismatch between the photo's real
+// ratio and this box just letterboxes instead of cropping, never cuts
+// anything off.
 
 export type ImageThumbnailProps = {
   images: { src: string; alt: string }[];
@@ -48,9 +55,9 @@ export function ImageThumbnail({ images, className }: ImageThumbnailProps) {
         type="button"
         aria-label="View larger image"
         onClick={() => setLightboxIndex(activeIndex)}
-        className="relative aspect-8/5 w-full overflow-hidden rounded-md"
+        className="relative aspect-square w-full overflow-hidden rounded-md bg-muted"
       >
-        <Image src={active.src} alt={active.alt} fill className="object-cover" />
+        <Image src={active.src} alt={active.alt} fill className="object-contain" />
       </button>
 
       <ImageLightbox

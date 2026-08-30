@@ -164,13 +164,14 @@ export function ProductCard({
   if (layout === "row") {
     const rowContent = (
       <>
-        {/* Bumped from w-35/sm:w-55 (2026-08-30, per a user report that
-            product photos read as "really really small" here) — this row
-            always has full page width to work with (ProductInfo's own
-            min-w-0 already shrinks its text safely instead of overflowing),
-            so there was headroom to spare; the fixed size just hadn't used
-            it. */}
-        <div className="relative aspect-square w-48 shrink-0 sm:w-72">
+        {/* 2026-08-30: briefly bumped to w-48/sm:w-72 in the same pass that
+            made Shop's grid 3 columns, then reverted here specifically —
+            per the user, a wider fixed image in this row squeezed
+            ProductInfo's text and the AddToBagButton uncomfortably rather
+            than reading as "bigger" in a good way. The grid/lightbox/PDP
+            changes from that pass stand; only this one row width is back
+            to its original size. */}
+        <div className="relative aspect-square w-35 shrink-0 sm:w-55">
           <Image src={image.src} alt={image.alt} fill className="rounded-md object-cover" />
         </div>
         <ProductInfo

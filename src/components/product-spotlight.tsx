@@ -129,16 +129,26 @@ export function ProductSpotlight({ product, className }: ProductSpotlightProps) 
   const scale = isDesktop ? DESKTOP_SCALE : MOBILE_SCALE;
   const desiredActiveSize = BASE_ACTIVE_SIZE * scale;
   // The active tile plus one neighbor peeking past it on each side needs
-  // roughly 1.65x the active tile's own width to clear the container
-  // (neighbor width + half its own width beyond that, on both sides — see
-  // the file comment above `BASE_ACTIVE_SIZE`) — measured live via
-  // ResizeObserver rather than a fixed breakpoint value, since the 3x/4x
-  // request genuinely doesn't fit a real mobile viewport at all (confirmed
-  // via a real overflow measurement: 316px of horizontal page-scroll at
-  // 375px wide, uncapped) and the desktop column's own width varies with
-  // the sidebar. `containerWidth || Infinity` skips clamping only before
-  // the very first measurement lands, not as a permanent escape hatch.
-  const maxActiveSizeFromWidth = (containerWidth || Infinity) / 1.65;
+  // roughly the active tile's own width, plus some fraction of it, to clear
+  // the container (neighbor width + part of its own width beyond that, on
+  // both sides — see the file comment above `BASE_ACTIVE_SIZE`) — measured
+  // live via ResizeObserver rather than a fixed breakpoint value, since the
+  // 3x/4x request genuinely doesn't fit a real mobile viewport at all
+  // (confirmed via a real overflow measurement: 316px of horizontal
+  // page-scroll at 375px wide, uncapped) and the desktop column's own width
+  // varies with the sidebar. `containerWidth || Infinity` skips clamping
+  // only before the very first measurement lands, not as a permanent escape
+  // hatch.
+  //
+  // Divisor tightened from 1.65 to 1.35 (2026-08-30, per the user asking
+  // for "full image sizes" here) — this is almost always the *actual*
+  // binding constraint on mobile (a ~320-375px-wide container divided by
+  // 1.65 landed around 190-225px, well under the 600px desired size, while
+  // the height budget below barely mattered there), so it's the real lever
+  // for "bigger" on the viewport this was most cramped on. Neighbors still
+  // peek, just less generously, since some peek is the coverflow's whole
+  // visual point.
+  const maxActiveSizeFromWidth = (containerWidth || Infinity) / 1.35;
   // Budgets the whole sticky block (image + nav row + Indicator + price/CTA
   // row, ~300px measured at a 900px-tall viewport, rounded up for margin)
   // against a target fraction of the viewport, rather than capping the
@@ -147,13 +157,16 @@ export function ProductSpotlight({ product, className }: ProductSpotlightProps) 
   // fully cover the product list rows beneath it (confirmed via
   // `elementFromPoint` resolving to the spotlight's own elements, not the
   // list, at a row's own center — those rows were genuinely unclickable,
-  // not just visually crowded). Per the user, capped rather than dropping
-  // `sticky` or shipping the literal size: 70% of viewport height for the
-  // whole pinned block, leaving a real, consistently-visible strip of the
-  // list below it at any scroll position.
+  // not just visually crowded).
+  //
+  // Budget loosened from 70% to 80% of viewport height (2026-08-30, same
+  // "full image sizes" request) — still leaves a real, if narrower,
+  // consistently-visible strip of the list below at any scroll position,
+  // rather than removing this safety margin outright and risking the exact
+  // "list becomes unclickable" regression this cap was added to fix.
   const ESTIMATED_CHROME_HEIGHT = 300;
   const IMAGE_WRAPPER_PADDING = 24;
-  const maxTotalStickyHeight = (viewportHeight || Infinity) * 0.7;
+  const maxTotalStickyHeight = (viewportHeight || Infinity) * 0.8;
   const maxActiveSizeFromHeight =
     maxTotalStickyHeight - ESTIMATED_CHROME_HEIGHT - IMAGE_WRAPPER_PADDING;
   const activeSize = Math.min(desiredActiveSize, maxActiveSizeFromWidth, maxActiveSizeFromHeight);

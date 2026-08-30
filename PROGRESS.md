@@ -77,6 +77,51 @@ genuinely filter) + grid/list toggle + pagination.
 
 ## Resolved decisions
 
+- **Follow-up correction on the image-size pass below: reverted the row
+  thumbnail bump, made the PDP main image uncropped, loosened Spotlight's
+  size caps further** (2026-08-30, the user tried the previous pass live
+  and reported the widened `ProductCard` row thumbnail "squished" the text
+  and Add-to-bag icon, and asked for full, uncropped image sizes on the PDP
+  gallery and Shop's spotlight specifically) —
+  1. **`ProductCard`'s row-layout thumbnail reverted** to its original
+     `w-35 shrink-0 sm:w-55` — the `w-48/sm:w-72` bump technically fit
+     without overflowing (confirmed by build/lint at the time), but visual
+     balance is a real, different failure mode a build check can't catch;
+     taking the user's live report over the earlier reasoning.
+  2. **`ImageThumbnail`'s main PDP image no longer crops.** It was
+     `aspect-8/5` + `object-cover` — a fixed landscape box that crops
+     whatever doesn't match that ratio, cutting real content off a
+     portrait or square photo. Switched to `aspect-square` (~60% taller
+     than 8/5 at the same width — genuinely bigger, not just relabeled) +
+     `object-contain` + a neutral `bg-muted` behind it, so any photo's real
+     ratio just letterboxes instead of losing content. The small selector
+     thumbnails below it are unchanged (`aspect-4/3` + `object-cover`) —
+     the user asked about "the main image" specifically, and cropping a
+     small selector chip is normal/expected, unlike cropping the actual
+     "look at this piece" view.
+  3. **`ProductSpotlight`'s size caps loosened further**, per "I want the
+     full image sizes ... on the product spotlight." Its active-tile size
+     was already computed as `min(desired 4x/3x size, width-based cap,
+     height-based cap)` — on a typical mobile viewport the *width* cap
+     (container width ÷ 1.65, sized for the active tile plus both peeking
+     neighbors) was almost always the actual binding constraint, landing
+     well under the "desired" 600px figure quoted in an earlier session,
+     which is presumably why it still read as small despite that earlier
+     bump. Tightened the divisor from 1.65 → 1.35 (neighbors still peek,
+     just less generously) and loosened the height budget from 70% → 80%
+     of viewport height (still leaves a real, narrower strip of the
+     product list visible below the sticky block at any scroll position —
+     not removed outright, since that 70% figure existed specifically to
+     stop the spotlight from fully covering the list and making its rows
+     unclickable, a real bug fixed earlier this same day/session; see that
+     entry further down this file).
+  Verified via `tsc`/lint/`vitest`/`next build` (all clean). The actual
+  live rendered sizing/proportions for #3 specifically couldn't be
+  re-confirmed in a real browser before this pass (same standing
+  limitation as the entry below) — this is a considered, bounded increase
+  aimed at the diagnosed real bottleneck (width, not height, on mobile),
+  not a blind re-guess, but flag it again if it still reads small or if
+  loosening the height cap lets the sticky block crowd the list below.
 - **Product photos made bigger app-wide; new full-screen image lightbox**
   (2026-08-30, per a user report that photos read "really really small" on
   product cards and the Shop grid/list layouts, plus a request for a
@@ -85,9 +130,12 @@ genuinely filter) + grid/list toggle + pagination.
      them**: `ProductCard`'s "row" layout (Shop/category list view,
      `ProductList`) had its thumbnail capped at a small fixed `w-35/sm:w-55`
      (140px/220px) regardless of how much row width was actually available
-     — bumped to `w-48/sm:w-72` (192px/288px); `ProductInfo`'s existing
-     `min-w-0` already shrinks its text safely instead of overflowing, so
-     this was pure headroom that just hadn't been used. Shop's and each
+     — bumped to `w-48/sm:w-72` (192px/288px). **Reverted the same day** —
+     see the entry directly above this one: a wider fixed image here
+     squeezed `ProductInfo`'s text and the Add-to-bag button uncomfortably
+     instead of reading as "bigger" well, per the user, so this one row
+     width is back to its original `w-35/sm:w-55`; the grid/lightbox/PDP
+     changes below stand. Shop's and each
      category page's desktop grid dropped from 4 to 3 columns (mobile stays
      2, unchanged) — real, arbitrary-length catalog browsing, not tied to a
      fixed item count, so fewer/bigger columns costs nothing structurally;

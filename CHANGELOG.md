@@ -6,6 +6,19 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+### Fixed (batch 63 — image-size follow-up, per live user feedback)
+
+- Reverted the previous batch's wider `ProductCard` row thumbnail — it
+  squeezed the product info text and Add-to-bag icon uncomfortably in
+  Shop/category list view. Back to its original size.
+- The PDP's main gallery image no longer crops: was a fixed landscape box
+  with `object-cover`, now a bigger square box with `object-contain`, so a
+  portrait or square photo shows in full instead of losing content off its
+  edges.
+- Loosened Shop's swipeable spotlight gallery size caps further — the
+  width-based cap (not the height one) was the actual bottleneck on
+  mobile, so that's the one that moved.
+
 ### Added (batch 62 — bigger product photos, full-screen image preview)
 
 - Shop's and every category page's desktop grid dropped from 4 to 3
