@@ -1,7 +1,10 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
 import { Indicator } from "@/components/ui/indicator";
 import { AddToBagButton } from "@/components/ui/add-to-bag-button";
+import { useImageCycle } from "@/hooks/use-image-cycle";
 import { cn } from "@/lib/utils";
 
 // Built from the real Figma component (node 557:3742) via the REST API — see
@@ -47,6 +50,12 @@ import { cn } from "@/lib/utils";
 export type ProductCardProps = {
   href: string;
   image: { src: string; alt: string };
+  /** The product's full photo set, for the auto-cycling crossfade below —
+   * omit (or pass a single-item array) for a product with only one photo,
+   * which just renders `image` statically like before. Falls back to
+   * `[image]` when omitted so existing callers that only ever had `image`
+   * still work unchanged. */
+  images?: { src: string; alt: string }[];
   category: string;
   title: string;
   /** USD assumed — currency wasn't part of this component pull, confirm if wrong. */
@@ -55,9 +64,11 @@ export type ProductCardProps = {
   compareAtPrice?: number;
   /** Prefixes the price with "From " — set when the product has variants with a price range. */
   isFromPrice?: boolean;
-  /** Total image count for this product — renders the dot Indicator when > 1. */
+  /** Total image count for this product — renders the dot Indicator when > 1.
+   * Its active dot now tracks `images`' own auto-cycling index (see
+   * `CyclingImage`) rather than a caller-supplied static index — no caller
+   * ever actually passed one. */
   imageCount?: number;
-  activeImageIndex?: number;
   /** "card" (vertical tile, Shop grid) or "row" (horizontal, Shop gallery listing). */
   layout?: "card" | "row";
   /** Row layout only: when set, clicking the row calls this instead of
@@ -146,22 +157,63 @@ function ProductInfo({
   );
 }
 
+// Renders `images` stacked and crossfades between them via `activeIndex`
+// (2026-08-30, per the user — seeing the dot Indicator count multiple
+// photos with no way to actually see them read as pointless). Purely
+// presentational — `ref`/`activeIndex` come from one `useImageCycle` call
+// in `ProductCard` itself (not called here) so the "card" layout's
+// Indicator dots can track the same live index the images are cycling
+// through, rather than each needing its own independent hook instance.
+// A no-op visually when there's only one image: it just renders at
+// permanent opacity-100, identical to a plain `<Image>` before this existed.
+function CyclingImage({
+  ref,
+  images,
+  activeIndex,
+  imageClassName,
+}: {
+  ref: React.Ref<HTMLDivElement>;
+  images: { src: string; alt: string }[];
+  activeIndex: number;
+  imageClassName?: string;
+}) {
+  return (
+    <div ref={ref} className="absolute inset-0">
+      {images.map((img, i) => (
+        <Image
+          key={img.src}
+          src={img.src}
+          alt={img.alt}
+          fill
+          className={cn(
+            imageClassName,
+            "transition-opacity duration-700 ease-out",
+            i === activeIndex ? "opacity-100" : "opacity-0"
+          )}
+        />
+      ))}
+    </div>
+  );
+}
+
 export function ProductCard({
   href,
   image,
+  images: providedImages,
   category,
   title,
   price,
   compareAtPrice,
   isFromPrice,
   imageCount = 1,
-  activeImageIndex = 0,
   layout = "card",
   onSelect,
   selected,
   className,
 }: ProductCardProps) {
   const onSale = compareAtPrice != null && compareAtPrice > price;
+  const images = providedImages && providedImages.length > 0 ? providedImages : [image];
+  const [cycleRef, cycleIndex] = useImageCycle<HTMLDivElement>(images.length);
   // `href` is unique per product, so it doubles as the cart line's id — see
   // CartLineItem's own comment for why (no separate product-id prop exists
   // on this component today, and none is needed for this).
@@ -178,7 +230,12 @@ export function ProductCard({
             changes from that pass stand; only this one row width is back
             to its original size. */}
         <div className="relative aspect-square w-35 shrink-0 sm:w-55">
-          <Image src={image.src} alt={image.alt} fill className="rounded-md object-cover" />
+          <CyclingImage
+            ref={cycleRef}
+            images={images}
+            activeIndex={cycleIndex}
+            imageClassName="rounded-md object-cover"
+          />
         </div>
         <ProductInfo
           category={category}
@@ -234,10 +291,10 @@ export function ProductCard({
         transitionTypes={["nav-forward"]}
         className="relative aspect-square w-full hover:opacity-100"
       >
-        <Image src={image.src} alt={image.alt} fill className="object-cover" />
+        <CyclingImage ref={cycleRef} images={images} activeIndex={cycleIndex} imageClassName="object-cover" />
         <Indicator
           count={imageCount}
-          activeIndex={activeImageIndex}
+          activeIndex={cycleIndex}
           className="absolute right-(--space-5) bottom-(--space-3)"
         />
       </Link>

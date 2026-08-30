@@ -77,6 +77,44 @@ genuinely filter) + grid/list toggle + pagination.
 
 ## Resolved decisions
 
+- **`ProductCard` auto-cycles a product's photos on a loop** (2026-08-30,
+  per the user: the dot Indicator already showed a product had 4 images,
+  with no way to actually see them without opening the PDP) — new
+  `useImageCycle` hook (`src/hooks/use-image-cycle.ts`), used by both
+  "card"/grid and "row"/list layouts (they share `ProductInfo`/rendering
+  already, so one hook call in `ProductCard` covers both). `ProductCardProps`
+  gained an optional `images` array (falls back to the existing single
+  `image` when omitted, so this is additive, not breaking); every real
+  caller already had the full array available on `StorefrontProductCard`
+  (`src/lib/products.ts`), so no call-site changes were needed beyond
+  `ProductCard` itself. Renders every image in the set stacked
+  (`position: absolute`, `object-cover`/`object-contain` per layout) and
+  crossfades via plain CSS `transition-opacity` (no GSAP — a single
+  opacity swap is exactly the "standard CSS transition" case CLAUDE.md's
+  animation stack rule already carves out) every 2.2s, looping. The
+  "card" layout's dot Indicator now tracks the same live index instead of
+  a static prop nothing ever actually set.
+  Two guards, since this runs unattended on every card that has one:
+  **viewport-gated** via a real `IntersectionObserver` (pauses the
+  interval the moment a card scrolls off-screen, resumes on return) — a
+  grid can have dozens of cards, and letting all of them tick a JS
+  interval indefinitely off-screen is the exact kind of waste
+  `performance-budget` flags; and **`prefers-reduced-motion` respected**
+  by simply never starting the cycle (stays on the cover photo) — an
+  unrequested auto-advancing carousel is a known motion-sensitivity
+  complaint, and there's nothing lost by staying on the deliberate first/
+  cover shot. A product with only one photo is unaffected (renders at
+  permanent full opacity, identical to before this existed).
+  Verified via `tsc`/lint/`vitest`/`next build` (all clean) and a real DB
+  round-trip: inserted a temp product with 3 real image rows, confirmed
+  via a live dev-server HTML fetch that all 3 image URLs and the
+  opacity-0/opacity-100 crossfade classes are actually present in the
+  rendered markup (not just 1), then cleaned up. The actual *animation
+  over time* (does it visibly advance, does it truly pause off-screen)
+  couldn't be confirmed in a real browser — same standing no-Playwright-
+  browser-session limitation noted throughout this file — so this is
+  markup-verified and reasoned-correct, not click/time-verified; flag if
+  it doesn't visibly cycle live.
 - **`ProductCard`'s title/price given real visual hierarchy** (2026-08-30,
   per the user: on the product list/grid info block, the title and price
   read as "the same size" with no clear distinction, unlike the obvious

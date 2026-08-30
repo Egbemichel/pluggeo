@@ -6,6 +6,17 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+### Added (batch 65 — product cards auto-cycle multi-image products)
+
+- Product cards (grid and list layouts) with more than one photo now
+  auto-advance through all of them on a loop every 2.2s, crossfading —
+  the dot Indicator previously showed a photo count with no way to
+  actually see the other photos short of opening the product page.
+- Pauses via a real `IntersectionObserver` the moment a card scrolls
+  off-screen (resumes on return), and never starts at all when the
+  visitor has `prefers-reduced-motion` set. A single-photo product is
+  unaffected.
+
 ### Fixed (batch 64 — product card title/price had no visual hierarchy)
 
 - The price on product cards/list rows (`ProductInfo`, shared by Shop's
