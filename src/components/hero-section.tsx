@@ -148,7 +148,7 @@ export function HeroSection() {
               ref={headingRef}
               className="absolute bottom-8 left-6 text-[4.0625rem] leading-[1.4] font-heading font-bold text-white"
             >
-              Best collection
+              Best collection TEST
             </h2>
           </div>
           {/* Real measured values for this exact node (557:3730/557:3731) — 458×110,
