@@ -207,6 +207,21 @@ export function ShopPageContent({ products, categories }: ShopPageContentProps) 
             />
           </>
         )}
+
+        {/* Mobile category picker (2026-08-30, per the user): the desktop
+            sidebar's CategoryDial (ShopSidebar, above) is hidden entirely
+            below md with no mobile equivalent — same component works fine
+            in horizontal orientation (CelebrityShowcase already proves the
+            vertical/desktop, horizontal/mobile split for this exact dial),
+            it just needed a mobile spot. Placed at the very end of the
+            page's own content — after the grid/list product view and its
+            pagination, right where Footer picks up next in the shared
+            layout — and outside the `layout === "grid"` branch above so it
+            shows the same way regardless of which product view is active. */}
+        <div className="flex flex-col gap-(--space-4) md:hidden">
+          <p className="text-h6 font-heading font-bold text-brand-primary">Shop by category</p>
+          <CategoryDial items={categoryItems} activeId={category} onActiveChange={changeCategory} orientation="horizontal" />
+        </div>
       </div>
 
       <MobileFilterDrawer

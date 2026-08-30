@@ -6,6 +6,15 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+### Fixed (batch 66 — Shop's category picker had no mobile UI)
+
+- The category dial in Shop's sidebar was desktop-only (`hidden md:flex`),
+  so there was no way to filter by category on mobile outside the filter
+  drawer, which only exposes the price panel. Added a horizontal
+  `CategoryDial` at the bottom of the page, mobile-only, right where the
+  footer picks up — same category state as the desktop picker, shown
+  under both grid and list view modes.
+
 ### Added (batch 65 — product cards auto-cycle multi-image products)
 
 - Product cards (grid and list layouts) with more than one photo now

@@ -77,6 +77,32 @@ genuinely filter) + grid/list toggle + pagination.
 
 ## Resolved decisions
 
+- **Shop's category picker given a mobile home** (2026-08-30, per the
+  user: "the category dial on the side of the shop page... is nowhere to
+  be found on mobile") — `ShopSidebar`'s `CategoryDial` (vertical
+  orientation) is `hidden ... md:flex`, so category filtering had zero
+  mobile UI outside the "Open filters" drawer, which only surfaces the
+  price panel, not category. Added a second `CategoryDial` instance
+  directly in `ShopPageContent`, `orientation="horizontal" className="md:hidden"`
+  — same component, same pattern already established for
+  `CelebrityShowcase`'s vertical-desktop/horizontal-mobile split and for
+  this very page's own mobile page-number dial, just reusing the existing
+  `categoryItems`/`category`/`changeCategory` state already driving the
+  desktop sidebar (so selecting a category here resets page/spotlight
+  exactly like the desktop picker does — same handler, not a parallel
+  one). Placed at the very end of `ShopPageContent`'s own markup, after
+  the product grid/list and its pagination and **outside** the
+  `layout === "grid"` branch, so it shows identically under either view
+  mode — right where Footer picks up next in the shared storefront
+  layout, matching "just above the footer" literally. Gave it a small
+  "Shop by category" label since, pulled out of the sidebar's implicit
+  "these are filters" grouping, an unlabeled dial floating near the
+  footer would have no context on its own (the desktop version leans on
+  sitting directly above the price filter panel for that). Verified via
+  `tsc`/lint/`vitest`/`next build` (all clean) and a live dev-server HTML
+  check confirming the label renders; the actual swipe/tap interaction
+  and visual placement couldn't be confirmed in a real browser, same
+  standing limitation noted throughout this file.
 - **`ProductCard` auto-cycles a product's photos on a loop** (2026-08-30,
   per the user: the dot Indicator already showed a product had 4 images,
   with no way to actually see them without opening the PDP) — new
