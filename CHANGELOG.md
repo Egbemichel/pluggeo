@@ -6,6 +6,23 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+### Fixed (batch 69 — product videos were silently dropped everywhere)
+
+- Every storefront gallery (product cards, Shop's spotlight, the PDP) was
+  filtering a product's media down to images only before it ever reached
+  the page, so an admin-uploaded video never showed up anywhere — despite
+  uploads, storage, and the admin's own preview already handling video
+  correctly. Product videos now render everywhere a product's photos do.
+- Videos play with the same controls as CelebrityShowcase's own videos
+  (play/pause, mute/unmute, sound-first autoplay with a muted fallback) on
+  the one focal item a section is built around — Shop's spotlight, the PDP
+  main image, the fullscreen lightbox. Elsewhere (a card's auto-cycling
+  slide, a gallery thumbnail, a coverflow neighbor) a video autoplays muted
+  on loop like a live photo, same as those spots already treat photos.
+- Cart thumbnails, the flying add-to-bag icon, search results, and social
+  share images (`og:image`, JSON-LD) always use a real photo, never a
+  video file, even when a product's first media item is a video.
+
 ### Fixed (batch 68 — follow-up PageSpeed round: image delivery, cache lifetimes, fetchpriority)
 
 - Re-encoded the remaining 17 unoptimized static PNGs site-wide (category

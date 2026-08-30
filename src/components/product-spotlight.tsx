@@ -1,18 +1,19 @@
 "use client";
 
 import { useLayoutEffect, useRef, useState, useSyncExternalStore, type TouchEvent } from "react";
-import Image from "next/image";
 import Link from "next/link";
-import { BadgeInfoIcon } from "@hugeicons/core-free-icons";
+import { BadgeInfoIcon, FullScreenIcon } from "@hugeicons/core-free-icons";
 import { Icon } from "@/components/ui/icon";
 import { Indicator } from "@/components/ui/indicator";
 import { ImageLightbox } from "@/components/ui/image-lightbox";
+import { MediaFrame } from "@/components/ui/media-tile";
 import { Pill } from "@/components/ui/pill";
 import { AddToBagButton } from "@/components/ui/add-to-bag-button";
 import { SectionCarouselNav } from "@/components/section-header";
 import { coverflowBlurForDistance } from "@/lib/coverflow";
 import { currency } from "@/components/product-card";
 import { cn } from "@/lib/utils";
+import type { MediaItem } from "@/lib/media";
 
 // Built from the real Figma node (596:600, "imageGallery") sitting above the
 // repeated list rows — ProductList's own file comment already pointed at this
@@ -34,7 +35,11 @@ import { cn } from "@/lib/utils";
 
 export type SpotlightProduct = {
   href: string;
-  images: { src: string; alt: string }[];
+  /** Always a real image, never a video — used for the add-to-bag flight
+   * thumbnail, which can't render video. See `lib/products.ts`'s
+   * `coverImageFor`. */
+  image: { src: string; alt: string };
+  images: MediaItem[];
   category: string;
   title: string;
   price: number;
@@ -229,19 +234,36 @@ export function ProductSpotlight({ product, className }: ProductSpotlightProps) 
                   have no click behavior at all today (selecting one only
                   happens via swipe or the prev/next chevrons), so giving
                   them a "view larger" click too would be a new, separate
-                  interaction this pass didn't ask for. */}
-              {isActive ? (
+                  interaction this pass didn't ask for. A video active tile
+                  gets real play/pause + mute/unmute controls (2026-08-30,
+                  per the user) instead of the lightbox button — those can't
+                  share a click target with a button that also opens the
+                  lightbox, so it gets its own explicit fullscreen button
+                  instead, same pattern as ImageThumbnail's PDP gallery. */}
+              {isActive && image.type === "video" ? (
+                <div className="relative h-full w-full">
+                  <MediaFrame key={image.src} media={image} className="object-contain" controls active />
+                  <button
+                    type="button"
+                    aria-label="View larger"
+                    onClick={() => setLightboxIndex(i)}
+                    className="absolute top-1 right-1 flex size-8 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm"
+                  >
+                    <Icon icon={FullScreenIcon} size={16} />
+                  </button>
+                </div>
+              ) : isActive ? (
                 <button
                   type="button"
                   aria-label="View larger image"
                   onClick={() => setLightboxIndex(i)}
                   className="relative h-full w-full"
                 >
-                  <Image src={image.src} alt={image.alt} fill className="object-contain" />
+                  <MediaFrame media={image} className="object-contain" />
                 </button>
               ) : (
                 <div className="relative h-full w-full">
-                  <Image src={image.src} alt={image.alt} fill className="object-contain" />
+                  <MediaFrame media={image} className="object-contain" active={false} />
                 </div>
               )}
               <div className="mt-(--space-2) h-3 w-3/4 rounded-full bg-black/20 blur-md" />
@@ -309,7 +331,7 @@ export function ProductSpotlight({ product, className }: ProductSpotlightProps) 
             item={{
               id: product.href,
               href: product.href,
-              image: product.images[0],
+              image: product.image,
               title: product.title,
               category: product.category,
               price: product.price,

@@ -10,6 +10,7 @@ import { ProductCustomize, type ProductVariantSummary } from "@/components/produ
 import { currency } from "@/components/product-card";
 import { useReveal } from "@/hooks/use-reveal";
 import { STAGGER } from "@/lib/motion";
+import type { MediaItem } from "@/lib/media";
 
 // PDP's first/top section, built from pasted screenshots (desktop + mobile,
 // no Figma node/link this time) — gallery (ImageThumbnail, restyled for this
@@ -35,7 +36,11 @@ export type ProductDetailSectionProps = {
   /** Used to build this product's `/product/[slug]` href for its own cart
    * line item — the PDP doesn't link to itself anywhere else. */
   slug: string;
-  images: { src: string; alt: string }[];
+  /** Always a real image, never a video — used for the cart line item's
+   * thumbnail, which can't render video. See `lib/products.ts`'s
+   * `coverImageFor`. */
+  coverImage: { src: string; alt: string };
+  images: MediaItem[];
   category: string;
   title: string;
   /** USD assumed, matches ProductCard. */
@@ -50,6 +55,7 @@ export type ProductDetailSectionProps = {
 
 export function ProductDetailSection({
   slug,
+  coverImage,
   images,
   category,
   title,
@@ -81,7 +87,7 @@ export function ProductDetailSection({
   const cartItem = {
     id: activeVariant ? `${href}::${activeVariant.label}` : href,
     href,
-    image: images[0],
+    image: coverImage,
     title,
     category,
     price: displayPrice,

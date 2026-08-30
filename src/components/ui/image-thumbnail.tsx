@@ -1,9 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
+import { FullScreenIcon } from "@hugeicons/core-free-icons";
+import { Icon } from "@/components/ui/icon";
 import { ImageLightbox } from "@/components/ui/image-lightbox";
+import { MediaFrame } from "@/components/ui/media-tile";
 import { cn } from "@/lib/utils";
+import type { MediaItem } from "@/lib/media";
 
 // Rebuilt against a real PDP screenshot (desktop + mobile) — no Figma node/
 // link this time. One shared card frame (rounded-xl, thin
@@ -33,7 +36,7 @@ import { cn } from "@/lib/utils";
 // anything off.
 
 export type ImageThumbnailProps = {
-  images: { src: string; alt: string }[];
+  images: MediaItem[];
   className?: string;
 };
 
@@ -51,14 +54,37 @@ export function ImageThumbnail({ images, className }: ImageThumbnailProps) {
         className
       )}
     >
-      <button
-        type="button"
-        aria-label="View larger image"
-        onClick={() => setLightboxIndex(activeIndex)}
-        className="relative aspect-square w-full overflow-hidden rounded-md bg-muted"
-      >
-        <Image src={active.src} alt={active.alt} fill className="object-contain" />
-      </button>
+      {/* A video gets real play/pause + mute/unmute controls (2026-08-30,
+          per the user — a product video should play the same way
+          CelebrityShowcase's videos do, not sit there as a silent image
+          substitute), which can't live inside a button that also opens the
+          lightbox on any click (a `<button>` in a `<button>` is invalid
+          markup, and the click would fight the video's own controls
+          anyway) — so only an image keeps the whole-tile "click to
+          enlarge" button; a video gets its own explicit fullscreen button
+          in the opposite corner instead. */}
+      {active.type === "video" ? (
+        <div className="relative aspect-square w-full overflow-hidden rounded-md bg-muted">
+          <MediaFrame key={active.src} media={active} className="object-contain" controls active />
+          <button
+            type="button"
+            aria-label="View larger"
+            onClick={() => setLightboxIndex(activeIndex)}
+            className="absolute top-(--space-3) right-(--space-3) flex size-9 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm"
+          >
+            <Icon icon={FullScreenIcon} size={18} />
+          </button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          aria-label="View larger image"
+          onClick={() => setLightboxIndex(activeIndex)}
+          className="relative aspect-square w-full overflow-hidden rounded-md bg-muted"
+        >
+          <MediaFrame media={active} className="object-contain" />
+        </button>
+      )}
 
       <ImageLightbox
         images={images}
@@ -76,7 +102,7 @@ export function ImageThumbnail({ images, className }: ImageThumbnailProps) {
             <button
               key={index}
               type="button"
-              aria-label={`Show image ${index + 1}`}
+              aria-label={`Show ${image.type === "video" ? "video" : "image"} ${index + 1}`}
               aria-current={index === activeIndex}
               onClick={() => setActiveIndex(index)}
               className={cn(
@@ -84,7 +110,7 @@ export function ImageThumbnail({ images, className }: ImageThumbnailProps) {
                 index !== activeIndex && "opacity-60"
               )}
             >
-              <Image src={image.src} alt={image.alt} fill className="object-cover" />
+              <MediaFrame media={image} className="object-cover" active={false} />
             </button>
           ))}
         </div>

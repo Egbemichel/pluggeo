@@ -77,6 +77,59 @@ genuinely filter) + grid/list toggle + pagination.
 
 ## Resolved decisions
 
+- **Product videos were being silently dropped everywhere, despite the
+  admin genuinely accepting and storing them** (2026-08-30, per a user
+  report: uploaded videos never showed up on the card, Shop's spotlight, or
+  the PDP) — root cause: `src/lib/products.ts`'s `imagesForProduct` (the
+  single function every storefront gallery flows through) filtered every
+  media row down to `type === "image"` before any UI ever saw it, even
+  though `productMedia.type` has allowed `"video"` since 2026-08-29 and the
+  admin's own upload widget already handles both correctly (confirmed 2
+  real published products already had a video row in the DB, both at
+  `sortOrder: 0`, i.e. their cover slot).
+  1. **Renamed to `mediaForProduct`, videos included** — now passes through
+     every row in its real admin-set order as a `MediaItem` (`{ type,
+     src, alt }`, new dependency-free `src/lib/media.ts`, safe for client
+     components to import).
+  2. **A new shared renderer, `MediaFrame` (`src/components/ui/
+     media-tile.tsx`)**, replaces every plain `<Image fill>` at a product
+     gallery call site — same drop-in shape, but renders a real `<video>`
+     with the exact same play/pause + mute/unmute controls
+     CelebrityShowcase's own `VideoTile` already established (sound-first
+     autoplay, muted fallback if the browser blocks it) when the item is a
+     video, per the user's explicit instruction. Full controls (`controls`)
+     only ever on the one focal item a section is built around — Shop
+     spotlight's active coverflow tile, the PDP's main image, the
+     fullscreen lightbox; everywhere else (a card's auto-cycling slide, a
+     coverflow neighbor, a PDP gallery thumbnail) a video just autoplays
+     muted on loop like a live photo, with a small play-icon badge when
+     it's not the one currently active — matches how an inactive image
+     tile already just sits there doing nothing.
+  3. **A video can never be the "cover" thumbnail** — cart line items, the
+     flying add-to-bag icon, search results, and OG/Twitter share images
+     all need a real static image, so `coverImageFor()` picks the first
+     actual image in the set (falling back to the shared placeholder) and
+     both `StorefrontProductCard` and `StorefrontProductDetail` now carry
+     this as a separate `image`/`coverImage` field, never `images[0]`.
+     JSON-LD `Product.image` filters to images the same way.
+  4. **A video inside a "click the image to enlarge" button doesn't work**
+     (a `<button>` can't contain another `<button>`, and the click would
+     fight the video's own play/pause anyway) — `ImageThumbnail` (PDP) and
+     `ProductSpotlight`'s active tile both switch to a plain wrapper `<div>`
+     with an explicit small fullscreen button in the opposite corner from
+     the play/mute controls when the active item is a video.
+  Verified via `tsc`/lint/`vitest`/`next build` (all clean) plus real
+  dev-server curl checks against the actual two videoed products in the
+  DB: the PDP's main viewer renders the video with sound-first playback
+  attempted (no `muted` attribute) while its own gallery thumbnail renders
+  the same video muted with no controls; Shop's grid/category/Home
+  bestseller cards all render it muted-autoplay-loop in the crossfade
+  cycle; the PDP's `og:image`/JSON-LD still resolve to the product's real
+  photo, never the video file. Playwright couldn't complete a full
+  interactive check of the click-driven Spotlight/lightbox paths in this
+  environment (a sandboxed-proxy connection issue unrelated to the app
+  itself), so those two rely on code review against the same pattern
+  proven correct in `ImageThumbnail` rather than a live click-through.
 - **Real PageSpeed Insights audit found and fixed a genuine 16.6s mobile
   LCP** (2026-08-30, the site owner ran PageSpeed Insights after asking how
   to check the site's SEO score — Mobile: SEO 100, Accessibility 100, Best

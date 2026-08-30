@@ -2,12 +2,13 @@
 
 import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import Image from "next/image";
 import gsap from "gsap";
 import { Cancel01Icon, ArrowLeft01Icon, ArrowRight01Icon } from "@hugeicons/core-free-icons";
 import { Icon } from "@/components/ui/icon";
+import { MediaFrame } from "@/components/ui/media-tile";
 import { useLaggedMount } from "@/hooks/use-lagged-mount";
 import { DURATION, EASE, MOTION_QUERY } from "@/lib/motion";
+import type { MediaItem } from "@/lib/media";
 
 // Full-screen image preview, per the user: click a product image to bring it
 // forward at its real proportions (object-contain, never cropped) over a
@@ -34,7 +35,7 @@ import { DURATION, EASE, MOTION_QUERY } from "@/lib/motion";
 // set `index` back to `null`.
 
 export type ImageLightboxProps = {
-  images: { src: string; alt: string }[];
+  images: MediaItem[];
   /** `null` closes the lightbox. */
   index: number | null;
   onClose: () => void;
@@ -181,7 +182,10 @@ export function ImageLightbox({ images, index, onClose, onIndexChange }: ImageLi
         className="absolute inset-6 flex items-center justify-center md:inset-16"
       >
         <div className="relative h-full w-full">
-          <Image src={active.src} alt={active.alt} fill className="object-contain" sizes="92vw" />
+          {/* The fullscreen "look at this" moment — a video here gets the
+              same real play/pause + mute/unmute controls as everywhere
+              else it's the focal item, per the user. */}
+          <MediaFrame key={active.src} media={active} className="object-contain" controls />
         </div>
       </div>
     </div>,

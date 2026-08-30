@@ -1,11 +1,12 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { Indicator } from "@/components/ui/indicator";
 import { AddToBagButton } from "@/components/ui/add-to-bag-button";
+import { MediaFrame } from "@/components/ui/media-tile";
 import { useImageCycle } from "@/hooks/use-image-cycle";
 import { cn } from "@/lib/utils";
+import type { MediaItem } from "@/lib/media";
 
 // Built from the real Figma component (node 557:3742) via the REST API — see
 // docs/FIGMA_MAPPING.md. A few measured values don't land on a named design token
@@ -50,12 +51,12 @@ import { cn } from "@/lib/utils";
 export type ProductCardProps = {
   href: string;
   image: { src: string; alt: string };
-  /** The product's full photo set, for the auto-cycling crossfade below —
-   * omit (or pass a single-item array) for a product with only one photo,
-   * which just renders `image` statically like before. Falls back to
-   * `[image]` when omitted so existing callers that only ever had `image`
-   * still work unchanged. */
-  images?: { src: string; alt: string }[];
+  /** The product's full media set (photos and videos both), for the
+   * auto-cycling crossfade below — omit (or pass a single-item array) for
+   * a product with only one photo, which just renders `image` statically
+   * like before. Falls back to `[image]` when omitted so existing callers
+   * that only ever had `image` still work unchanged. */
+  images?: MediaItem[];
   category: string;
   title: string;
   /** USD assumed — currency wasn't part of this component pull, confirm if wrong. */
@@ -173,24 +174,30 @@ function CyclingImage({
   imageClassName,
 }: {
   ref: React.Ref<HTMLDivElement>;
-  images: { src: string; alt: string }[];
+  images: MediaItem[];
   activeIndex: number;
   imageClassName?: string;
 }) {
   return (
     <div ref={ref} className="absolute inset-0">
-      {images.map((img, i) => (
-        <Image
-          key={img.src}
-          src={img.src}
-          alt={img.alt}
-          fill
+      {images.map((media, i) => (
+        <div
+          key={media.src}
           className={cn(
-            imageClassName,
-            "transition-opacity duration-700 ease-out",
+            "absolute inset-0 transition-opacity duration-700 ease-out",
             i === activeIndex ? "opacity-100" : "opacity-0"
           )}
-        />
+        >
+          {/* A video plays muted on loop while it's the active cycling
+              slide, same as a photo just sits there — no play/pause/mute
+              controls on a small auto-cycling thumbnail (2026-08-30, per
+              the user: videos should show everywhere a product's photos
+              already do, but full playback controls belong on the
+              deliberate, single-item views — Shop's spotlight, the PDP,
+              the lightbox — not a tiny tile cycling through 4 other
+              photos on its own). */}
+          <MediaFrame media={media} className={imageClassName} active={i === activeIndex} />
+        </div>
       ))}
     </div>
   );
@@ -212,7 +219,8 @@ export function ProductCard({
   className,
 }: ProductCardProps) {
   const onSale = compareAtPrice != null && compareAtPrice > price;
-  const images = providedImages && providedImages.length > 0 ? providedImages : [image];
+  const images: MediaItem[] =
+    providedImages && providedImages.length > 0 ? providedImages : [{ type: "image", ...image }];
   const [cycleRef, cycleIndex] = useImageCycle<HTMLDivElement>(images.length);
   // `href` is unique per product, so it doubles as the cart line's id — see
   // CartLineItem's own comment for why (no separate product-id prop exists

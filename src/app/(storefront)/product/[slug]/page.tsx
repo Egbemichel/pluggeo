@@ -28,8 +28,10 @@ export async function generateMetadata({
   // `openGraph.images` takes the product's own real photo directly rather
   // than generating a composite — metadataBase (root layout) resolves the
   // relative placeholder-product.svg fallback to an absolute URL the same
-  // way it would a real Cloudinary URL.
-  const image = product.images[0];
+  // way it would a real Cloudinary URL. Always `coverImage` here, never
+  // `images[0]` — a social-share/OG image has to be a real image file, and
+  // a product's first media item can now be a video (see `lib/products.ts`).
+  const image = product.coverImage;
 
   return {
     title: product.title,
@@ -77,7 +79,11 @@ export default async function ProductPage({
     "@type": "Product",
     name: product.title,
     description: product.description ?? undefined,
-    image: product.images.map((img) => new URL(img.src, SITE_URL).toString()),
+    // Schema.org's `Product.image` expects photos, not video files —
+    // filtered the same way the OG/Twitter image above is.
+    image: product.images
+      .filter((m) => m.type === "image")
+      .map((img) => new URL(img.src, SITE_URL).toString()),
     category: product.category,
     brand: { "@type": "Brand", name: SITE_NAME },
     offers: {
@@ -114,6 +120,7 @@ export default async function ProductPage({
       <div className="flex flex-1 flex-col gap-(--space-12) py-(--space-9)">
         <ProductDetailSection
           slug={product.slug}
+          coverImage={product.coverImage}
           images={product.images}
           category={product.category}
           title={product.title}

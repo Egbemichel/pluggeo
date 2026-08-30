@@ -2,6 +2,7 @@ import { cache } from "react";
 import { asc, desc, eq, and, ne, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { products, productMedia, productVariants, categories } from "@/db/schema";
+import type { MediaItem } from "@/lib/media";
 
 // Storefront-facing product queries — replaces the hardcoded placeholder
 // arrays that every catalog page (shop/category/home/grillz/related/search)
@@ -17,13 +18,23 @@ import { products, productMedia, productVariants, categories } from "@/db/schema
 // `getProductDetailBySlug` — since that's a single-product query and
 // ProductCustomize needs them to render real chip groups.
 
-const PLACEHOLDER_IMAGE = { src: "/placeholder-product.svg", alt: "Placeholder product" };
+const PLACEHOLDER_IMAGE: MediaItem = {
+  type: "image",
+  src: "/placeholder-product.svg",
+  alt: "Placeholder product",
+};
 
 export type StorefrontProductCard = {
   key: string;
   href: string;
+  /** Always a real image, never a video — the safe "cover" thumbnail for
+   * spots that can't play video (cart line items, the flying add-to-bag
+   * icon, search results, nav). See `coverImageFor`. */
   image: { src: string; alt: string };
-  images: { src: string; alt: string }[];
+  /** The product's full media set, images and videos both, in admin-set
+   * order — for the gallery surfaces that can render either (cards'
+   * auto-cycle, Shop's spotlight, the PDP gallery, the lightbox). */
+  images: MediaItem[];
   imageCount: number;
   category: string;
   /** Category slug, for filtering (e.g. Shop's sidebar) — `category` above
@@ -44,7 +55,9 @@ export type StorefrontProductDetail = {
   price: number;
   compareAtPrice?: number;
   description: string | null;
-  images: { src: string; alt: string }[];
+  /** Always a real image, never a video — see `StorefrontProductCard.image`. */
+  coverImage: { src: string; alt: string };
+  images: MediaItem[];
   variants: {
     label: string;
     attributes: Record<string, string>;
@@ -77,11 +90,30 @@ function withCloudinaryAutoFormat(url: string): string {
   return url.slice(0, index + marker.length) + "f_auto,q_auto/" + afterMarker;
 }
 
-function imagesForProduct(media: MediaRow[], title: string): { src: string; alt: string }[] {
-  const images = media
-    .filter((m) => m.type === "image")
-    .map((m) => ({ src: withCloudinaryAutoFormat(m.url), alt: m.altText || title }));
-  return images.length > 0 ? images : [PLACEHOLDER_IMAGE];
+// Renamed from `imagesForProduct` (2026-08-30) — it was filtering every row
+// down to `type === "image"` before this even ran, so an uploaded video
+// never reached a single storefront surface (not the card, not Shop's
+// spotlight, not the PDP) despite the admin genuinely accepting and storing
+// it (`productMedia.type` has allowed "video" since 2026-08-29 — see that
+// column's own comment). Videos now pass through in the same admin-set
+// `sortOrder` as photos; `withCloudinaryAutoFormat` only ever touches
+// `/image/upload/` URLs, so it's already a no-op on a video's
+// `/video/upload/` URL.
+function mediaForProduct(media: MediaRow[], title: string): MediaItem[] {
+  const items = media.map((m) => ({
+    type: m.type,
+    src: m.type === "image" ? withCloudinaryAutoFormat(m.url) : m.url,
+    alt: m.altText || title,
+  }));
+  return items.length > 0 ? items : [PLACEHOLDER_IMAGE];
+}
+
+// The safe "cover" thumbnail — always a real image. Cart line items, the
+// flying add-to-bag icon, search results, and nav all render this directly
+// as a plain `<Image>`, so it must never resolve to a video URL; falls back
+// to the first video-less item, then the shared placeholder.
+function coverImageFor(media: MediaItem[]): { src: string; alt: string } {
+  return media.find((m) => m.type === "image") ?? PLACEHOLDER_IMAGE;
 }
 
 function toCard(
@@ -90,11 +122,11 @@ function toCard(
   categorySlug: string | null,
   media: MediaRow[]
 ): StorefrontProductCard {
-  const images = imagesForProduct(media, product.name);
+  const images = mediaForProduct(media, product.name);
   return {
     key: product.id,
     href: `/product/${product.slug}`,
-    image: images[0],
+    image: coverImageFor(images),
     images,
     imageCount: images.length,
     category: categoryName ?? "pluggeo&co",
@@ -198,7 +230,7 @@ export const getProductDetailBySlug = cache(async function getProductDetailBySlu
 
   if (!row) return null;
 
-  const [media, variants] = await Promise.all([
+  const [mediaRows, variants] = await Promise.all([
     db
       .select()
       .from(productMedia)
@@ -206,6 +238,8 @@ export const getProductDetailBySlug = cache(async function getProductDetailBySlu
       .orderBy(asc(productMedia.sortOrder)),
     db.select().from(productVariants).where(eq(productVariants.productId, row.product.id)),
   ]);
+
+  const images = mediaForProduct(mediaRows, row.product.name);
 
   return {
     id: row.product.id,
@@ -222,7 +256,8 @@ export const getProductDetailBySlug = cache(async function getProductDetailBySlu
       priceOverride: v.priceOverride != null ? Number(v.priceOverride) : null,
     })),
     description: row.product.description,
-    images: imagesForProduct(media, row.product.name),
+    coverImage: coverImageFor(images),
+    images,
   };
 });
 
