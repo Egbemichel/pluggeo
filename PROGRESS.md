@@ -77,6 +77,52 @@ genuinely filter) + grid/list toggle + pagination.
 
 ## Resolved decisions
 
+- **Product photos made bigger app-wide; new full-screen image lightbox**
+  (2026-08-30, per a user report that photos read "really really small" on
+  product cards and the Shop grid/list layouts, plus a request for a
+  click-to-enlarge preview) —
+  1. **Bigger images, three separate levers, no overflow risk on any of
+     them**: `ProductCard`'s "row" layout (Shop/category list view,
+     `ProductList`) had its thumbnail capped at a small fixed `w-35/sm:w-55`
+     (140px/220px) regardless of how much row width was actually available
+     — bumped to `w-48/sm:w-72` (192px/288px); `ProductInfo`'s existing
+     `min-w-0` already shrinks its text safely instead of overflowing, so
+     this was pure headroom that just hadn't been used. Shop's and each
+     category page's desktop grid dropped from 4 to 3 columns (mobile stays
+     2, unchanged) — real, arbitrary-length catalog browsing, not tied to a
+     fixed item count, so fewer/bigger columns costs nothing structurally;
+     deliberately left Home's `ProductCollectionSection` (Bestsellers/
+     Bracelet/Pendant Collection) and `RelatedPiecesSection` at 4 columns,
+     since those curate an exact 4-item set that would wrap awkwardly
+     (3+1) at 3 columns — not asked about, and it's a real, different
+     tradeoff there. `category/[slug]/loading.tsx`'s skeleton counts/columns
+     updated to match so the loading state doesn't visibly jump to a
+     different column count once real data arrives.
+  2. **New `ImageLightbox`** (`src/components/ui/image-lightbox.tsx`) —
+     full-screen preview, portaled to `document.body` (same containing-block
+     reasoning as every other full-viewport overlay this session, see
+     SearchOverlay's entry below), near-black backdrop, `object-contain` so
+     the image never crops, tapping the backdrop (not the image) or Escape
+     closes it, prev/next arrows + arrow-key nav when there's more than one
+     image, background scroll locked while open. Wired into the two places
+     an image sits with **no** competing click behavior of its own:
+     `ImageThumbnail`'s main photo (PDP) and `ProductSpotlight`'s active
+     coverflow tile (Shop's list-layout swipeable gallery — literally the
+     "top images you slide through" the user described). **Deliberately
+     NOT wired into `ProductCard`** — its image is the actual navigation
+     `Link` to the PDP, and hijacking that click for a lightbox would break
+     the main way to reach a product from a grid/list; flagged rather than
+     guessed, since adding it there would need a separate zoom affordance
+     (e.g. a corner icon) rather than reusing the card's own click target.
+  Verified via `tsc`/lint/`vitest`/`next build` (all clean) plus a real dev-
+  server HTML check confirming Shop's desktop grid actually renders
+  `grid-template-columns:repeat(3,...)` now (was 4) and mobile still
+  renders `repeat(2,...)`. The actual visual "does this look bigger/better"
+  judgment and the lightbox's open/close/swipe interactions couldn't be
+  confirmed in a real browser — same standing no-Playwright-browser-session
+  limitation documented elsewhere in this file — so this is reasoned-
+  correct and markup-verified, not eyeballed; flag if it doesn't look right
+  live.
 - **`/bag` is a real shopping bag now — scope decision lifted, per the user**
   (2026-08-30, explicit follow-up to the audit entry directly below: "I want
   you to make /bag to reflect real add to bag activity") — `CLAUDE.md`'s

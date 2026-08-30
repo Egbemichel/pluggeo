@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import { ImageLightbox } from "@/components/ui/image-lightbox";
 import { cn } from "@/lib/utils";
 
 // Rebuilt against a real PDP screenshot (desktop + mobile) — no Figma node/
@@ -16,6 +17,13 @@ import { cn } from "@/lib/utils";
 // capture a post-click state), so non-active thumbnails just dim slightly —
 // the only real feedback that clicking one did something, without adding a
 // border/ring the design doesn't show.
+//
+// Click-to-enlarge (2026-08-30, per the user): the main image isn't a
+// navigation link to anywhere, so clicking it to open ImageLightbox has no
+// competing behavior to conflict with (unlike ProductCard's image, which
+// links to the PDP). Arrowing through the lightbox also moves this
+// component's own `activeIndex`, so the thumbnail row reflects wherever the
+// customer navigated to once they close it.
 
 export type ImageThumbnailProps = {
   images: { src: string; alt: string }[];
@@ -24,6 +32,7 @@ export type ImageThumbnailProps = {
 
 export function ImageThumbnail({ images, className }: ImageThumbnailProps) {
   const [activeIndex, setActiveIndex] = useState(0);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const active = images[activeIndex];
 
   if (!active) return null;
@@ -35,9 +44,24 @@ export function ImageThumbnail({ images, className }: ImageThumbnailProps) {
         className
       )}
     >
-      <div className="relative aspect-8/5 w-full overflow-hidden rounded-md">
+      <button
+        type="button"
+        aria-label="View larger image"
+        onClick={() => setLightboxIndex(activeIndex)}
+        className="relative aspect-8/5 w-full overflow-hidden rounded-md"
+      >
         <Image src={active.src} alt={active.alt} fill className="object-cover" />
-      </div>
+      </button>
+
+      <ImageLightbox
+        images={images}
+        index={lightboxIndex}
+        onClose={() => setLightboxIndex(null)}
+        onIndexChange={(i) => {
+          setLightboxIndex(i);
+          setActiveIndex(i);
+        }}
+      />
 
       {images.length > 1 && (
         <div className="grid grid-cols-3 gap-(--space-4)">

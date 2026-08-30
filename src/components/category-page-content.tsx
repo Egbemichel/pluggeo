@@ -60,7 +60,10 @@ export function CategoryPageContent({
         </p>
       ) : (
         <>
-          <ProductGrid products={pagedProducts} columns={4} className="hidden md:grid" />
+          {/* 4 → 3 columns, same reasoning as Shop's grid layout (see its own
+              comment) — real per-category browsing, not a fixed-count
+              curated section, so bigger cards cost nothing structurally. */}
+          <ProductGrid products={pagedProducts} columns={3} className="hidden md:grid" />
           <ProductGrid products={pagedProducts} columns={2} className="md:hidden" />
 
           <CategoryDial
@@ -83,7 +86,7 @@ export function CategoryPageContent({
         <>
           <SectionHeader title="More from us" subtitle="WITNESS LUXURY, FIRST HAND" />
 
-          <ProductGrid products={moreProducts} columns={4} className="hidden md:grid" />
+          <ProductGrid products={moreProducts} columns={3} className="hidden md:grid" />
           <ProductGrid products={moreProducts} columns={2} className="md:hidden" />
         </>
       )}

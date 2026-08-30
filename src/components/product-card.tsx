@@ -164,7 +164,13 @@ export function ProductCard({
   if (layout === "row") {
     const rowContent = (
       <>
-        <div className="relative aspect-square w-35 shrink-0 sm:w-55">
+        {/* Bumped from w-35/sm:w-55 (2026-08-30, per a user report that
+            product photos read as "really really small" here) — this row
+            always has full page width to work with (ProductInfo's own
+            min-w-0 already shrinks its text safely instead of overflowing),
+            so there was headroom to spare; the fixed size just hadn't used
+            it. */}
+        <div className="relative aspect-square w-48 shrink-0 sm:w-72">
           <Image src={image.src} alt={image.alt} fill className="rounded-md object-cover" />
         </div>
         <ProductInfo

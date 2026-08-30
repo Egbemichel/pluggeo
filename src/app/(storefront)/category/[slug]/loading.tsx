@@ -15,7 +15,7 @@ export default function CategoryLoading() {
         <Skeleton className="h-5 w-40" />
       </div>
 
-      <ProductGridSkeleton count={8} columns={4} className="hidden md:grid" />
+      <ProductGridSkeleton count={9} columns={3} className="hidden md:grid" />
       <ProductGridSkeleton count={8} columns={2} className="md:hidden" />
 
       <div className="flex flex-col gap-(--space-2)">
@@ -23,7 +23,7 @@ export default function CategoryLoading() {
         <Skeleton className="h-5 w-40" />
       </div>
 
-      <ProductGridSkeleton count={4} columns={4} className="hidden md:grid" />
+      <ProductGridSkeleton count={6} columns={3} className="hidden md:grid" />
       <ProductGridSkeleton count={4} columns={2} className="md:hidden" />
     </div>
   );

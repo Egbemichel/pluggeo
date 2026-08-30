@@ -161,7 +161,12 @@ export function ShopPageContent({ products, categories }: ShopPageContentProps) 
           </p>
         ) : layout === "grid" ? (
           <>
-            <ProductGrid products={pagedProducts} columns={4} className="hidden md:grid" />
+            {/* 4 → 3 columns (2026-08-30, per a user report that product
+                photos read too small here) — this grid isn't tied to a
+                fixed item count like Home's curated 4-item collections are,
+                so fewer, bigger columns costs nothing structurally; it just
+                means each card gets noticeably more width. */}
+            <ProductGrid products={pagedProducts} columns={3} className="hidden md:grid" />
             <ProductGrid products={pagedProducts} columns={2} className="md:hidden" />
           </>
         ) : (

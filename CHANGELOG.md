@@ -6,6 +6,22 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+### Added (batch 62 — bigger product photos, full-screen image preview)
+
+- Shop's and every category page's desktop grid dropped from 4 to 3
+  columns (mobile unchanged at 2), giving each product photo noticeably
+  more room — Home's curated 4-item collections are left at 4 columns on
+  purpose (would wrap 3+1 at 3 columns).
+- `ProductCard`'s list-layout thumbnail (Shop/category list view) was
+  capped at a small fixed size regardless of available row width — bumped
+  from 140/220px to 192/288px.
+- New `ImageLightbox` component: click a product image to bring it forward
+  full-screen over a near-black backdrop at its real proportions (never
+  cropped); tap the backdrop or press Escape to close, arrow through
+  multiple images. Wired into the PDP's main photo and Shop's swipeable
+  spotlight gallery — not into product card images, since those are
+  navigation links to the PDP.
+
 ### Added (batch 61 — /bag is a real shopping bag)
 
 - `/bag` reflects genuine "Add to bag" activity from anywhere on the site

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { BadgeInfoIcon } from "@hugeicons/core-free-icons";
 import { Icon } from "@/components/ui/icon";
 import { Indicator } from "@/components/ui/indicator";
+import { ImageLightbox } from "@/components/ui/image-lightbox";
 import { Pill } from "@/components/ui/pill";
 import { AddToBagButton } from "@/components/ui/add-to-bag-button";
 import { SectionCarouselNav } from "@/components/section-header";
@@ -99,6 +100,7 @@ export type ProductSpotlightProps = {
 
 export function ProductSpotlight({ product, className }: ProductSpotlightProps) {
   const [index, setIndex] = useState(0);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const isDesktop = useSyncExternalStore(
     subscribeToDesktopQuery,
     getIsDesktop,
@@ -210,14 +212,40 @@ export function ProductSpotlight({ product, className }: ProductSpotlightProps) 
                 zIndex: 10 - distance,
               }}
             >
-              <div className="relative h-full w-full">
-                <Image src={image.src} alt={image.alt} fill className="object-contain" />
-              </div>
+              {/* Only the active tile opens the lightbox — neighbor tiles
+                  have no click behavior at all today (selecting one only
+                  happens via swipe or the prev/next chevrons), so giving
+                  them a "view larger" click too would be a new, separate
+                  interaction this pass didn't ask for. */}
+              {isActive ? (
+                <button
+                  type="button"
+                  aria-label="View larger image"
+                  onClick={() => setLightboxIndex(i)}
+                  className="relative h-full w-full"
+                >
+                  <Image src={image.src} alt={image.alt} fill className="object-contain" />
+                </button>
+              ) : (
+                <div className="relative h-full w-full">
+                  <Image src={image.src} alt={image.alt} fill className="object-contain" />
+                </div>
+              )}
               <div className="mt-(--space-2) h-3 w-3/4 rounded-full bg-black/20 blur-md" />
             </div>
           );
         })}
       </div>
+
+      <ImageLightbox
+        images={product.images}
+        index={lightboxIndex}
+        onClose={() => setLightboxIndex(null)}
+        onIndexChange={(i) => {
+          setLightboxIndex(i);
+          setIndex(i);
+        }}
+      />
 
       <Indicator count={product.images.length} activeIndex={index} className="self-center" />
 
