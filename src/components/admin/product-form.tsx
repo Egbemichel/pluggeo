@@ -17,7 +17,7 @@ import {
 import { MediaUpload, type MediaItem } from "@/components/admin/media-upload";
 import { createProduct, updateProduct } from "@/app/pluggeo/products/actions";
 import { productInputSchema } from "@/app/pluggeo/products/schema";
-import { VARIANT_ATTRIBUTE_CATEGORIES } from "@/lib/product-attributes";
+import { VARIANT_ATTRIBUTE_CATEGORIES, VARIANT_ATTRIBUTE_VALUE_PLACEHOLDER } from "@/lib/product-attributes";
 import { slugify } from "@/lib/slugify";
 import { cn } from "@/lib/utils";
 
@@ -575,7 +575,7 @@ export function ProductForm({ categories, initialValues }: ProductFormProps) {
                           <Input
                             value={value}
                             onChange={(e) => updateAttributeValue(index, attrIndex, valueIndex, e.target.value)}
-                            placeholder="e.g. 16 Inch"
+                            placeholder={`e.g. ${VARIANT_ATTRIBUTE_VALUE_PLACEHOLDER[attr.key as keyof typeof VARIANT_ATTRIBUTE_VALUE_PLACEHOLDER] ?? "value"}`}
                             className="w-32"
                           />
                           {attr.values.length > 1 && (

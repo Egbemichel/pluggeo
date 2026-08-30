@@ -26,20 +26,21 @@ import { currency } from "@/components/product-card";
 // it gets its own full-width row below the Link instead. Desktop matches
 // the reference's side-by-side placement, where there's room for both.
 //
-// The variant-summary line shows the real `product_variants.label` a line
-// was added with (e.g. "10 / Rose Gold") — real variant data doesn't have a
-// fixed size/width/gold-color/gold-type shape (attributes are freeform), so
-// this just surfaces whatever the admin actually typed as that variant's
-// label, if any.
+// The customization-summary line shows the customer's own selected chip
+// values, pipe-joined (e.g. "16 Inch | White Gold | 18k") — not a variant's
+// own admin-typed `label` (2026-08-30, fixing a real bug: that label is
+// free text the admin can type anything into, e.g. a category name like
+// "Length" instead of a value, which showed up verbatim in the bag with no
+// way for a shopper to tell what it meant).
 
 export type ProductLineItem = {
   href: string;
   image: { src: string; alt: string };
   title: string;
   category: string;
-  /** The real variant's own `label`, when a line was added with one
-   * selected — omitted for a line added with no variant chosen. */
-  variantLabel?: string;
+  /** The customer's actual selected values — omitted/empty for a line
+   * added with no customization selected. */
+  selectedOptions?: string[];
   price: number;
   compareAtPrice?: number;
   isFromPrice?: boolean;
@@ -111,9 +112,9 @@ export function ProductLineItemCard({
             <p className="text-h6 font-heading font-bold text-brand-primary">{product.category}</p>
           </div>
 
-          {product.variantLabel && (
+          {product.selectedOptions && product.selectedOptions.length > 0 && (
             <p className="text-body-sm font-sans font-normal text-text-secondary">
-              {product.variantLabel}
+              {product.selectedOptions.join(" | ")}
             </p>
           )}
 

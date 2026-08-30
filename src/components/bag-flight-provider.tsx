@@ -57,8 +57,8 @@ type TargetKey = "desktopBag" | "mobileMenu";
 
 export type CartLineItem = {
   /** Stable per-line key — the product's `href` (unique per product), plus
-   * the selected variant's label when one applies, so two different
-   * variants of the same product land as separate lines. */
+   * the selected customization values when any apply, so two different
+   * customizations of the same product land as separate lines. */
   id: string;
   href: string;
   image: { src: string; alt: string };
@@ -67,7 +67,12 @@ export type CartLineItem = {
   price: number;
   compareAtPrice?: number;
   isFromPrice?: boolean;
-  variantLabel?: string;
+  /** The customer's actual selected chip values (e.g. `["16 Inch", "White
+   * Gold", "18k"]`), shown in the bag joined as "16 Inch | White Gold |
+   * 18k" — not a variant's own admin-typed label, which can be arbitrary
+   * free text unrelated to what was actually picked. Omitted/empty for a
+   * line added with no customization selected. */
+  selectedOptions?: string[];
 };
 
 export type CartLine = CartLineItem & { quantity: number };

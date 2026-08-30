@@ -6,7 +6,11 @@ import { ImageThumbnail } from "@/components/ui/image-thumbnail";
 import { Icon } from "@/components/ui/icon";
 import { QuantityStepper } from "@/components/ui/quantity-stepper";
 import { AddToBagButton } from "@/components/ui/add-to-bag-button";
-import { ProductCustomize, type ProductVariantSummary } from "@/components/product-customize";
+import {
+  ProductCustomize,
+  type ProductCustomizeSelection,
+  type ProductVariantSummary,
+} from "@/components/product-customize";
 import { currency } from "@/components/product-card";
 import { useReveal } from "@/hooks/use-reveal";
 import { STAGGER } from "@/lib/motion";
@@ -70,6 +74,13 @@ export function ProductDetailSection({
   // base price and `available` disables Add to Bag, so selecting a variant
   // is no longer decorative.
   const [activeVariant, setActiveVariant] = useState<ProductVariantSummary | null>(null);
+  // The customer's actual selected chip values (e.g. ["16 Inch", "White
+  // Gold"]), independent of which variant row(s) matched — this is what
+  // the bag line item shows, not a variant's own admin-typed `label`
+  // (2026-08-30, per the user: the bag was showing a variant's raw label —
+  // in one real case literally the word "Length" — instead of what was
+  // actually picked).
+  const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
   const [quantity, setQuantity] = useState(1);
   const displayPrice = activeVariant?.priceOverride ?? price;
   const available = activeVariant?.available ?? true;
@@ -83,9 +94,18 @@ export function ProductDetailSection({
     distance: 28,
   });
 
+  const handleCustomizeChange = ({ variant, values }: ProductCustomizeSelection) => {
+    setActiveVariant(variant);
+    setSelectedOptions(values);
+  };
+
   const href = `/product/${slug}`;
   const cartItem = {
-    id: activeVariant ? `${href}::${activeVariant.label}` : href,
+    // Keyed on the actual selected values, not a matched variant's own
+    // label — two different combinations (e.g. Size and Gold Color living
+    // on separate rows) must land as distinct bag lines even when variant
+    // matching can only resolve to one "most specific" row internally.
+    id: selectedOptions.length > 0 ? `${href}::${selectedOptions.join("|")}` : href,
     href,
     image: coverImage,
     title,
@@ -93,7 +113,7 @@ export function ProductDetailSection({
     price: displayPrice,
     compareAtPrice: activeVariant ? undefined : compareAtPrice,
     isFromPrice: activeVariant ? false : isFromPrice,
-    variantLabel: activeVariant?.label,
+    selectedOptions,
   };
 
   return (
@@ -154,7 +174,7 @@ export function ProductDetailSection({
         </div>
 
         <div data-reveal-item>
-          <ProductCustomize variants={variants} onSelectionChange={setActiveVariant} />
+          <ProductCustomize variants={variants} onSelectionChange={handleCustomizeChange} />
         </div>
       </div>
     </div>

@@ -63,15 +63,26 @@ function OptionGroup({
 }: {
   label: string;
   options: string[];
-  value: string;
-  onChange: (value: string) => void;
+  /** `undefined` when nothing's picked yet for this group — the base
+   * product with no chip selected is a real, intended state, not a bug
+   * (2026-08-30, per the user: there's still a base product with no
+   * variant, so the default has to be nothing selected). */
+  value: string | undefined;
+  /** Tapping the already-selected chip again clears the selection back to
+   * nothing, same as tapping any other chip selects it — a real toggle,
+   * not a one-way radio group. */
+  onChange: (value: string | undefined) => void;
 }) {
   return (
     <div className="flex flex-col gap-(--space-4)">
       <h4 className="text-h6 font-heading font-bold text-text-primary">{label}</h4>
       <div className="flex flex-wrap gap-(--space-4)">
         {options.map((option) => (
-          <button key={option} type="button" onClick={() => onChange(option)}>
+          <button
+            key={option}
+            type="button"
+            onClick={() => onChange(option === value ? undefined : option)}
+          >
             <Pill active={option === value}>
               <span className="text-body-sm font-sans font-light">{option}</span>
             </Pill>
@@ -82,12 +93,24 @@ function OptionGroup({
   );
 }
 
+export type ProductCustomizeSelection = {
+  /** The variant row (if any) whose own attributes fully match the current
+   * chip selection — see file comment. */
+  variant: ProductVariantSummary | null;
+  /** The customer's actual selected values, in the same order as the
+   * rendered chip groups (e.g. `["16 Inch", "White Gold"]`) — independent
+   * of which variant row(s) they came from, since two attributes can live
+   * on entirely separate rows. Empty while nothing is selected (the base
+   * product, no chip active). */
+  values: string[];
+};
+
 export type ProductCustomizeProps = {
   variants: ProductVariantSummary[];
   className?: string;
-  /** Called whenever the current chip selection resolves to a different
-   * real variant row (or to no match at all) — see file comment. */
-  onSelectionChange?: (variant: ProductVariantSummary | null) => void;
+  /** Called whenever the current chip selection changes — see
+   * `ProductCustomizeSelection`. */
+  onSelectionChange?: (selection: ProductCustomizeSelection) => void;
 };
 
 export function ProductCustomize({ variants, className, onSelectionChange }: ProductCustomizeProps) {
@@ -114,19 +137,26 @@ export function ProductCustomize({ variants, className, onSelectionChange }: Pro
     }));
   }, [variants]);
 
-  const [selected, setSelected] = useState<Record<string, string>>(() =>
-    Object.fromEntries(groups.map((g) => [g.key, g.values[0]]))
-  );
-  const [open, setOpen] = useState(true);
+  // Nothing selected by default — the base product with no variant chosen
+  // is a real, intended state (2026-08-30, per the user), not a placeholder
+  // waiting to be filled in. Previously defaulted to each group's first
+  // value, which meant a customer that never touched the chips still
+  // silently had a variant "selected" underneath them.
+  const [selected, setSelected] = useState<Record<string, string | undefined>>({});
+  // Closed by default (same reasoning) — it's the customer choosing to
+  // customize that opens this, not every PDP visit.
+  const [open, setOpen] = useState(false);
   const contentRef = useAccordion<HTMLDivElement>(open);
 
   // The variant (if any) whose own attributes fully match the current
   // selection — see file comment for why a variant only needs to specify
-  // the keys it varies by, not every rendered group.
+  // the keys it varies by, not every rendered group. `values.includes(undefined)`
+  // is always false, so a group with nothing selected correctly excludes
+  // every variant that varies by it, same as an actual mismatched value would.
   const activeVariant = useMemo(() => {
     const candidates = variants.filter((v) => {
       const entries = Object.entries(v.attributes).filter(([, values]) => values.length > 0);
-      return entries.length > 0 && entries.every(([key, values]) => values.includes(selected[key]));
+      return entries.length > 0 && entries.every(([key, values]) => values.includes(selected[key] ?? ""));
     });
     if (candidates.length === 0) return null;
     return candidates.reduce((mostSpecific, v) =>
@@ -134,9 +164,14 @@ export function ProductCustomize({ variants, className, onSelectionChange }: Pro
     );
   }, [variants, selected]);
 
+  const selectedValues = useMemo(
+    () => groups.map((g) => selected[g.key]).filter((v): v is string => Boolean(v)),
+    [groups, selected]
+  );
+
   useEffect(() => {
-    onSelectionChange?.(activeVariant);
-  }, [activeVariant, onSelectionChange]);
+    onSelectionChange?.({ variant: activeVariant, values: selectedValues });
+  }, [activeVariant, selectedValues, onSelectionChange]);
 
   if (groups.length === 0) return null;
 

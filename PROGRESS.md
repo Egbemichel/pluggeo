@@ -77,6 +77,54 @@ genuinely filter) + grid/list toggle + pagination.
 
 ## Resolved decisions
 
+- **Three small but real PDP/bag/admin bugs, all from the same variant
+  rework** (2026-08-30, per the user):
+  1. **Customize chips no longer pre-select a default, and the dropdown
+     starts closed** — `ProductCustomize` defaulted every chip group to its
+     first value and rendered the disclosure open on load, so a visitor who
+     never touched it still silently had a variant "selected" underneath
+     them. Per the user: there's a real base product with no variant, and
+     that's the correct default until the customer actively opts in.
+     `selected` now starts `{}` (nothing chosen), `open` now starts `false`,
+     and tapping an already-selected chip again clears it back to nothing
+     (a real toggle, not a one-way radio) — `OptionGroup`'s `onChange` now
+     takes `string | undefined`. `activeVariant`'s matching already treated
+     a missing selection as "no match" for free (`values.includes(undefined
+     ?? "")` is always false), so the base product/base price falls out
+     correctly with zero chips picked.
+  2. **The bag was showing a variant's raw admin-typed `label` instead of
+     what was actually customized** — real, confirmed bug: one real variant
+     in the DB is literally labeled "Length" (an admin typo/category name,
+     not a value), and it rendered verbatim in the bag with no way for a
+     shopper to tell what it meant. `ProductCustomize` now reports the
+     customer's actual selected chip *values* alongside the matched variant
+     (`ProductCustomizeSelection = { variant, values }`) — independent of
+     which variant row(s) they came from, since Size and Gold Type can live
+     on entirely separate rows now. `CartLineItem`/`ProductLineItem`'s
+     `variantLabel?: string` renamed to `selectedOptions?: string[]`,
+     rendered in the bag joined as `"16 Inch | White Gold | 18k"`. The cart
+     line's own `id` is now keyed on the joined selected values instead of
+     a matched variant's label, so two different combinations always land
+     as distinct bag lines.
+  3. **Every attribute's value placeholder read "16 Inch," Gold Type
+     included** — new `VARIANT_ATTRIBUTE_VALUE_PLACEHOLDER` map
+     (`lib/product-attributes.ts`) gives each of the 8 known categories its
+     own real example (Gold Color → "Rose Gold", Gold Type → "18k",
+     Material → "Sterling Silver", Stone → "Diamond", etc.), keyed off
+     whichever category the admin actually picked for that attribute row.
+  Verified via `tsc`/lint/`vitest`/`next build` (all clean) plus a real
+  dev-server fetch of an actual live product (`emerald-cut-cuban-chain`) —
+  confirmed via its real DB row (`Size: ["16 Inch","18 Inch"], "Gold Type":
+  ["18k","14k"]`) that the admin has already been using the multi-value
+  editor from the previous fix in real use; the rendered PDP HTML shows
+  both chip groups with **no** chip carrying the active/selected class,
+  confirming nothing is pre-selected. Couldn't observe the closed-accordion
+  state itself over plain `curl` (it's animated in via a client-only
+  `useLayoutEffect`, so the collapse only happens after real JS hydration,
+  same as every other GSAP-driven disclosure here) or click through the
+  toggle-to-deselect/admin-form interactions live in this environment — the
+  chip-toggle and placeholder logic are verified by code review rather
+  than an actual click-test.
 - **A variant's attribute values are now a list, not a single string**
   (2026-08-30, per the admin, correcting an earlier attempt that added a
   separate "quickly add variants" section instead — per the admin, that

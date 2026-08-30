@@ -6,6 +6,22 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+### Fixed (batch 71 — Customize defaults, bag customization display, admin placeholders)
+
+- The PDP's Customize chips pre-selected a default value in every group and
+  opened on load, so a visitor silently had a variant selected without
+  touching anything. Nothing is selected and the dropdown is closed by
+  default now; tapping an already-selected chip deselects it back to the
+  base product.
+- The bag was showing a variant's raw admin-typed label instead of what was
+  actually customized — one real variant is literally labeled "Length,"
+  which rendered verbatim with no way to tell what it meant. The bag now
+  shows the customer's actual selected values, e.g. "16 Inch | White Gold |
+  18k".
+- Every attribute's value placeholder in the admin form read "16 Inch,"
+  Gold Type included. Each of the 8 known categories now gets its own real
+  example placeholder.
+
 ### Changed (batch 70 — a variant attribute now holds a list of values)
 
 - The admin's variant form only ever accepted one value per attribute, so
