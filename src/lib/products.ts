@@ -56,10 +56,31 @@ export type StorefrontProductDetail = {
 type ProductRow = typeof products.$inferSelect;
 type MediaRow = typeof productMedia.$inferSelect;
 
+// Cloudinary only serves a transformed (resized/reformatted) image when the
+// delivery URL itself asks for one — and next/image's own optimizer turned
+// out not to be doing that on this Cloudflare deployment (confirmed
+// directly: a raw asset requested through `/_next/image?w=...` came back
+// byte-identical to the untouched original, so it's a pure pass-through
+// here, not a real optimizer — found while chasing a 16.6s mobile LCP).
+// Inserting `f_auto,q_auto` asks Cloudinary itself to serve a modern format
+// (WebP/AVIF where the visitor's browser supports it) at an auto-tuned
+// quality — a real fix that doesn't depend on Next's broken pipeline at
+// all. Idempotent (skips URLs that already carry a transformation segment)
+// and a no-op on anything that isn't a genuine Cloudinary upload URL (e.g.
+// the local placeholder SVG below).
+function withCloudinaryAutoFormat(url: string): string {
+  const marker = "/image/upload/";
+  const index = url.indexOf(marker);
+  if (index === -1) return url;
+  const afterMarker = url.slice(index + marker.length);
+  if (/^[a-z_]+_[^/]+\//.test(afterMarker)) return url;
+  return url.slice(0, index + marker.length) + "f_auto,q_auto/" + afterMarker;
+}
+
 function imagesForProduct(media: MediaRow[], title: string): { src: string; alt: string }[] {
   const images = media
     .filter((m) => m.type === "image")
-    .map((m) => ({ src: m.url, alt: m.altText || title }));
+    .map((m) => ({ src: withCloudinaryAutoFormat(m.url), alt: m.altText || title }));
   return images.length > 0 ? images : [PLACEHOLDER_IMAGE];
 }
 

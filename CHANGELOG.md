@@ -6,6 +6,25 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+### Fixed (batch 67 — 16.6s mobile LCP found via a real PageSpeed Insights audit)
+
+- Found the root cause of a 16.6s mobile Largest Contentful Paint reported
+  by PageSpeed Insights (SEO/Accessibility/Best Practices were already all
+  100): confirmed, via a byte-for-byte comparison, that Next's built-in
+  image optimizer isn't actually resizing or reformatting anything on this
+  Cloudflare deployment — every `next/image` request was silently falling
+  back to the full original file.
+- Re-encoded the Home page's 5 hero photos (all above the fold) from PNG
+  to WebP at the sizes they actually render at — ~1.36MB combined down to
+  ~120KB, no visible quality loss.
+- Real Cloudinary product photos now request `f_auto,q_auto` directly from
+  Cloudinary's own delivery API (bypassing the broken Next optimizer
+  entirely) — applies everywhere product images render (cards, PDP,
+  spotlight, lightbox, search), verified against a real uploaded photo.
+- Flagged as still open: every other static image site-wide (category
+  tiles, testimonials, celebrity media) is still unoptimized by the same
+  broken pipeline — worth a dedicated follow-up.
+
 ### Fixed (batch 66 — Shop's category picker had no mobile UI)
 
 - The category dial in Shop's sidebar was desktop-only (`hidden md:flex`),

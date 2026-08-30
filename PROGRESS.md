@@ -77,6 +77,75 @@ genuinely filter) + grid/list toggle + pagination.
 
 ## Resolved decisions
 
+- **Real PageSpeed Insights audit found and fixed a genuine 16.6s mobile
+  LCP** (2026-08-30, the site owner ran PageSpeed Insights after asking how
+  to check the site's SEO score — Mobile: SEO 100, Accessibility 100, Best
+  Practices 100, **Performance 63** with LCP 16.6s/Speed Index 8.3s;
+  Desktop: Performance 92, everything else 100) —
+  1. **Root cause, confirmed not guessed**: compared a raw `public/` asset's
+     bytes against the same file requested through
+     `/_next/image?url=...&w=640&q=75` on the live site — identical,
+     byte-for-byte (309635 bytes both times). Next's built-in image
+     optimizer (resize + WebP/AVIF conversion) is not actually running on
+     this Cloudflare Workers/OpenNext deployment — every `next/image`
+     request site-wide, local hero photography and real Cloudinary product
+     photos alike, was silently falling back to serving the full original
+     file with zero compression, despite the code doing everything right
+     (`priority`, `fill`, `remotePatterns`). This is an infrastructure gap
+     (no sharp/image-resizing backend wired up for OpenNext on Cloudflare
+     here), not an application bug — flagged as a real, still-open issue
+     beyond what this pass fixed (see "still open" below).
+  2. **Hero images re-encoded to WebP** (`public/hero/*.webp`, via local
+     `sharp` — the tool exists in `node_modules` regardless of whether the
+     *deployed* optimizer works) — the 5 hero collage photos (all above the
+     fold, all rendered immediately in `HeroMobileCarousel` regardless of
+     which slide is active) were ~1.36MB combined of un-resized PNGs
+     exported straight from Figma; re-encoded to WebP at the sizes they
+     actually render at (~900px main / ~700px side images, quality 78) →
+     ~120KB combined, a ~91% reduction, with no visible quality loss
+     (checked both a portrait photo and a fine-detail chain/cross photo
+     directly). Old PNGs deleted (`git rm`), `hero-section.tsx`/
+     `hero-mobile-carousel.tsx`'s references swapped to `.webp`. This
+     directly targets the exact bottleneck the report measured — the hero
+     *is* the LCP element on Home.
+  3. **Real product photos fixed at the source instead** — since Cloudinary
+     (unlike static `public/` assets) is a real CDN with its own delivery-
+     time transformation API, `src/lib/products.ts`'s `imagesForProduct`
+     (the single function every storefront surface's product images flow
+     through — cards, PDP gallery, spotlight, lightbox, search) now runs
+     every Cloudinary URL through a new `withCloudinaryAutoFormat()`,
+     inserting `f_auto,q_auto` right after `/image/upload/` — asks
+     Cloudinary itself to serve a modern format (WebP/AVIF where the
+     visitor's browser supports it) at auto-tuned quality, which works
+     regardless of whether Next's own optimizer is ever fixed. Idempotent
+     (skips a URL that already carries a transformation segment) and a
+     no-op on non-Cloudinary URLs (the local placeholder SVG). Verified
+     against the real uploaded product photo directly: the raw Cloudinary
+     URL and the same URL with `f_auto,q_auto` returned identical bytes to
+     a plain `curl` (no `Accept` header — expected, `f_auto` needs a real
+     `Accept: image/webp` to know it can substitute a format), but with a
+     browser-realistic `Accept` header the transformed URL correctly came
+     back as `image/webp` at 162928 bytes vs. the original JPEG's 203509 —
+     confirmed via `file` on the downloaded bytes, not just the
+     content-type header.
+  4. **Still open, flagged rather than silently left**: Next's own
+     `/_next/image` optimizer not functioning on this deployment is a
+     real, sitewide gap beyond what this pass fixed — every other local
+     `public/` image (category tiles, testimonial photos, footer/grillz
+     art, celebrity media) is still served unresized/uncompressed. Fixing
+     this properly means either wiring a working image loader for
+     OpenNext-Cloudflare (a real infra change, Cloudflare's own Image
+     Resizing is a paid feature not available on this free `workers.dev`
+     tier) or pre-compressing the remaining static assets the same way the
+     hero photos were just fixed — not done this pass since it wasn't
+     what broke the measured number, but worth a dedicated follow-up.
+  Verified via `tsc`/lint/`vitest`/`next build` (all clean) plus live
+  dev-server checks: the new `.webp` files serve correctly, Home's
+  rendered HTML references them, and both `/shop` and a real product page's
+  rendered HTML show `f_auto,q_auto` in every Cloudinary image URL. A fresh
+  PageSpeed Insights re-run to confirm the mobile Performance score
+  actually moved couldn't be done from here (no live browser in this
+  environment) — ask the site owner to re-run it once this deploys.
 - **Shop's category picker given a mobile home** (2026-08-30, per the
   user: "the category dial on the side of the shop page... is nowhere to
   be found on mobile") — `ShopSidebar`'s `CategoryDial` (vertical

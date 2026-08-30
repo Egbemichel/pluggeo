@@ -32,14 +32,25 @@ import { EASE, MOTION_QUERY } from "@/lib/motion";
 // useViewportEnter unobserves after the first fire, and a fresh route mount
 // (real navigation) is what "page load" means here, not scroll position.
 
-const MAIN_IMAGE = { src: "/hero/hero-main.png", alt: "pluggeo&co — best collection" };
+// 2026-08-30: re-encoded from the original PNGs to WebP (~900px/700px wide,
+// quality 78) after PageSpeed Insights measured a 16.6s mobile LCP — these 5
+// images are the hero's entire above-the-fold content, so their weight
+// directly *is* the LCP time. Next's own `/_next/image` optimizer turned out
+// not to actually resize/reformat anything on this Cloudflare deployment
+// (confirmed by comparing a raw asset's bytes against the same file through
+// `/_next/image?w=640` — identical, down to the byte — so it's a pure
+// pass-through here, not a real optimizer); pre-compressing the source files
+// themselves sidesteps that entirely rather than depending on a pipeline
+// that isn't running. Combined ~1.36MB of PNGs is now ~120KB of WebP — same
+// photos, no visible quality loss at the sizes these actually render at.
+const MAIN_IMAGE = { src: "/hero/hero-main.webp", alt: "pluggeo&co — best collection" };
 
 const MOBILE_IMAGES = [
   MAIN_IMAGE,
-  { src: "/hero/col2-top.png", alt: "" },
-  { src: "/hero/col2-bottom.png", alt: "" },
-  { src: "/hero/col3-top.png", alt: "" },
-  { src: "/hero/col3-bottom.png", alt: "" },
+  { src: "/hero/col2-top.webp", alt: "" },
+  { src: "/hero/col2-bottom.webp", alt: "" },
+  { src: "/hero/col3-top.webp", alt: "" },
+  { src: "/hero/col3-bottom.webp", alt: "" },
 ];
 
 const HERO_STAGGER = 0.15;
@@ -174,14 +185,14 @@ export function HeroSection() {
             className="relative overflow-hidden rounded-md"
             style={{ aspectRatio: "425 / 374" }}
           >
-            <Image src="/hero/col2-top.png" alt="" fill className="object-cover" />
+            <Image src="/hero/col2-top.webp" alt="" fill className="object-cover" />
           </div>
           <div
             ref={col2BottomRef}
             className="relative overflow-hidden rounded-md"
             style={{ aspectRatio: "425 / 311" }}
           >
-            <Image src="/hero/col2-bottom.png" alt="" fill className="object-cover" />
+            <Image src="/hero/col2-bottom.webp" alt="" fill className="object-cover" />
           </div>
         </div>
 
@@ -191,14 +202,14 @@ export function HeroSection() {
             className="relative overflow-hidden rounded-md"
             style={{ aspectRatio: "441 / 307" }}
           >
-            <Image src="/hero/col3-top.png" alt="" fill className="object-cover" />
+            <Image src="/hero/col3-top.webp" alt="" fill className="object-cover" />
           </div>
           <div
             ref={col3BottomRef}
             className="relative overflow-hidden rounded-md"
             style={{ aspectRatio: "441 / 382" }}
           >
-            <Image src="/hero/col3-bottom.png" alt="" fill className="object-cover" />
+            <Image src="/hero/col3-bottom.webp" alt="" fill className="object-cover" />
           </div>
         </div>
       </div>
