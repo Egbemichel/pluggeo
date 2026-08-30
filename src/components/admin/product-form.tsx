@@ -93,6 +93,10 @@ function unusedCategoryFor(attributes: VariantAttributeRow[], currentIndex: numb
   return VARIANT_ATTRIBUTE_CATEGORIES.find((c) => !used.has(c)) ?? "";
 }
 
+function emptyBulkValues(): string[] {
+  return [""];
+}
+
 function emptyVariant(): VariantRow {
   return { label: "", priceOverride: "", available: true, attributes: [{ key: "Size", value: "" }] };
 }
@@ -128,6 +132,19 @@ export function ProductForm({ categories, initialValues }: ProductFormProps) {
   const [featured, setFeatured] = useState(initialValues.featured);
   const [media, setMedia] = useState<MediaItem[]>(initialValues.media);
   const [variants, setVariants] = useState<VariantRow[]>(initialValues.variants);
+  // "Quickly add variants" tool (2026-08-30, per the admin: entering a
+  // variant's attribute value only ever accepted one string, so a product
+  // that comes in several sizes had no way to record that short of typing
+  // all of them into one field ("16 inch, 18 Inch" — a real row found this
+  // way while investigating) — a single variant genuinely can only have one
+  // value per attribute key (it's one specific combination a shopper picks),
+  // but *this product* can clearly have several same-attribute variants at
+  // once. Rather than change what a variant means, this generates one
+  // variant per value the admin lists here and drops them straight into the
+  // list below — each is a normal, independently editable variant row
+  // afterward, same as one added by hand.
+  const [bulkCategory, setBulkCategory] = useState("");
+  const [bulkValues, setBulkValues] = useState<string[]>(emptyBulkValues);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -175,6 +192,30 @@ export function ProductForm({ categories, initialValues }: ProductFormProps) {
           : v
       )
     );
+
+  const addBulkValueField = () => setBulkValues((prev) => [...prev, ""]);
+  const removeBulkValueField = (index: number) =>
+    setBulkValues((prev) => prev.filter((_, i) => i !== index));
+  const updateBulkValue = (index: number, value: string) =>
+    setBulkValues((prev) => prev.map((v, i) => (i === index ? value : v)));
+
+  const bulkValueCount = bulkValues.filter((v) => v.trim().length > 0).length;
+
+  const generateVariantsFromAttribute = () => {
+    if (!bulkCategory) return;
+    const values = bulkValues.map((v) => v.trim()).filter(Boolean);
+    if (values.length === 0) return;
+
+    const newRows: VariantRow[] = values.map((value) => ({
+      label: value,
+      priceOverride: "",
+      available: true,
+      attributes: [{ key: bulkCategory, value }],
+    }));
+    setVariants((prev) => [...prev, ...newRows]);
+    setBulkCategory("");
+    setBulkValues(emptyBulkValues());
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -406,11 +447,80 @@ export function ProductForm({ categories, initialValues }: ProductFormProps) {
 
       <fieldset className="flex flex-col gap-3 rounded-md border border-border bg-card px-4 py-5 sm:px-6">
         <legend className="px-2 font-heading text-base font-semibold">Variants</legend>
-        <div className="flex items-center justify-end">
+
+        <div className="flex flex-col gap-3 rounded-lg border border-dashed border-border p-4">
+          <div className="flex flex-col gap-1">
+            <p className="text-sm font-medium">Quickly add variants for one attribute</p>
+            <p className="text-xs text-muted-foreground">
+              Pick a category and list every value it comes in — Size: 16 Inch, 17 Inch, 18
+              Inch, 19 Inch — and each value becomes its own variant below automatically, so
+              shoppers can pick between them on the product page.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-start gap-2">
+            <Select value={bulkCategory || undefined} onValueChange={(value) => setBulkCategory(value as string)}>
+              <SelectTrigger className="w-40 shrink-0">
+                <SelectValue placeholder="Category" />
+              </SelectTrigger>
+              <SelectContent>
+                {VARIANT_ATTRIBUTE_CATEGORIES.map((category) => (
+                  <SelectItem key={category} value={category}>
+                    {category}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <div className="flex flex-1 flex-wrap gap-2">
+              {bulkValues.map((value, index) => (
+                <div key={index} className="flex items-center gap-1">
+                  <Input
+                    value={value}
+                    onChange={(e) => updateBulkValue(index, e.target.value)}
+                    placeholder="e.g. 16 Inch"
+                    className="w-32"
+                  />
+                  {bulkValues.length > 1 && (
+                    <button
+                      type="button"
+                      aria-label="Remove value"
+                      onClick={() => removeBulkValueField(index)}
+                      className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                    >
+                      <Icon icon={Delete02Icon} size={14} />
+                    </button>
+                  )}
+                  {index === bulkValues.length - 1 && (
+                    <button
+                      type="button"
+                      aria-label="Add another value"
+                      onClick={addBulkValueField}
+                      className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                    >
+                      <Icon icon={Add01Icon} size={14} />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={generateVariantsFromAttribute}
+            disabled={!bulkCategory || bulkValueCount === 0}
+            className="self-start rounded-md border border-border px-3 py-1.5 text-sm hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Add {bulkValueCount > 0 ? bulkValueCount : ""} variant{bulkValueCount === 1 ? "" : "s"}
+          </button>
+        </div>
+
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-xs text-muted-foreground">
+            Or add one manually — for a variant that mixes several attributes, or a one-off.
+          </p>
           <button
             type="button"
             onClick={addVariant}
-            className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+            className="flex shrink-0 items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
           >
             <Icon icon={Add01Icon} size={16} />
             Add variant
@@ -419,9 +529,7 @@ export function ProductForm({ categories, initialValues }: ProductFormProps) {
 
         {variants.length === 0 && (
           <p className="text-sm text-muted-foreground">
-            No variants — this product has a single fixed price/attributes. Add a variant
-            for things like size, width, or gold color/type; each one becomes a chip on the
-            product page&apos;s Customize section.
+            No variants — this product has a single fixed price/attributes.
           </p>
         )}
 

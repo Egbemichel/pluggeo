@@ -77,6 +77,33 @@ genuinely filter) + grid/list toggle + pagination.
 
 ## Resolved decisions
 
+- **Admin's variant form only ever accepted one value per attribute**
+  (2026-08-30, per the admin: a "Size" attribute needs to hold 16/17/18/19
+  inch at once, not just one) — confirmed the real damage directly in the
+  DB: an existing variant row had `attributes: { Size: "16 inch, 18 Inch" }`,
+  the admin having typed both values into the single text input the old
+  form gave them since there was no other way. A single *variant* genuinely
+  can only have one value per attribute key (it's one specific combination
+  a shopper picks in `ProductCustomize`) — the actual gap was no fast way
+  to go from "this product comes in 4 sizes" to "4 variant rows" short of
+  clicking "Add variant" and retyping everything 4 times. Added a
+  "Quickly add variants for one attribute" tool above the existing variant
+  list in `product-form.tsx`: pick a category, list its values via a
+  repeatable input (a hugeicons `Add01Icon` "+" beside the last value adds
+  another input, a `Delete02Icon` removes one), and submitting generates
+  one normal, independently-editable variant row per value — same shape
+  and same downstream `ProductCustomize` chip-grouping as a variant added
+  by hand, just without the manual repetition. The old per-variant
+  "Add attribute" editor (one key, one value, multiple keys per variant)
+  is untouched and stays available underneath for a one-off variant that
+  mixes several attributes at once (e.g. one specific Size+Gold Color
+  combo) — this is purely a bulk-creation convenience layered on top, not
+  a schema or submission-contract change (`productInputSchema`'s
+  `variants` shape is identical either way). Verified via `tsc`/lint/
+  `vitest`/`next build` (all clean); couldn't exercise the actual click-
+  through in this environment (admin routes sit behind real Clerk auth,
+  no way to log in headlessly here) so this relies on code review rather
+  than a live click-test — flagged rather than silently assumed working.
 - **Product videos were being silently dropped everywhere, despite the
   admin genuinely accepting and storing them** (2026-08-30, per a user
   report: uploaded videos never showed up on the card, Shop's spotlight, or

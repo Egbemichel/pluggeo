@@ -6,6 +6,16 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+### Added (batch 70 — bulk-add variants for one attribute)
+
+- The admin's variant form only ever accepted one value per attribute, so
+  offering a product in several sizes meant clicking "Add variant" and
+  retyping everything once per size (real DB evidence: an existing variant
+  had `Size: "16 inch, 18 Inch"` typed into one field for lack of anywhere
+  else to put it). Added a "Quickly add variants for one attribute" tool:
+  pick a category, list its values (a "+" adds another value input), and
+  it generates one normal variant per value automatically.
+
 ### Fixed (batch 69 — product videos were silently dropped everywhere)
 
 - Every storefront gallery (product cards, Shop's spotlight, the PDP) was
