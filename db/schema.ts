@@ -57,13 +57,21 @@ export const productMedia = pgTable("product_media", {
 
 // Jewelry attributes differ by category (material/karat, size, chain length, etc.) —
 // keep this flexible rather than modeling rigid columns per category. See docs/DATABASE.md.
+//
+// `attributes` values are arrays, not single strings (2026-08-30, per the
+// admin: a single "Size" attribute needs to hold every size this variant
+// comes in — 16/17/18/19 inch — not just one, with price/availability
+// shared across all of them since this is one row/one price point). One
+// specific value from each array is what a shopper actually selects on the
+// PDP's Customize chips; see `ProductCustomize`'s matching logic for how a
+// selection resolves back to this row.
 export const productVariants = pgTable("product_variants", {
   id: uuid("id").primaryKey().defaultRandom(),
   productId: uuid("product_id")
     .notNull()
     .references(() => products.id, { onDelete: "cascade" }),
   label: text("label").notNull(),
-  attributes: jsonb("attributes").$type<Record<string, string>>().notNull().default({}),
+  attributes: jsonb("attributes").$type<Record<string, string[]>>().notNull().default({}),
   priceOverride: numeric("price_override", { precision: 10, scale: 2 }),
   available: boolean("available").notNull().default(true),
 });

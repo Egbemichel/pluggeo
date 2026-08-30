@@ -6,15 +6,17 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
-### Added (batch 70 — bulk-add variants for one attribute)
+### Changed (batch 70 — a variant attribute now holds a list of values)
 
 - The admin's variant form only ever accepted one value per attribute, so
-  offering a product in several sizes meant clicking "Add variant" and
-  retyping everything once per size (real DB evidence: an existing variant
-  had `Size: "16 inch, 18 Inch"` typed into one field for lack of anywhere
-  else to put it). Added a "Quickly add variants for one attribute" tool:
-  pick a category, list its values (a "+" adds another value input), and
-  it generates one normal variant per value automatically.
+  offering a product in several sizes had no real home for the extra values
+  (real DB evidence: an existing variant had `Size: "16 inch, 18 Inch"`
+  typed into one field). A variant's attribute now holds an array of
+  values directly in the same Attributes editor — a "+" beside the last
+  value input adds another one for that attribute, right inside the
+  existing variant card, sharing that card's price/availability. Every
+  value still becomes its own chip on the product page, grouped by
+  attribute, exactly as before. Existing variant data migrated in place.
 
 ### Fixed (batch 69 — product videos were silently dropped everywhere)
 

@@ -39,10 +39,18 @@ import { cn } from "@/lib/utils";
 // checks the variant's own keys against the current selection, not every
 // rendered group — so a product doesn't need one fully-specified row per
 // possible combination for this to work.
+//
+// Each attribute's value is an array, not a single string (2026-08-30, per
+// the admin: one variant row needs to hold every size/color/etc. it comes
+// in, sharing that row's own price/availability, rather than needing a
+// separate row per value) — every value across every variant still becomes
+// its own chip exactly as before, and a variant matches the current
+// selection when the selected value for each of its keys is *one of* that
+// key's values, not necessarily the only one.
 
 export type ProductVariantSummary = {
   label: string;
-  attributes: Record<string, string>;
+  attributes: Record<string, string[]>;
   available: boolean;
   priceOverride: number | null;
 };
@@ -86,10 +94,11 @@ export function ProductCustomize({ variants, className, onSelectionChange }: Pro
   const groups = useMemo(() => {
     const valuesByKey = new Map<string, Set<string>>();
     for (const variant of variants) {
-      for (const [key, value] of Object.entries(variant.attributes)) {
-        if (!value) continue;
+      for (const [key, values] of Object.entries(variant.attributes)) {
         const set = valuesByKey.get(key) ?? new Set<string>();
-        set.add(value);
+        for (const value of values) {
+          if (value) set.add(value);
+        }
         valuesByKey.set(key, set);
       }
     }
@@ -116,8 +125,8 @@ export function ProductCustomize({ variants, className, onSelectionChange }: Pro
   // the keys it varies by, not every rendered group.
   const activeVariant = useMemo(() => {
     const candidates = variants.filter((v) => {
-      const entries = Object.entries(v.attributes).filter(([, value]) => value);
-      return entries.length > 0 && entries.every(([key, value]) => selected[key] === value);
+      const entries = Object.entries(v.attributes).filter(([, values]) => values.length > 0);
+      return entries.length > 0 && entries.every(([key, values]) => values.includes(selected[key]));
     });
     if (candidates.length === 0) return null;
     return candidates.reduce((mostSpecific, v) =>

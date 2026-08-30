@@ -77,33 +77,46 @@ genuinely filter) + grid/list toggle + pagination.
 
 ## Resolved decisions
 
-- **Admin's variant form only ever accepted one value per attribute**
-  (2026-08-30, per the admin: a "Size" attribute needs to hold 16/17/18/19
-  inch at once, not just one) — confirmed the real damage directly in the
-  DB: an existing variant row had `attributes: { Size: "16 inch, 18 Inch" }`,
-  the admin having typed both values into the single text input the old
-  form gave them since there was no other way. A single *variant* genuinely
-  can only have one value per attribute key (it's one specific combination
-  a shopper picks in `ProductCustomize`) — the actual gap was no fast way
-  to go from "this product comes in 4 sizes" to "4 variant rows" short of
-  clicking "Add variant" and retyping everything 4 times. Added a
-  "Quickly add variants for one attribute" tool above the existing variant
-  list in `product-form.tsx`: pick a category, list its values via a
-  repeatable input (a hugeicons `Add01Icon` "+" beside the last value adds
-  another input, a `Delete02Icon` removes one), and submitting generates
-  one normal, independently-editable variant row per value — same shape
-  and same downstream `ProductCustomize` chip-grouping as a variant added
-  by hand, just without the manual repetition. The old per-variant
-  "Add attribute" editor (one key, one value, multiple keys per variant)
-  is untouched and stays available underneath for a one-off variant that
-  mixes several attributes at once (e.g. one specific Size+Gold Color
-  combo) — this is purely a bulk-creation convenience layered on top, not
-  a schema or submission-contract change (`productInputSchema`'s
-  `variants` shape is identical either way). Verified via `tsc`/lint/
-  `vitest`/`next build` (all clean); couldn't exercise the actual click-
-  through in this environment (admin routes sit behind real Clerk auth,
-  no way to log in headlessly here) so this relies on code review rather
-  than a live click-test — flagged rather than silently assumed working.
+- **A variant's attribute values are now a list, not a single string**
+  (2026-08-30, per the admin, correcting an earlier attempt that added a
+  separate "quickly add variants" section instead — per the admin, that
+  "made no sense": the fix belonged *inside* the existing variant card's
+  own Attributes editor, not bolted on top as a second UI) — confirmed the
+  real damage directly in the DB before fixing it: an existing variant row
+  had `attributes: { Size: "16 inch, 18 Inch" }`, the admin having typed
+  both values into the one text input the old form gave them since there
+  was no other way. Reworked what an attribute actually holds:
+  `productVariants.attributes` (`db/schema.ts`) is now
+  `Record<string, string[]>`, not `Record<string, string>` — one variant
+  card can hold every value it comes in for a given attribute (Size:
+  16/17/18/19 Inch), sharing that one card's own price override/
+  availability, exactly as the admin described. The per-variant Attributes
+  editor (`product-form.tsx`) now shows a repeatable value input per
+  attribute — a hugeicons `Add01Icon` "+" beside the last value adds
+  another input for that same attribute, a `Delete02Icon` removes one —
+  living directly under the category picker inside the same variant card,
+  not a separate section. `ProductCustomize` (the PDP's real chip UI)
+  updated to match: grouping now flattens every value across every
+  variant's arrays into that attribute's chip set (unchanged end result —
+  every value still becomes its own chip), and a variant now matches the
+  current chip selection when the selected value is *one of* its array for
+  each key it varies by, not the sole value. Ran a real one-time DB
+  migration converting the 2 existing variant rows' string values into
+  single-element arrays (splitting on comma first, which also retroactively
+  fixed the "16 inch, 18 Inch" row into its two real values). Purely a
+  data-shape and admin-UI change — `productInputSchema`'s top-level
+  `variants` field shape and the Server Action submission contract are
+  otherwise unchanged. Verified via `tsc`/lint/`vitest`/`next build` (all
+  clean) plus two real dev-server end-to-end checks against seeded data:
+  one variant row holding `Size: ["16 Inch","17 Inch","18 Inch","19 Inch"]`
+  renders as one "Size" section with 4 separate chips on the real PDP
+  HTML, and a second row holding `"Gold Color": ["Yellow Gold","White
+  Gold"]` renders as its own separate 2-chip section — confirmed by
+  fetching the actual rendered page, not just read from source. Couldn't
+  exercise the actual admin-form click-through in this environment (admin
+  routes sit behind real Clerk auth, no way to log in headlessly here), so
+  the form-side editing UI itself relies on code review rather than a live
+  click-test — flagged rather than silently assumed working.
 - **Product videos were being silently dropped everywhere, despite the
   admin genuinely accepting and storing them** (2026-08-30, per a user
   report: uploaded videos never showed up on the card, Shop's spotlight, or

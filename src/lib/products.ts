@@ -60,7 +60,7 @@ export type StorefrontProductDetail = {
   images: MediaItem[];
   variants: {
     label: string;
-    attributes: Record<string, string>;
+    attributes: Record<string, string[]>;
     available: boolean;
     priceOverride: number | null;
   }[];

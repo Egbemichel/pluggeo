@@ -16,7 +16,10 @@ export const mediaItemSchema = z.object({
 
 export const variantSchema = z.object({
   label: z.string().min(1, "Variant label is required"),
-  attributes: z.record(z.string(), z.string()),
+  // Each attribute holds every value this variant comes in (e.g. Size:
+  // ["16 Inch", "17 Inch", "18 Inch"]), not just one — see db/schema.ts's
+  // own comment on `productVariants.attributes`.
+  attributes: z.record(z.string(), z.array(z.string().min(1)).min(1)),
   priceOverride: z.coerce.number().positive("Must be a positive number").optional(),
   available: z.boolean(),
 });

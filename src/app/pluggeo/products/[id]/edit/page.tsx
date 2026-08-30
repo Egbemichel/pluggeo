@@ -36,7 +36,7 @@ export default async function EditProductPage({
       label: v.label,
       priceOverride: v.priceOverride ?? "",
       available: v.available,
-      attributes: Object.entries(v.attributes).map(([key, value]) => ({ key, value })),
+      attributes: Object.entries(v.attributes).map(([key, values]) => ({ key, values })),
     })),
   };
 
