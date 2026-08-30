@@ -128,24 +128,89 @@ genuinely filter) + grid/list toggle + pagination.
      back as `image/webp` at 162928 bytes vs. the original JPEG's 203509 —
      confirmed via `file` on the downloaded bytes, not just the
      content-type header.
-  4. **Still open, flagged rather than silently left**: Next's own
-     `/_next/image` optimizer not functioning on this deployment is a
-     real, sitewide gap beyond what this pass fixed — every other local
-     `public/` image (category tiles, testimonial photos, footer/grillz
-     art, celebrity media) is still served unresized/uncompressed. Fixing
-     this properly means either wiring a working image loader for
-     OpenNext-Cloudflare (a real infra change, Cloudflare's own Image
-     Resizing is a paid feature not available on this free `workers.dev`
-     tier) or pre-compressing the remaining static assets the same way the
-     hero photos were just fixed — not done this pass since it wasn't
-     what broke the measured number, but worth a dedicated follow-up.
   Verified via `tsc`/lint/`vitest`/`next build` (all clean) plus live
   dev-server checks: the new `.webp` files serve correctly, Home's
   rendered HTML references them, and both `/shop` and a real product page's
   rendered HTML show `f_auto,q_auto` in every Cloudinary image URL. A fresh
-  PageSpeed Insights re-run to confirm the mobile Performance score
-  actually moved couldn't be done from here (no live browser in this
-  environment) — ask the site owner to re-run it once this deploys.
+  PageSpeed Insights re-run confirmed real movement: mobile LCP 16.6s → 5.0s,
+  Performance 63 → 75 (Speed Index 8.3s → 6.0s, FCP 2.6s → 2.0s) — still
+  above Google's 2.5s "good" LCP threshold, so treated as progress, not
+  done (see the follow-up round below).
+- **Follow-up round on the same mobile Performance score** (2026-08-30, the
+  site owner shared 5 more detailed PageSpeed "Insights" panels after the
+  75/100 re-run, captioned "there's more but I can only upload 5 images") —
+  went through each named finding:
+  1. **"Improve image delivery" / "Use efficient cache lifetimes" (~1.6–2.2MB
+     estimated savings)**: the "still open" gap flagged in the previous
+     entry — every remaining local `public/` image (category tiles ×6,
+     grillz mobile/desktop banners ×4, cast section ×2, testimonial
+     reviewer photos ×4, footer chain ×1 — 17 files total) was still
+     unresized PNG. Re-encoded all of them to WebP with the same local
+     `sharp` script/quality-78 approach used for the hero photos, sized to
+     what they actually render at: 4488KB → 604KB combined (~86.5%
+     reduction). Old PNGs `git rm`'d; the 6 consuming components
+     (`category-collage.tsx`, `grillz-top-bleed-image.tsx`,
+     `grillz-hero-section.tsx`, `grillz-cast-section.tsx`,
+     `testimonial-section.tsx`, `footer.tsx`) updated to the new `.webp`
+     paths. Checked visually for artifacts on a fine-detail photo (grillz
+     texture) and a portrait (reviewer photo) — none visible.
+  2. **Root cause behind both findings, confirmed via `curl`**: raw static
+     assets get `cache-control: public, max-age=0, must-revalidate`, but
+     the same file through `/_next/image` gets **no cache-control header
+     at all** — consistent with the optimizer being a dead pass-through
+     (previous entry) rather than a real caching proxy. Since that proxy
+     isn't doing anything useful on this deployment anyway, set
+     `images: { unoptimized: true }` in `next.config.ts` — `next/image`
+     now renders a plain `<img src>` straight at the real file/URL instead
+     of wrapping it in that broken layer. Local assets get real
+     static-asset caching; Cloudinary product photos go directly to
+     Cloudinary's own CDN (which sets its own cache headers) instead of
+     bouncing through this Worker first. The `remotePatterns` allowlist
+     was removed with it — that check only existed to guard the
+     optimizer, which no longer runs.
+  3. **"LCP request discovery" — fetchpriority=high should be applied**:
+     confirmed by reading Next's own source (`get-img-props.js`) that
+     `priority` and `fetchPriority` are fully independent `next/image`
+     props — Next never derives one from the other, despite that being an
+     easy assumption. Added `fetchPriority="high"` explicitly alongside
+     every existing `priority` prop sitewide: the desktop hero image and
+     mobile carousel's first slide (`hero-section.tsx`,
+     `hero-mobile-carousel.tsx`), both NavBar logo variants
+     (`nav-bar.tsx`), and both Grillz top-bleed images
+     (`grillz-top-bleed-image.tsx`). Verified via a dev-server curl with a
+     mobile Chrome User-Agent showing `fetchPriority="high"` now present
+     on the rendered `<img>` tag.
+  4. **A genuine bug found along the way, not named directly in the
+     screenshots**: inspecting the raw HTML found *three*
+     `<link rel="preload" as="image">` tags on Home when there should only
+     ever be two (logo + hero) — `testimonial-section.tsx`'s mobile hero
+     image had `priority` set despite TestimonialSection being the last
+     section on the page, nowhere near the fold. That was quietly
+     competing for bandwidth with the real hero LCP image on a throttled
+     mobile connection. Removed; verified via a fresh curl showing exactly
+     2 preload links remain.
+  5. **"Document request latency — 3 redirects, +918ms" — investigated,
+     not code-fixed**: tested via `curl -L` (https, http, and with a
+     realistic mobile Chrome User-Agent) and found zero redirects in every
+     case — curl doesn't execute JavaScript, so a client-side redirect
+     wouldn't show up this way. Reasoned this is very likely Clerk's
+     documented "dev browser" handshake for dev/test-instance keys on a
+     non-custom domain (an `x-clerk-auth-reason: dev-browser-missing`
+     header was seen directly in earlier debugging on this exact
+     deployment) — not confirmed with 100% certainty, but the leading
+     explanation. Flagged as an infrastructure/billing decision (a Clerk
+     production instance + a real custom domain), not something a code
+     change alone fixes — raised to the site owner rather than guessed at.
+  6. **Named but not yet investigated**: "Render-blocking requests" and
+     "Legacy JavaScript" (~14KiB estimated savings) were visible in the
+     screenshots but not opened this pass; "no origins were preconnected"
+     also flagged but not acted on. Worth a dedicated follow-up if the
+     score still isn't where the owner wants it after this round's fixes.
+  Verified via `tsc`/lint/`vitest`/`next build` (all clean) plus dev-server
+  curl checks. A fresh PageSpeed Insights re-run to confirm how far the
+  Performance score moved this time couldn't be done from here (no live
+  browser in this environment) — ask the site owner to re-run it once this
+  deploys.
 - **Shop's category picker given a mobile home** (2026-08-30, per the
   user: "the category dial on the side of the shop page... is nowhere to
   be found on mobile") — `ShopSidebar`'s `CategoryDial` (vertical

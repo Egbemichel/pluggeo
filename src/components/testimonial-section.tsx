@@ -48,28 +48,28 @@ const TESTIMONIALS: Testimonial[] = [
     name: 'Deshawn "Trey" Coleman III',
     rating: 5,
     quote: "Custom pendant surprised me like nothing else.",
-    image: { src: "/assets/reviews/1.png", alt: "Deshawn \"Trey\" Coleman III" },
+    image: { src: "/assets/reviews/1.webp", alt: "Deshawn \"Trey\" Coleman III" },
   },
   {
     id: "testimonial-2",
     name: "Marcus Webb",
     rating: 5,
     quote: "The craftsmanship is unreal. Worth every penny.",
-    image: { src: "/assets/reviews/2.png", alt: "Marcus Webb" },
+    image: { src: "/assets/reviews/2.webp", alt: "Marcus Webb" },
   },
   {
     id: "testimonial-3",
     name: "Andre Lewis",
     rating: 4,
     quote: "Fast shipping and the chain looks even better in person.",
-    image: { src: "/assets/reviews/3.png", alt: "Andre Lewis" },
+    image: { src: "/assets/reviews/3.webp", alt: "Andre Lewis" },
   },
   {
     id: "testimonial-4",
     name: "Jaylen Brooks",
     rating: 5,
     quote: "Exactly what I designed, down to the last detail.",
-    image: { src: "/assets/reviews/4.png", alt: "Jaylen Brooks" },
+    image: { src: "/assets/reviews/4.webp", alt: "Jaylen Brooks" },
   },
 ];
 
@@ -297,13 +297,21 @@ export function TestimonialSection({
       {/* Mobile: single hero photo only (no neighbors to peek/swap), simple
           in-place scale+fade tween instead of Flip. */}
       <div className="flex flex-col gap-(--space-6) md:hidden">
+        {/* No `priority` here (2026-08-30, found via a real PageSpeed audit):
+            this section is the last one on Home, nowhere near the fold, but
+            `priority` was telling the browser to preload this image with
+            the same urgency as the actual hero — competing for bandwidth
+            with the real LCP candidate on a throttled connection and
+            showing up directly in Lighthouse's "LCP request discovery"
+            audit as a second, unprioritized `<link rel=preload>`. Plain
+            lazy-by-default loading is correct for a section this far down
+            the page. */}
         <div ref={mobileHeroRef} className="relative aspect-3/4 overflow-hidden rounded-md">
           <Image
             src={testimonial.image.src}
             alt={testimonial.image.alt}
             fill
             className="object-cover"
-            priority
           />
         </div>
         <div ref={mobileTextRef} className="flex flex-col gap-(--space-3)">

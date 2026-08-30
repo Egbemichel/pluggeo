@@ -93,6 +93,9 @@ export function HeroMobileCarousel({ images }: HeroMobileCarouselProps) {
               fill
               className="object-cover"
               priority={index === 0}
+              // See hero-section.tsx's comment on its own main image —
+              // `priority` and `fetchPriority` are independent props.
+              fetchPriority={index === 0 ? "high" : undefined}
             />
           </div>
         ))}

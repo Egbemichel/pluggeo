@@ -6,6 +6,34 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+### Fixed (batch 68 — follow-up PageSpeed round: image delivery, cache lifetimes, fetchpriority)
+
+- Re-encoded the remaining 17 unoptimized static PNGs site-wide (category
+  tiles, Grillz banners, cast section, testimonial reviewer photos, footer
+  chain) to WebP at the sizes they actually render at — 4488KB combined
+  down to 604KB, no visible quality loss.
+- Set `images: { unoptimized: true }` in `next.config.ts`: confirmed via
+  `curl` that images served through `/_next/image` had no `Cache-Control`
+  header at all (vs. a real header on the same file as a raw static
+  asset), consistent with the optimizer being a dead pass-through rather
+  than a real caching proxy. `next/image` now points straight at the real
+  file/URL — real caching for local assets, direct-to-Cloudinary-CDN for
+  product photos.
+- Added `fetchPriority="high"` alongside every existing `priority` prop on
+  `next/image` (hero, mobile hero carousel, both NavBar logos, both Grillz
+  top-bleed images) — confirmed by reading Next's own source that
+  `priority` and `fetchPriority` are independent props with no automatic
+  derivation between them.
+- Fixed a genuine bug found while auditing preload tags: the testimonial
+  section's mobile hero image (last section on Home, nowhere near the
+  fold) incorrectly had `priority` set, competing with the real hero image
+  for bandwidth on a throttled connection.
+- Investigated PageSpeed's "3 redirects, +918ms" finding — no redirects
+  observed via `curl` in any variant tested; reasoned to be Clerk's
+  client-side dev-instance handshake (invisible to non-JS tools), which
+  needs a Clerk production instance + custom domain to resolve, not a code
+  change. Not fixed this round.
+
 ### Fixed (batch 67 — 16.6s mobile LCP found via a real PageSpeed Insights audit)
 
 - Found the root cause of a 16.6s mobile Largest Contentful Paint reported

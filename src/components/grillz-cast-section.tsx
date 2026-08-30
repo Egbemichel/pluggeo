@@ -21,13 +21,13 @@ export function GrillzCastSection() {
     <section className="flex flex-col gap-(--space-7) py-(--space-13) md:grid md:grid-cols-2 md:items-center md:gap-(--space-9)">
       <div className="relative mx-auto aspect-366/299 w-full max-w-sm md:mx-0 md:aspect-605/490 md:max-w-none">
         <Image
-          src="/assets/mobile/cast-mobile.png"
+          src="/assets/mobile/cast-mobile.webp"
           alt="Custom grillz cast"
           fill
           className="object-contain md:hidden"
         />
         <Image
-          src="/assets/desktop/cast-desktop.png"
+          src="/assets/desktop/cast-desktop.webp"
           alt="Custom grillz cast"
           fill
           className="hidden object-contain md:block"

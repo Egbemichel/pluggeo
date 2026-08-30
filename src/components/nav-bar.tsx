@@ -124,6 +124,7 @@ export function NavBar({
                 height={108}
                 className="h-auto w-35"
                 priority
+                fetchPriority="high"
               />
             </Link>
             {/* Nav links hidden on back-button routes — the back button is
@@ -201,6 +202,7 @@ export function NavBar({
               height={108}
               className="h-auto w-28"
               priority
+              fetchPriority="high"
             />
           </Link>
           {/* Hamburger stays visible on Grillz too, alongside the back

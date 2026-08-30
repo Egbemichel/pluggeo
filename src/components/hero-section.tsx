@@ -153,7 +153,16 @@ export function HeroSection() {
               alt={MAIN_IMAGE.alt}
               fill
               className="object-cover"
+              // `priority` alone only controls eager-loading/preload
+              // generation — `fetchPriority` is a genuinely separate prop
+              // Next.js never derives from it (confirmed by reading
+              // next/image's own source), so without this the browser still
+              // preloaded the image without ever telling itself it was the
+              // urgent one. Found via a real PageSpeed audit flagging
+              // "fetchpriority=high should be applied to the image preload
+              // request" on this exact image.
               priority
+              fetchPriority="high"
             />
             <h2
               ref={headingRef}

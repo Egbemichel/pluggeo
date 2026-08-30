@@ -42,12 +42,12 @@ export type CategoryTile = {
 };
 
 const DEFAULT_TILES: CategoryTile[] = [
-  { id: "bracelets", label: "Bracelets", href: "/category/bracelets", image: "/assets/categories/bracelets.png" },
-  { id: "pendants", label: "Pendants", href: "/category/pendants", image: "/assets/categories/pendants.png" },
-  { id: "chains", label: "Chains", href: "/category/chains", image: "/assets/categories/chains.png" },
-  { id: "watches", label: "Watches", href: "/category/watches", image: "/assets/categories/watches.png" },
-  { id: "grillz", label: "Grillz", href: "/grillz", image: "/assets/categories/grillz.png" },
-  { id: "sets", label: "Sets", href: "/category/sets", image: "/assets/categories/sets.png" },
+  { id: "bracelets", label: "Bracelets", href: "/category/bracelets", image: "/assets/categories/bracelets.webp" },
+  { id: "pendants", label: "Pendants", href: "/category/pendants", image: "/assets/categories/pendants.webp" },
+  { id: "chains", label: "Chains", href: "/category/chains", image: "/assets/categories/chains.webp" },
+  { id: "watches", label: "Watches", href: "/category/watches", image: "/assets/categories/watches.webp" },
+  { id: "grillz", label: "Grillz", href: "/grillz", image: "/assets/categories/grillz.webp" },
+  { id: "sets", label: "Sets", href: "/category/sets", image: "/assets/categories/sets.webp" },
 ];
 
 const DESKTOP_STAGGER = 0.12;

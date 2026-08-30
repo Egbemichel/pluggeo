@@ -38,13 +38,13 @@ export function GrillzHeroSection() {
 
       <div className="relative -mx-6 aspect-393/134 -my-6 w-[calc(100%+48px)] md:-mx-10 md:aspect-1440/504 md:w-[calc(100%+80px)]">
         <Image
-          src="/assets/mobile/grillz-home_2-mobile-bottom.png"
+          src="/assets/mobile/grillz-home_2-mobile-bottom.webp"
           alt=""
           fill
           className="object-contain md:hidden"
         />
         <Image
-          src="/assets/desktop/grillz-home_2-bottom.png"
+          src="/assets/desktop/grillz-home_2-bottom.webp"
           alt=""
           fill
           className="hidden object-contain md:block"

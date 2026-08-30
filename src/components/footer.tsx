@@ -53,7 +53,7 @@ export function Footer({ className }: FooterProps) {
 
         <div className="pointer-events-none absolute -top-15 right-0 h-full w-1/3 sm:-top-35">
           <Image
-            src="/footer-chain.png"
+            src="/footer-chain.webp"
             alt="image of a chain overflowing the footer content area to the top right"
             fill
             className="object-contain object-top"
