@@ -6,6 +6,16 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+### Fixed (batch 83 — Telegram notifications confirmed live, debug scaffolding removed)
+
+- The owner's secrets weren't taking effect immediately after being set
+  (Cloudflare secret propagation timing, not a bug). Added a temporary
+  `?pg-debug-telegram=1` diagnostic to `middleware.ts` to see the real
+  `notifyVisitor()` result instead of the old silent failure; confirmed
+  `{"attempted":true,"ok":true}` and a real Telegram message received, then
+  removed the debug endpoint. `notifyVisitor()` keeps its structured result
+  type going forward instead of swallowing every failure silently.
+
 ### Added (batch 82 — Telegram visitor notifications)
 
 - `middleware.ts` now pings the owner's Telegram (`src/lib/telegram.ts`)

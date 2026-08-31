@@ -127,9 +127,17 @@ genuinely filter) + grid/list toggle + pagination.
      would defeat it — awaiting directly, bounded to 2s worst case, and
      only on the *one* first-page-load of a session (every page after that
      is cookied and skips this entirely), was the safer tradeoff.
-  Still needed before this does anything: the owner creates a bot via
-  @BotFather, messages it once, and sends the token + their chat id to set
-  as the two Worker secrets above.
+  **Confirmed live end to end** (2026-08-31) — the owner set both secrets,
+  an initial test showed no message (Cloudflare secret propagation timing,
+  not a bug), so a temporary `?pg-debug-telegram=1` short-circuit was added
+  to `middleware.ts` to bypass the visit-cookie gate and report
+  `notifyVisitor()`'s real result directly instead of the old silent
+  `catch {}`. It returned `{"attempted":true,"ok":true}` and the owner
+  received the real message — debug endpoint removed once confirmed.
+  `notifyVisitor()` keeps its structured `NotifyResult` return type
+  (`src/lib/telegram.ts`) going forward, a genuine improvement over
+  swallowing every failure silently, even with nothing reading it in the
+  normal flow today.
 - **Creating a product left the form full of what was just entered instead
   of clearing for the next one** (2026-08-31, the admin: "it's a form, once
   you fill it, it empties out... why doesn't it refresh?" — entering a
