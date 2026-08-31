@@ -77,6 +77,58 @@ genuinely filter) + grid/list toggle + pagination.
 
 ## Resolved decisions
 
+- **Fourth PageSpeed follow-up: Performance findings — a Clerk redirect
+  chain, oversized card images, no static-asset cache lifetime**
+  (2026-08-31, the owner sent five more Insights panels) —
+  1. **"Document request latency" / LCP "resource load delay": 3 redirects,
+     +1,467ms** — root-caused to Clerk's dev-instance cookie handshake.
+     `clerkMiddleware()`'s matcher used to match almost the entire site
+     (everything except static files), and `<ClerkProvider>` wrapped the
+     whole app from the root layout — so every *public storefront* page
+     paid for Clerk, even though there are no public customer accounts
+     (CLAUDE.md) and nothing outside `/pluggeo`, `/sign-in`, and
+     `/api/cloudinary-sign` ever calls a Clerk hook/component (confirmed by
+     grep). A Clerk dev instance has no custom domain, so a browser with no
+     `__clerk_db_jwt` cookie yet — any first-time visitor — round-trips
+     through `accounts.dev` to set one before the page can render; that's
+     the redirect chain. Fixed by narrowing `middleware.ts`'s matcher to
+     `/pluggeo(.*)`, `/sign-in(.*)`, `/api/:path*`, `/__clerk/:path*` and
+     moving `<ClerkProvider>` out of the root layout into `/pluggeo`'s and
+     `/sign-in`'s own layouts instead. Verified directly: a cookie-less curl
+     against `/` now returns a plain 200 with no `x-clerk-*` headers and the
+     rendered HTML has zero occurrences of "clerk"; `/pluggeo` still
+     enforces the auth gate (confirmed via its handshake rewrite response).
+  2. **"Improve image delivery — 490 KiB"** — `withCloudinaryAutoFormat()`
+     had no width cap at all (unlike the video counterpart, which already
+     got one two rounds ago), so a Shop grid card thumbnail and the PDP's
+     full gallery/lightbox were requesting the *exact same* full-resolution
+     delivery. Split into two real widths: `CARD_IMAGE_WIDTH = 600` (Shop/
+     Home grid cards, the cart's cover thumbnail) and
+     `GALLERY_IMAGE_WIDTH = 1200` (PDP spotlight/lightbox, the one context
+     that legitimately fills a desktop viewport) — confirmed directly
+     against a real product photo: 199KB unbounded → 60KB at `w_600` (70%
+     smaller), still 196KB at `w_1200` for the large view. `coverImageFor()`
+     now takes the raw `MediaRow[]` instead of an already-transformed
+     `MediaItem[]`, so the card width doesn't just inherit whatever the
+     gallery array picked. All 8 real product images cache-warmed at both
+     widths directly against production Cloudinary before deploying.
+  3. **"Use efficient cache lifetimes" — local static assets at `None`
+     TTL** — checked directly against the live Worker: *every* static
+     asset served through Cloudflare's `ASSETS` binding, including the
+     content-hashed `/_next/static/*` build output, was coming back
+     `Cache-Control: public, max-age=0, must-revalidate` — no real caching
+     at all, and nothing in this project's own request-handling code can
+     touch that response (it never reaches the Worker's JS). Added
+     `public/_headers` (Cloudflare Workers Assets reads this the same way
+     Pages does) — `immutable, max-age=31536000` for `/_next/static/*`
+     (safe: webpack content-hashes every filename there) and
+     `max-age=604800` for the filename-stable local media (`/celebrity/*`,
+     `/hero/*`, logos) that isn't safe to mark immutable. Verified via a
+     real `opennextjs-cloudflare build` + local `wrangler dev`: exact-path
+     rules only (no overlapping wildcard globs — an earlier `/*.webp`-style
+     draft double-applied the same header on any path two rules matched).
+  A fresh PageSpeed re-run to see where these land couldn't be done from
+  here — ask the owner to re-run it once this deploys.
 - **Second PageSpeed follow-up: Accessibility/Best Practices regressed to
   96 (from 100), Performance up to 82** (2026-08-31, the owner ran another
   audit after the recent batch of work) —

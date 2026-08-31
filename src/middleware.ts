@@ -15,10 +15,13 @@ export default clerkMiddleware(async (auth, req) => {
   }
 });
 
+// Scoped to exactly the routes that need Clerk (2026-08-31, the same
+// PageSpeed-driven fix as the root layout's `ClerkProvider` removal — see
+// its comment) — this used to match nearly the entire site, which meant a
+// Clerk dev instance's first-visit cookie handshake redirect ran against
+// every public storefront page too, not just the admin. `/api` stays
+// matched for `cloudinary-sign`, which calls `auth()` directly rather than
+// going through `isAdminRoute`'s `auth.protect()`.
 export const config = {
-  matcher: [
-    "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
-    "/(api|trpc)(.*)",
-    "/__clerk/:path*",
-  ],
+  matcher: ["/pluggeo(.*)", "/sign-in(.*)", "/api/:path*", "/__clerk/:path*"],
 };

@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { ClerkProvider } from "@clerk/nextjs";
 import { Inter } from "next/font/google";
 import localFont from "next/font/local";
 import { SITE_NAME, SITE_TAGLINE, SITE_DESCRIPTION, SITE_URL, THEME_COLOR, DEFAULT_OG_IMAGE } from "@/lib/seo";
@@ -88,6 +87,17 @@ const websiteJsonLd = {
   url: SITE_URL,
 };
 
+// No `<ClerkProvider>` here (2026-08-31, found via a real PageSpeed run: a
+// fresh incognito visit to the storefront cost 3 redirects / 1,467ms before
+// the page even started rendering) — a Clerk *dev instance* has no custom
+// domain, so on a browser with no `__clerk_db_jwt` cookie yet it round-trips
+// through Clerk's own `accounts.dev` domain to set one, and `ClerkProvider`
+// wrapping the whole app meant every first-time storefront visitor (100% of
+// customers — there are no public accounts, see CLAUDE.md) paid that tax for
+// a feature only the admin uses. Confirmed nothing in the storefront calls a
+// Clerk hook/component. `ClerkProvider` now wraps only `/pluggeo`'s and
+// `/sign-in`'s own layouts — the two places that actually render Clerk
+// components — and `middleware.ts`'s matcher was narrowed to match.
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
@@ -103,7 +113,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
         />
-        <ClerkProvider>{children}</ClerkProvider>
+        {children}
       </body>
     </html>
   );

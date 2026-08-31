@@ -6,6 +6,26 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+### Fixed (batch 78 — fourth PageSpeed follow-up: Clerk redirect chain, oversized card images, static-asset caching)
+
+- Every public storefront page was paying for Clerk's dev-instance cookie
+  handshake — a 3-redirect, ~1,467ms chain on any first-time visitor —
+  because `clerkMiddleware()`'s matcher and the root layout's
+  `<ClerkProvider>` covered nearly the whole site, not just the admin.
+  Scoped both to `/pluggeo`, `/sign-in`, and `/api` only; confirmed the
+  storefront's rendered HTML now has zero Clerk references and the admin's
+  auth gate still holds.
+- Product images had no width cap at all — a Shop grid card thumbnail and
+  the PDP's full gallery were requesting the exact same full-resolution
+  Cloudinary delivery. Split into a 600px card width and a 1200px gallery/
+  lightbox width (199KB → 60KB per card image, confirmed on a real product
+  photo).
+- Every static asset served through Cloudflare's `ASSETS` binding —
+  including the content-hashed `/_next/static/*` build output — had no
+  real `Cache-Control` at all. Added `public/_headers`: immutable/1-year
+  for the hashed build output, 7 days for filename-stable local media
+  (celebrity photography, hero images, logos).
+
 ### Fixed (batch 77 — friendly message for stale Server Action IDs after a deploy)
 
 - Publishing a product (or any admin mutation) right after a deploy could

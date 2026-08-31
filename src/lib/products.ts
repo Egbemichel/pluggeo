@@ -88,15 +88,30 @@ type MediaRow = typeof productMedia.$inferSelect;
 // quality — a real fix that doesn't depend on Next's broken pipeline at
 // all. Idempotent (skips URLs that already carry a transformation segment)
 // and a no-op on anything that isn't a genuine Cloudinary upload URL (e.g.
-// the local placeholder SVG below).
-function withCloudinaryAutoFormat(url: string): string {
+// the local placeholder SVG below). `width` is required, not defaulted —
+// a real PageSpeed "improve image delivery" finding (490 KiB) caught a card
+// thumbnail serving the *exact same* full-size delivery this function gave
+// the PDP gallery/lightbox, so every caller now has to pick a width that
+// actually matches where its image renders (see the two constants below).
+function withCloudinaryAutoFormat(url: string, width: number): string {
   const marker = "/image/upload/";
   const index = url.indexOf(marker);
   if (index === -1) return url;
   const afterMarker = url.slice(index + marker.length);
   if (/^[a-z_]+_[^/]+\//.test(afterMarker)) return url;
-  return url.slice(0, index + marker.length) + "f_auto,q_auto/" + afterMarker;
+  return url.slice(0, index + marker.length) + `f_auto,q_auto,w_${width}/` + afterMarker;
 }
+
+// Card/thumbnail contexts (Shop/Home grid cards, cart line items, the flying
+// add-to-bag icon, search results, nav) never render past a few hundred CSS
+// px — confirmed directly: the flagged image came back 199KB at the old
+// unbounded `f_auto,q_auto` and 60KB at `w_600` (70% smaller, no visible
+// softness at real card sizes even on a 2x display).
+const CARD_IMAGE_WIDTH = 600;
+// The PDP gallery/spotlight and its fullscreen lightbox are the one context
+// that can legitimately fill most of a desktop viewport — capped well above
+// the card width, not left unbounded.
+const GALLERY_IMAGE_WIDTH = 1200;
 
 // The video counterpart (2026-08-31, found via a real PageSpeed "browser
 // errors" audit: a product video was failing to even load under Lighthouse's
@@ -131,11 +146,15 @@ function withCloudinaryVideoAutoFormat(url: string): string {
 // it (`productMedia.type` has allowed "video" since 2026-08-29 — see that
 // column's own comment). Videos now pass through in the same admin-set
 // `sortOrder` as photos, each run through its own Cloudinary auto-format
-// helper.
-function mediaForProduct(media: MediaRow[], title: string): MediaItem[] {
+// helper. `width` isn't defaulted for the same reason `withCloudinaryAutoFormat`
+// isn't: `ProductCard` cycles through this *entire* array as a tile in a
+// grid (Shop, Home) just as much as the PDP spotlight/lightbox cycles
+// through it full-viewport — same function, two very different real sizes —
+// so every caller passes the width that matches its own context.
+function mediaForProduct(media: MediaRow[], title: string, width: number): MediaItem[] {
   const items = media.map((m) => ({
     type: m.type,
-    src: m.type === "image" ? withCloudinaryAutoFormat(m.url) : withCloudinaryVideoAutoFormat(m.url),
+    src: m.type === "image" ? withCloudinaryAutoFormat(m.url, width) : withCloudinaryVideoAutoFormat(m.url),
     alt: m.altText || title,
   }));
   return items.length > 0 ? items : [PLACEHOLDER_IMAGE];
@@ -144,9 +163,13 @@ function mediaForProduct(media: MediaRow[], title: string): MediaItem[] {
 // The safe "cover" thumbnail — always a real image. Cart line items, the
 // flying add-to-bag icon, search results, and nav all render this directly
 // as a plain `<Image>`, so it must never resolve to a video URL; falls back
-// to the first video-less item, then the shared placeholder.
-function coverImageFor(media: MediaItem[]): { src: string; alt: string } {
-  return media.find((m) => m.type === "image") ?? PLACEHOLDER_IMAGE;
+// to the first video-less item, then the shared placeholder. Takes the raw
+// `MediaRow[]`, not `mediaForProduct`'s output, so it can apply its own
+// `CARD_IMAGE_WIDTH` instead of inheriting the gallery's larger one.
+function coverImageFor(media: MediaRow[], title: string): { src: string; alt: string } {
+  const cover = media.find((m) => m.type === "image");
+  if (!cover) return PLACEHOLDER_IMAGE;
+  return { src: withCloudinaryAutoFormat(cover.url, CARD_IMAGE_WIDTH), alt: cover.altText || title };
 }
 
 function toCard(
@@ -155,11 +178,11 @@ function toCard(
   categorySlug: string | null,
   media: MediaRow[]
 ): StorefrontProductCard {
-  const images = mediaForProduct(media, product.name);
+  const images = mediaForProduct(media, product.name, CARD_IMAGE_WIDTH);
   return {
     key: product.id,
     href: `/product/${product.slug}`,
-    image: coverImageFor(images),
+    image: coverImageFor(media, product.name),
     images,
     imageCount: images.length,
     category: categoryName ?? "pluggeo&co",
@@ -277,7 +300,7 @@ export const getProductDetailBySlug = cache(async function getProductDetailBySlu
     db.select().from(productVariants).where(eq(productVariants.productId, row.product.id)),
   ]);
 
-  const images = mediaForProduct(mediaRows, row.product.name);
+  const images = mediaForProduct(mediaRows, row.product.name, GALLERY_IMAGE_WIDTH);
 
   return {
     id: row.product.id,
@@ -294,7 +317,7 @@ export const getProductDetailBySlug = cache(async function getProductDetailBySlu
       priceOverride: v.priceOverride != null ? Number(v.priceOverride) : null,
     })),
     description: row.product.description,
-    coverImage: coverImageFor(images),
+    coverImage: coverImageFor(mediaRows, row.product.name),
     images,
   };
 });

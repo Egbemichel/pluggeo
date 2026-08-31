@@ -1,0 +1,38 @@
+# Cloudflare Workers Assets reads this file the same way Cloudflare Pages
+# does, applying these headers to matching static-asset responses (2026-08-31,
+# found via a real PageSpeed "use efficient cache lifetimes" audit): every
+# static asset served through the Worker's ASSETS binding — the local
+# celebrity photography, hero images, even the content-hashed /_next/static
+# build output — was coming back `Cache-Control: public, max-age=0,
+# must-revalidate` (confirmed directly against the live deployment), i.e. no
+# real caching at all, with nothing in this project's own code able to touch
+# it (these responses never reach the Worker's own JS).
+#
+# /_next/static/* is safe to cache forever: webpack content-hashes every file
+# in that path, so a new build always gets new URLs, never a stale one under
+# an old URL. Everything else here (celebrity/, hero/, logos) is NOT
+# content-hashed — the filenames stay stable across a real re-upload (see
+# scripts/generate-celebrities.mjs's own comment) — so those get a real but
+# finite lifetime instead of `immutable`, long enough to matter for a repeat
+# visitor without risking a long-stuck-stale asset after the next update.
+
+/_next/static/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/celebrity/*
+  Cache-Control: public, max-age=604800
+
+/hero/*
+  Cache-Control: public, max-age=604800
+
+/logo.png
+  Cache-Control: public, max-age=604800
+
+/logo-mark.png
+  Cache-Control: public, max-age=604800
+
+/footer-chain.webp
+  Cache-Control: public, max-age=604800
+
+/placeholder-product.svg
+  Cache-Control: public, max-age=604800
