@@ -90,11 +90,18 @@ export async function createProduct(rawInput: ProductInput) {
 
   revalidatePath("/pluggeo/products");
   revalidateStorefront();
-  // `?created=1` — a Server Action that redirects never gives the client a
-  // "this resolved successfully" moment to toast from (see product-form.tsx's
-  // own comment); the edit page reads this once on landing to fire its own
-  // "Product created" toast, then strips it so a refresh doesn't re-fire it.
-  redirect(`/pluggeo/products/${product.id}/edit?created=1`);
+  // Back to a blank "new product" form, not the edit page (2026-08-31, the
+  // admin: "once you fill it, it empties out... why doesn't it refresh?" —
+  // he's entering a whole catalog's worth of products in a row and wants
+  // the next one to start clean, not land on a form still full of the one
+  // he just finished). `?created=1` — a Server Action that redirects never
+  // gives the client a "this resolved successfully" moment to toast from
+  // (see product-form.tsx's own comment); the new-product page reads this
+  // once on landing to fire its own "Product created" toast and force a
+  // fresh `ProductForm` instance (see its own `key`), then strips the param
+  // so a later refresh doesn't re-fire the toast or re-clear a form the
+  // admin has since started typing into again.
+  redirect(`/pluggeo/products/new?created=1`);
 }
 
 export async function updateProduct(id: string, rawInput: ProductInput) {

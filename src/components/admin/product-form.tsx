@@ -40,10 +40,9 @@ import { cn } from "@/lib/utils";
 // "use server" file may only export async functions — so client/server
 // validation can never silently drift apart), required-field asterisks,
 // `$`-prefixed price inputs, `<fieldset>`/`<legend>` for each section
-// (proper semantic grouping, not just a styled heading), autofocus on the
-// first field, and a transient success message after an *edit* save
-// (create already redirects to the edit page, which is its own confirmation
-// that the save landed — a toast there would be redundant).
+// (proper semantic grouping, not just a styled heading), and autofocus on
+// the first field. Both create and update report success via a toast (see
+// the 2026-08-31 admin-feedback pass below) rather than a static banner.
 //
 // Options & pricing, full rework (2026-08-31, several rounds of "how should
 // this actually behave" with the admin) — replaces the old "Variants"
@@ -355,10 +354,13 @@ export function ProductForm({ categories, initialValues }: ProductFormProps) {
           clearFormDraft(draftKey);
           adminToast.success("Product saved.");
         } else {
-          // Redirects to the new product's edit page on success (see
-          // actions.ts) — there's no client-side "resolved" moment to toast
-          // from here, so that page fires its own "Product created" toast
-          // once it lands (see its `?created=1` handling). Cleared *before*
+          // Redirects back to a blank "new product" form on success (see
+          // actions.ts — 2026-08-31, per the admin: he's entering many
+          // products in a row and wants a clean form each time, not to land
+          // on the one he just filled in) — there's no client-side
+          // "resolved" moment to toast from here, so that page fires its
+          // own "Product created" toast once it lands (see its `?created=1`
+          // handling). Cleared *before*
           // the call, not after — a line after `await createProduct` here
           // is dead code on success (the redirect throws before reaching
           // it), and there's no public API to tell a genuine failure apart

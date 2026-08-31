@@ -77,6 +77,21 @@ genuinely filter) + grid/list toggle + pagination.
 
 ## Resolved decisions
 
+- **Creating a product left the form full of what was just entered instead
+  of clearing for the next one** (2026-08-31, the admin: "it's a form, once
+  you fill it, it empties out... why doesn't it refresh?" — entering a
+  whole catalog in a row). Not stale state — `createProduct` was genuinely
+  redirecting to the new product's *edit* page, which correctly pre-fills
+  from the DB with exactly what he'd just typed, so it only looked like
+  nothing had cleared. Changed the redirect target to
+  `/pluggeo/products/new?created=1` — a blank form again — and gave
+  `<ProductForm>` a `key` tied to the `created` param in `new/page.tsx`,
+  since without it React would reconcile the existing form instance in
+  place (same route, only the query string changed) and keep every field
+  instead of actually resetting it. Moved `<CreatedToast>` from the edit
+  page (nothing sets `?created=1` there anymore) to the new-product page.
+  Categories weren't affected — `createCategory` already redirected to the
+  list page, not an edit view.
 - **Admin dashboard "keeps asking him to refresh" and it's stressful**
   (2026-08-31, a follow-up complaint about the `describeActionError`
   message added earlier this session). Root cause isn't a bug in that

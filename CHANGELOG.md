@@ -6,6 +6,16 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+### Fixed (batch 81 — creating a product now returns to a blank form)
+
+- `createProduct` redirected to the new product's own edit page, which
+  correctly pre-fills from the database — so it looked like the form
+  hadn't cleared, when really it had just landed somewhere that shows the
+  same data back. Now redirects to a fresh `/pluggeo/products/new`
+  instead, with `<ProductForm>` keyed to force an actual remount (same
+  route, so React would otherwise keep the existing form instance and its
+  state as-is).
+
 ### Added (batch 80 — admin product/category forms autosave a draft)
 
 - A forced refresh after the "Server Action ... was not found on the
