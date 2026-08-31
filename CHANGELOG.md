@@ -6,6 +6,16 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+### Fixed (batch 77 — friendly message for stale Server Action IDs after a deploy)
+
+- Publishing a product (or any admin mutation) right after a deploy could
+  surface Next.js's raw "Server Action ... was not found on the server"
+  error — expected, since an action ID is only valid for the build that
+  created it, but not something an admin should have to decode. Every admin
+  mutation now recognizes this specific case and shows "This page is out of
+  date — the site was updated while it was open. Refresh the page and try
+  again" instead.
+
 ### Fixed (batch 76 — third PageSpeed follow-up: product video cold-transcode timeout)
 
 - The previous batch's product-video Cloudinary fix (`f_auto,q_auto,w_720`)

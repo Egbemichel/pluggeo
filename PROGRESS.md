@@ -148,6 +148,21 @@ genuinely filter) + grid/list toggle + pagination.
   w_720` URLs on the actual Home and PDP pages, the compressed celebrity
   video/photo assets serve correctly, and the aria-label fix is present in
   the rendered HTML.
+- **"Server Action ... was not found on the server" hitting the admin on
+  publish** (2026-08-31, the owner tried to publish a product and got the
+  raw Next.js framework error). Not a code bug in the usual sense: a Server
+  Action's ID is only valid for the build that created it, and this project
+  redeploys on every push (this session alone shipped several deploys in
+  quick succession) — an admin page left open across one of those deploys
+  turns its *next* mutation into this exact error, since the server no
+  longer recognizes an action ID from the previous build. A page refresh
+  always fixes it immediately. Added `describeActionError()`
+  (`components/admin/toast.tsx`) so this specific case surfaces as "This
+  page is out of date — the site was updated while it was open. Refresh the
+  page and try again," not the raw internal error text — wired into every
+  admin mutation's catch block (`product-form`, `category-form`,
+  `homepage-featured-list`, `product-row-actions`, `category-row-actions`)
+  instead of each one reading `err.message` directly.
 - **Third PageSpeed follow-up: Best Practices still at 96** (2026-08-31,
   after the above deployed) — same "browser errors" audit, but a *different*
   product video now failing: `x4aw4isdgtuphj0zgbyt.mp4` (Presidential Rolex

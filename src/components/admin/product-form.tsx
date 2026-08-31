@@ -16,7 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { MediaUpload, type MediaItem } from "@/components/admin/media-upload";
-import { adminToast } from "@/components/admin/toast";
+import { adminToast, describeActionError } from "@/components/admin/toast";
 import { createProduct, updateProduct } from "@/app/pluggeo/products/actions";
 import { productInputSchema } from "@/app/pluggeo/products/schema";
 import { VARIANT_ATTRIBUTE_CATEGORIES, VARIANT_ATTRIBUTE_VALUE_PLACEHOLDER } from "@/lib/product-attributes";
@@ -305,7 +305,7 @@ export function ProductForm({ categories, initialValues }: ProductFormProps) {
         // error. Must rethrow it here before treating anything as a real
         // failure, or every successful create would show as an error toast.
         unstable_rethrow(err);
-        const message = err instanceof Error ? err.message : "Something went wrong saving this product.";
+        const message = describeActionError(err, "Something went wrong saving this product.");
         setFormError(message);
         adminToast.error(message);
       }

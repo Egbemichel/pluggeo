@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { adminToast } from "@/components/admin/toast";
+import { adminToast, describeActionError } from "@/components/admin/toast";
 import { setFeatured } from "@/app/pluggeo/products/actions";
 
 export type HomepageProductRow = {
@@ -31,7 +31,7 @@ export function HomepageFeaturedList({ products }: { products: HomepageProductRo
         router.refresh();
         adminToast.success(checked ? `"${product.name}" featured.` : `"${product.name}" unfeatured.`);
       } catch (err) {
-        adminToast.error(err instanceof Error ? err.message : "Couldn't update this product.");
+        adminToast.error(describeActionError(err, "Couldn't update this product."));
       }
     });
   };
@@ -45,7 +45,7 @@ export function HomepageFeaturedList({ products }: { products: HomepageProductRo
         router.refresh();
         adminToast.success("Order updated.");
       } catch (err) {
-        adminToast.error(err instanceof Error ? err.message : "Couldn't update this product's order.");
+        adminToast.error(describeActionError(err, "Couldn't update this product's order."));
       }
     });
   };

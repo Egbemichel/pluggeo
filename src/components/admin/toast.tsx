@@ -36,3 +36,18 @@ export const adminToast = {
   error: (title: string, options?: GooeyToastOptions) =>
     gooeyToast.error(title, { ...errorTheme, ...options }),
 };
+
+// A Server Action's ID is only valid for the build that created it, so
+// leaving an admin page open across a deploy (this project's own CI
+// redeploys on every push) turns the *next* click into a raw framework
+// error — "Server Action ... was not found on the server" — rather than a
+// real failure. Every admin mutation's catch block should read the message
+// through this instead of `err.message` directly, so that specific case
+// surfaces as something an admin can actually act on.
+export function describeActionError(err: unknown, fallback: string): string {
+  const message = err instanceof Error ? err.message : fallback;
+  if (/Server Action .* was not found on the server/.test(message)) {
+    return "This page is out of date — the site was updated while it was open. Refresh the page and try again.";
+  }
+  return message;
+}

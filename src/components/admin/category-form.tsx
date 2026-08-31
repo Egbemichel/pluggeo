@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { unstable_rethrow } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { adminToast } from "@/components/admin/toast";
+import { adminToast, describeActionError } from "@/components/admin/toast";
 import { createCategory, updateCategory } from "@/app/pluggeo/categories/actions";
 import { categoryInputSchema } from "@/app/pluggeo/categories/schema";
 import { slugify } from "@/lib/slugify";
@@ -105,7 +105,7 @@ export function CategoryForm({ initialValues }: CategoryFormProps) {
         // own toast on landing via `?created=1`/`?updated=1`.
       } catch (err) {
         unstable_rethrow(err);
-        const message = err instanceof Error ? err.message : "Something went wrong saving this category.";
+        const message = describeActionError(err, "Something went wrong saving this category.");
         setFormError(message);
         adminToast.error(message);
       }

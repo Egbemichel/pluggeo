@@ -18,7 +18,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { adminToast } from "@/components/admin/toast";
+import { adminToast, describeActionError } from "@/components/admin/toast";
 import { deleteProduct, setProductStatus } from "@/app/pluggeo/products/actions";
 
 export type ProductRowActionsProps = {
@@ -40,7 +40,7 @@ export function ProductRowActions({ id, name, status }: ProductRowActionsProps) 
         router.refresh();
         adminToast.success(nextStatus === "published" ? "Product published." : "Product unpublished.");
       } catch (err) {
-        adminToast.error(err instanceof Error ? err.message : "Couldn't update this product's status.");
+        adminToast.error(describeActionError(err, "Couldn't update this product's status."));
       }
     });
   };
@@ -53,7 +53,7 @@ export function ProductRowActions({ id, name, status }: ProductRowActionsProps) 
         router.refresh();
         adminToast.success(`"${name}" deleted.`);
       } catch (err) {
-        adminToast.error(err instanceof Error ? err.message : "Couldn't delete this product.");
+        adminToast.error(describeActionError(err, "Couldn't delete this product."));
       }
     });
   };

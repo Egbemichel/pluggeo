@@ -18,7 +18,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { adminToast } from "@/components/admin/toast";
+import { adminToast, describeActionError } from "@/components/admin/toast";
 import { deleteCategory } from "@/app/pluggeo/categories/actions";
 
 export function CategoryRowActions({ id, name }: { id: string; name: string }) {
@@ -39,10 +39,10 @@ export function CategoryRowActions({ id, name }: { id: string; name: string }) {
         // dialog stays open on failure (see below), and the admin needs to
         // read *why* while still looking at it, not from a toast that may
         // have already faded.
-        const message =
-          err instanceof Error
-            ? err.message
-            : "Couldn't delete this category — it may still have products assigned to it.";
+        const message = describeActionError(
+          err,
+          "Couldn't delete this category — it may still have products assigned to it."
+        );
         setError(message);
         adminToast.error(message);
       }
