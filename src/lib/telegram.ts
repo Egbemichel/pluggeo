@@ -17,10 +17,20 @@ export type VisitorInfo = {
   path: string;
 };
 
-export async function notifyVisitor(info: VisitorInfo): Promise<void> {
+// Reported back to middleware (2026-08-31, debugging a real "the direct
+// Telegram API call works but the site's own path doesn't" report — the
+// previous version swallowed every failure with a bare `catch {}`, so there
+// was no way to tell missing secrets, a Workers-runtime fetch/AbortSignal
+// issue, and a genuine Telegram API rejection apart from each other).
+export type NotifyResult =
+  | { attempted: false; reason: "missing-config" }
+  | { attempted: true; ok: true }
+  | { attempted: true; ok: false; error: string };
+
+export async function notifyVisitor(info: VisitorInfo): Promise<NotifyResult> {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   const chatId = process.env.TELEGRAM_ADMIN_CHAT_ID;
-  if (!token || !chatId) return;
+  if (!token || !chatId) return { attempted: false, reason: "missing-config" };
 
   const text = [
     "New visitor — pluggeo&co",
@@ -31,7 +41,7 @@ export async function notifyVisitor(info: VisitorInfo): Promise<void> {
   ].join("\n");
 
   try {
-    await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+    const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ chat_id: chatId, text }),
@@ -39,9 +49,17 @@ export async function notifyVisitor(info: VisitorInfo): Promise<void> {
       // one page load per session this runs on.
       signal: AbortSignal.timeout(2000),
     });
-  } catch {
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      return { attempted: true, ok: false, error: `HTTP ${res.status}: ${body.slice(0, 200)}` };
+    }
+    return { attempted: true, ok: true };
+  } catch (err) {
     // Never let a Telegram outage/error affect the storefront — this is a
     // side channel for the owner, not something a real visitor should ever
-    // notice failing.
+    // notice failing. The error is still returned (not thrown) so a caller
+    // that wants to see it for debugging can, without any risk to normal
+    // requests that just discard this result.
+    return { attempted: true, ok: false, error: err instanceof Error ? err.message : String(err) };
   }
 }
