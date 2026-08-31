@@ -13,7 +13,7 @@ export default async function NewProductPage({
   const { created } = await searchParams;
 
   const categoryRows = await db
-    .select({ id: categories.id, name: categories.name })
+    .select({ id: categories.id, name: categories.name, slug: categories.slug })
     .from(categories)
     .orderBy(asc(categories.displayOrder));
 

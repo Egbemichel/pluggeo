@@ -61,8 +61,12 @@ export type StorefrontProductDetail = {
   /** What a shopper can pick from — one entry per attribute the admin
    * defined, each with every value it comes in (e.g. `{ key: "Size",
    * values: ["16 Inch", "17 Inch"] }`). Independent of pricing; see
-   * `variants` for what a specific complete combination actually costs. */
-  options: { key: string; values: string[] }[];
+   * `variants` for what a specific complete combination actually costs.
+   * `valuePriceDeltas` is a second, additive pricing path (Grillz's own
+   * options use this instead of `variants` — see db/schema.ts's comment on
+   * `productOptions.valuePriceDeltas` for why) — empty for any option that
+   * doesn't use it. */
+  options: { key: string; values: string[]; valuePriceDeltas: Record<string, number> }[];
   /** Sparse — only combinations that cost or stock differently from the
    * base product get a row here. A combination with no matching row here
    * uses this product's own `price` and is available by default; see
@@ -310,7 +314,7 @@ export const getProductDetailBySlug = cache(async function getProductDetailBySlu
     categoryId: row.product.categoryId,
     price: Number(row.product.price),
     compareAtPrice: row.product.compareAtPrice ? Number(row.product.compareAtPrice) : undefined,
-    options: options.map((o) => ({ key: o.key, values: o.values })),
+    options: options.map((o) => ({ key: o.key, values: o.values, valuePriceDeltas: o.valuePriceDeltas })),
     variants: variants.map((v) => ({
       attributes: v.attributes,
       available: v.available,

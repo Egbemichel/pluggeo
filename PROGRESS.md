@@ -77,6 +77,70 @@ genuinely filter) + grid/list toggle + pagination.
 
 ## Resolved decisions
 
+- **Grillz gets its own Customize options and a second, additive pricing
+  model** (2026-08-31, per the owner: updated requirements, referencing a
+  competitor's grillz customizer — johnnydangandco.com — as "just a visual
+  example," explicitly asking to keep this site's own Pill/chip/Customize-
+  dropdown design rather than copy that reference's button-grid/checkbox
+  styling). Grillz needed a completely different attribute vocabulary (Top
+  Teeth Count, Bottom Teeth Count, Mold Kit, Perm Cuts, Deep Cuts, not
+  Size/Gold Type/Stone) and a different pricing shape than every other
+  category on the site.
+  1. **Why the existing combination-pricing model doesn't fit**: Top Teeth
+     Count alone can run 13 values, times 13 for Bottom Teeth Count, times
+     up to several more for the 3 toggle-style options — the existing
+     per-combination admin table (built earlier this session for
+     jewelry's Size/Gold Type pairs) generates the full Cartesian product,
+     which would mean 1,000+ rows for one Grillz product. Not usable as an
+     admin screen, and doesn't match how a real grillz shop actually
+     prices anyway — each tooth count carries its own price on its own,
+     not per exact combination.
+  2. **New, second pricing mechanism, additive per-value pricing** —
+     `product_options.valuePriceDeltas` (`db/schema.ts`, new `jsonb`
+     column, migration `0003_classy_proteus.sql`, applied to the real Neon
+     DB): an optional `Record<value, $ add-on>` living alongside a
+     product's existing `values` array. Every currently-selected chip's
+     own add-on sums together on top of the base price — picking an
+     8-tooth top and a 6-tooth bottom adds both prices at once. This
+     coexists with the original exact-combination `product_variants`
+     override model rather than replacing it; a product uses one pricing
+     path or the other in practice, but both are still valid at the schema
+     level.
+  3. **Which mode an admin sees is decided by category *slug*, not display
+     name** (`isGrillzCategory`, `product-form.tsx`) — `slug === "grillz"`,
+     so a future category rename can't silently flip which attribute list/
+     pricing UI a product gets. Switching a product's category across that
+     line mid-edit clears its options/combination pricing (with a toast
+     explaining why) only when there's actually something to clear and the
+     mode genuinely flips — picking between two jewelry categories, or
+     Grillz to Grillz, never touches this.
+  4. **Reused the existing chip/Customize-dropdown UI, not a new design**
+     — per the owner's explicit instruction. `ProductCustomize`'s
+     `OptionGroup` (storefront PDP) now takes a `priceDeltas` prop and
+     shows a small "+$X" caption under a chip's own label when that value
+     carries an add-on, using the same `Pill` component and `currency`
+     formatter already used everywhere else — no new component, no
+     button-grid/checkbox styling from the reference image. The admin form
+     mirrors this with a small inline "$ Add-on" input next to each
+     option's value input, styled like the combination table's existing
+     price inputs, shown only for Grillz products; the combination-pricing
+     table itself doesn't render at all for Grillz (`combinations` is `[]`).
+  5. **Form internals**: the admin edits price add-ons as a `priceDeltas:
+     string[]` array running parallel to each option's `values` array (not
+     the DB's label-keyed `Record`), specifically so renaming a value's
+     text mid-edit doesn't orphan its price — a new `toOptionRows()`
+     converts the DB shape to this on load, and submit zips the two arrays
+     back into a `Record<string, number>`, skipping any value with a blank
+     or non-positive add-on.
+  Verified via `tsc`/eslint/`vitest`/`next build` (all clean). "grillz" is
+  a real, already-established category slug (dedicated `/grillz` storefront
+  page, nav entry, hero/cast sections) — this feature activates on the
+  existing category, no new category needed. Couldn't click through the
+  actual admin create-a-Grillz-product flow in this environment (same
+  standing no-authenticated-browser-session limitation noted throughout
+  this file) — relies on code review against the same patterns already
+  proven correct for the jewelry combination-pricing model, not a live
+  click-test.
 - **Telegram visitor notifications — new** (2026-08-31, per the owner: ping
   him on Telegram with a real visitor's IP/country/page every time someone
   visits). `src/lib/telegram.ts`'s `notifyVisitor()` POSTs to the Telegram

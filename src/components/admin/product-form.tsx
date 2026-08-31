@@ -19,7 +19,12 @@ import { MediaUpload, type MediaItem } from "@/components/admin/media-upload";
 import { adminToast, describeActionError } from "@/components/admin/toast";
 import { createProduct, updateProduct } from "@/app/pluggeo/products/actions";
 import { productInputSchema } from "@/app/pluggeo/products/schema";
-import { VARIANT_ATTRIBUTE_CATEGORIES, VARIANT_ATTRIBUTE_VALUE_PLACEHOLDER } from "@/lib/product-attributes";
+import {
+  VARIANT_ATTRIBUTE_CATEGORIES,
+  VARIANT_ATTRIBUTE_VALUE_PLACEHOLDER,
+  GRILLZ_ATTRIBUTE_CATEGORIES,
+  GRILLZ_ATTRIBUTE_VALUE_PLACEHOLDER,
+} from "@/lib/product-attributes";
 import { slugify } from "@/lib/slugify";
 import { useFormDraft, clearFormDraft } from "@/lib/use-form-draft";
 import { cn } from "@/lib/utils";
@@ -57,10 +62,25 @@ import { cn } from "@/lib/utils";
 // matching one selection with no way to say which price should win —
 // every combination gets exactly one place to set its price, or none at
 // all if it doesn't need one.
+//
+// Grillz gets a second, additive pricing mode instead of the combination
+// table above (2026-08-31, per the owner, matching a real competitor
+// reference — johnnydangandco.com): "how many top teeth" alone is 13
+// possible values, times 13 for bottom teeth, times up to 8 more for Mold
+// Kit/Perm Cuts/Deep Cuts — the combination table's Cartesian product would
+// be 1,000+ rows for a Grillz product, which stops being a usable admin
+// screen (and doesn't match reality either — a real grillz shop prices each
+// tooth count on its own, not per exact combination). `isGrillzCategory`
+// (matched by the selected category's *slug*, not its display name, so a
+// future rename can't silently break this) swaps both which attribute
+// categories the dropdown offers and how pricing is entered: a small $
+// add-on per value instead of a combination table. See db/schema.ts's
+// `productOptions.valuePriceDeltas` and `ProductCustomize`'s own comment
+// for the storefront half.
 
-export type ProductCategory = { id: string; name: string };
+export type ProductCategory = { id: string; name: string; slug: string };
 
-type OptionRow = { key: string; values: string[] };
+type OptionRow = { key: string; values: string[]; priceDeltas: string[] };
 type CombinationOverride = { priceOverride: string; available: boolean };
 
 export type ProductFormInitialValues = {
@@ -74,7 +94,7 @@ export type ProductFormInitialValues = {
   status: "draft" | "published";
   featured: boolean;
   media: MediaItem[];
-  options: OptionRow[];
+  options: { key: string; values: string[]; valuePriceDeltas?: Record<string, number> }[];
   /** Sparse — only combinations that cost or stock differently from the
    * base product. */
   variants: { attributes: Record<string, string>; priceOverride: string; available: boolean }[];
@@ -99,9 +119,28 @@ export type ProductFormProps = {
   initialValues: ProductFormInitialValues;
 };
 
-function unusedCategoryFor(rows: { key: string }[], currentIndex: number): string {
+// The server stores per-value price add-ons keyed by the value's own label
+// (`Record<string, number>`); the form edits them as a plain-string array
+// running parallel to `values` by index instead, so renaming a value's text
+// mid-edit doesn't lose track of its price (a label-keyed structure would).
+function toOptionRows(options: ProductFormInitialValues["options"]): OptionRow[] {
+  return options.map((o) => ({
+    key: o.key,
+    values: o.values,
+    priceDeltas: o.values.map((v) => {
+      const delta = o.valuePriceDeltas?.[v];
+      return delta ? String(delta) : "";
+    }),
+  }));
+}
+
+function unusedCategoryFor(
+  rows: { key: string }[],
+  currentIndex: number,
+  attributeCategories: readonly string[]
+): string {
   const used = new Set(rows.filter((_, i) => i !== currentIndex).map((r) => r.key));
-  return VARIANT_ATTRIBUTE_CATEGORIES.find((c) => !used.has(c)) ?? "";
+  return attributeCategories.find((c) => !used.has(c)) ?? "";
 }
 
 // Canonical signature for one complete combination — sorted so the same
@@ -170,7 +209,7 @@ export function ProductForm({ categories, initialValues }: ProductFormProps) {
   const [status, setStatus] = useState<"draft" | "published">(initialValues.status);
   const [featured, setFeatured] = useState(initialValues.featured);
   const [media, setMedia] = useState<MediaItem[]>(initialValues.media);
-  const [options, setOptions] = useState<OptionRow[]>(initialValues.options);
+  const [options, setOptions] = useState<OptionRow[]>(() => toOptionRows(initialValues.options));
   // Keyed by `comboKeyFor` so an override survives options being reordered
   // or a new value being added elsewhere — only the exact combination it
   // was set for ever looks it up again.
@@ -241,7 +280,7 @@ export function ProductForm({ categories, initialValues }: ProductFormProps) {
     setStatus(initialValues.status);
     setFeatured(initialValues.featured);
     setMedia(initialValues.media);
-    setOptions(initialValues.options);
+    setOptions(toOptionRows(initialValues.options));
     setCombinationOverrides(() => {
       const map: Record<string, CombinationOverride> = {};
       for (const v of initialValues.variants) {
@@ -261,16 +300,59 @@ export function ProductForm({ categories, initialValues }: ProductFormProps) {
     setSlugTouched(true);
   };
 
+  // Matched by slug, not display name, so a future category rename can't
+  // silently break which attribute set/pricing mode a product gets — see
+  // the file's own top comment.
+  const isGrillzCategory = categories.find((c) => c.id === categoryId)?.slug === "grillz";
+  const attributeCategories = isGrillzCategory ? GRILLZ_ATTRIBUTE_CATEGORIES : VARIANT_ATTRIBUTE_CATEGORIES;
+  const valuePlaceholders: Record<string, string> = isGrillzCategory
+    ? GRILLZ_ATTRIBUTE_VALUE_PLACEHOLDER
+    : VARIANT_ATTRIBUTE_VALUE_PLACEHOLDER;
+
+  // Grillz and jewelry products use entirely different attribute
+  // vocabularies (Top Teeth Count vs. Gold Type) and pricing modes
+  // (additive per-value vs. per-combination) — switching a product's
+  // category across that line mid-edit clears whatever options/combination
+  // pricing were already entered, since carrying them over would mean
+  // showing e.g. a leftover "Gold Type" chip (with its own $ add-on) on a
+  // Grillz product's storefront page. Only actually clears when there's
+  // something to clear and the mode genuinely flips — picking a different
+  // jewelry category, or Grillz to Grillz, never touches this.
+  const handleCategoryChange = (nextCategoryId: string) => {
+    const nextIsGrillz = categories.find((c) => c.id === nextCategoryId)?.slug === "grillz";
+    if (nextIsGrillz !== isGrillzCategory && options.length > 0) {
+      setOptions([]);
+      setCombinationOverrides({});
+      adminToast.success("Options cleared — Grillz and jewelry products use different option types.");
+    }
+    setCategoryId(nextCategoryId);
+  };
+
   const addOption = () =>
-    setOptions((prev) => [...prev, { key: unusedCategoryFor(prev, -1), values: [""] }]);
+    setOptions((prev) => [
+      ...prev,
+      { key: unusedCategoryFor(prev, -1, attributeCategories), values: [""], priceDeltas: [""] },
+    ]);
   const removeOption = (index: number) => setOptions((prev) => prev.filter((_, i) => i !== index));
   const updateOptionKey = (index: number, key: string) =>
     setOptions((prev) => prev.map((o, i) => (i === index ? { ...o, key } : o)));
   const addOptionValue = (index: number) =>
-    setOptions((prev) => prev.map((o, i) => (i === index ? { ...o, values: [...o.values, ""] } : o)));
+    setOptions((prev) =>
+      prev.map((o, i) =>
+        i === index ? { ...o, values: [...o.values, ""], priceDeltas: [...o.priceDeltas, ""] } : o
+      )
+    );
   const removeOptionValue = (index: number, valueIndex: number) =>
     setOptions((prev) =>
-      prev.map((o, i) => (i === index ? { ...o, values: o.values.filter((_, vi) => vi !== valueIndex) } : o))
+      prev.map((o, i) =>
+        i === index
+          ? {
+              ...o,
+              values: o.values.filter((_, vi) => vi !== valueIndex),
+              priceDeltas: o.priceDeltas.filter((_, vi) => vi !== valueIndex),
+            }
+          : o
+      )
     );
   const updateOptionValue = (index: number, valueIndex: number, value: string) =>
     setOptions((prev) =>
@@ -278,8 +360,21 @@ export function ProductForm({ categories, initialValues }: ProductFormProps) {
         i === index ? { ...o, values: o.values.map((v, vi) => (vi === valueIndex ? value : v)) } : o
       )
     );
+  const updateOptionPriceDelta = (index: number, valueIndex: number, delta: string) =>
+    setOptions((prev) =>
+      prev.map((o, i) =>
+        i === index
+          ? { ...o, priceDeltas: o.priceDeltas.map((d, vi) => (vi === valueIndex ? delta : d)) }
+          : o
+      )
+    );
 
-  const combinations = useMemo(() => combinationsFor(options), [options]);
+  // No combination table for Grillz — see the file's own top comment for
+  // why (1,000+ rows for the Cartesian product of its 5 options).
+  const combinations = useMemo(
+    () => (isGrillzCategory ? [] : combinationsFor(options)),
+    [isGrillzCategory, options]
+  );
 
   const updateCombination = (key: string, patch: Partial<CombinationOverride>) =>
     setCombinationOverrides((prev) => {
@@ -309,7 +404,22 @@ export function ProductForm({ categories, initialValues }: ProductFormProps) {
       media: media.map((m) => ({ type: m.type, url: m.url, altText: m.altText })),
       options: options
         .filter((o) => o.key.trim().length > 0 && o.values.some((v) => v.trim().length > 0))
-        .map((o) => ({ key: o.key, values: o.values.map((v) => v.trim()).filter(Boolean) })),
+        .map((o) => {
+          const trimmedValues = o.values.map((v) => v.trim()).filter(Boolean);
+          // Keyed by the value's own label for storage — see `toOptionRows`'s
+          // comment for why the form itself edits these as a parallel array
+          // instead. Blank/zero means "no add-on," same convention
+          // `product_variants.priceOverride` already uses.
+          const valuePriceDeltas: Record<string, number> = {};
+          o.values.forEach((value, i) => {
+            const trimmedValue = value.trim();
+            const delta = Number(o.priceDeltas[i]);
+            if (trimmedValue && o.priceDeltas[i]?.trim() && Number.isFinite(delta) && delta > 0) {
+              valuePriceDeltas[trimmedValue] = delta;
+            }
+          });
+          return { key: o.key, values: trimmedValues, valuePriceDeltas };
+        }),
       // Sparse on purpose — only a combination the admin actually gave a
       // price to, or explicitly marked unavailable, becomes a real row.
       // Everything else already means "same as the base price, in stock"
@@ -519,7 +629,7 @@ export function ProductForm({ categories, initialValues }: ProductFormProps) {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="categoryId">Category</Label>
-            <Select value={categoryId || undefined} onValueChange={(value) => setCategoryId(value as string)}>
+            <Select value={categoryId || undefined} onValueChange={(value) => handleCategoryChange(value as string)}>
               <SelectTrigger id="categoryId" className="w-full">
                 <SelectValue placeholder="None" />
               </SelectTrigger>
@@ -561,23 +671,47 @@ export function ProductForm({ categories, initialValues }: ProductFormProps) {
         <legend className="px-2 font-heading text-base font-semibold">Options &amp; pricing</legend>
 
         {/* Heavy, plain-language explainer, per the user: anyone uploading a
-            product should understand this immediately, not have to guess. */}
-        <div className="flex flex-col gap-1.5 rounded-md bg-muted/50 p-3 text-sm text-muted-foreground">
-          <p>
-            <strong className="text-foreground">1. Add an option</strong> for anything a shopper
-            picks — Size, Gold Type, Stone, etc. — and list every value it comes in.
-          </p>
-          <p>
-            <strong className="text-foreground">2. If you add more than one option</strong>, every
-            possible combination is generated below automatically — no need to build them by hand.
-          </p>
-          <p>
-            <strong className="text-foreground">3. Leave a combination&apos;s price blank</strong>{" "}
-            to use this product&apos;s own price{basePriceDisplay ? ` (${basePriceDisplay})` : ""} for
-            it. Only type a price if that exact combination should cost something different.
-            Uncheck &quot;Available&quot; for a combination you don&apos;t actually carry.
-          </p>
-        </div>
+            product should understand this immediately, not have to guess.
+            Grillz gets its own version — the pricing model genuinely works
+            differently, not just the option names (see the file's own top
+            comment for why a combination table doesn't fit Grillz). */}
+        {isGrillzCategory ? (
+          <div className="flex flex-col gap-1.5 rounded-md bg-muted/50 p-3 text-sm text-muted-foreground">
+            <p>
+              <strong className="text-foreground">1. Add an option</strong> — Top Teeth Count,
+              Bottom Teeth Count, Mold Kit, Perm Cuts, or Deep Cuts — and list every value it
+              comes in (e.g. Top Teeth Count: 6, 8, 10, 12).
+            </p>
+            <p>
+              <strong className="text-foreground">2. Give a value its own price</strong> in the $
+              box right next to it. Leave it blank for no extra charge.
+            </p>
+            <p>
+              <strong className="text-foreground">3. Every selected value&apos;s price adds
+              together</strong> on top of this product&apos;s own price
+              {basePriceDisplay ? ` (${basePriceDisplay})` : ""} — e.g. picking an 8-tooth top
+              and a 6-tooth bottom adds both prices at once. There&apos;s no combination table
+              to fill in for Grillz.
+            </p>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-1.5 rounded-md bg-muted/50 p-3 text-sm text-muted-foreground">
+            <p>
+              <strong className="text-foreground">1. Add an option</strong> for anything a shopper
+              picks — Size, Gold Type, Stone, etc. — and list every value it comes in.
+            </p>
+            <p>
+              <strong className="text-foreground">2. If you add more than one option</strong>, every
+              possible combination is generated below automatically — no need to build them by hand.
+            </p>
+            <p>
+              <strong className="text-foreground">3. Leave a combination&apos;s price blank</strong>{" "}
+              to use this product&apos;s own price{basePriceDisplay ? ` (${basePriceDisplay})` : ""} for
+              it. Only type a price if that exact combination should cost something different.
+              Uncheck &quot;Available&quot; for a combination you don&apos;t actually carry.
+            </p>
+          </div>
+        )}
 
         <div className="flex flex-col gap-3">
           <div className="flex items-center justify-between">
@@ -610,13 +744,13 @@ export function ProductForm({ categories, initialValues }: ProductFormProps) {
                     <SelectValue placeholder="Category" />
                   </SelectTrigger>
                   <SelectContent>
-                    {VARIANT_ATTRIBUTE_CATEGORIES.filter(
-                      (c) => c === option.key || !options.some((o, i) => i !== index && o.key === c)
-                    ).map((category) => (
-                      <SelectItem key={category} value={category}>
-                        {category}
-                      </SelectItem>
-                    ))}
+                    {attributeCategories
+                      .filter((c) => c === option.key || !options.some((o, i) => i !== index && o.key === c))
+                      .map((category) => (
+                        <SelectItem key={category} value={category}>
+                          {category}
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
                 <button
@@ -634,9 +768,26 @@ export function ProductForm({ categories, initialValues }: ProductFormProps) {
                     <Input
                       value={value}
                       onChange={(e) => updateOptionValue(index, valueIndex, e.target.value)}
-                      placeholder={`e.g. ${VARIANT_ATTRIBUTE_VALUE_PLACEHOLDER[option.key as keyof typeof VARIANT_ATTRIBUTE_VALUE_PLACEHOLDER] ?? "value"}`}
+                      placeholder={`e.g. ${valuePlaceholders[option.key] ?? "value"}`}
                       className="w-32"
                     />
+                    {isGrillzCategory && (
+                      <div className="relative w-24 shrink-0">
+                        <span className="pointer-events-none absolute top-1/2 left-2 -translate-y-1/2 text-xs text-muted-foreground">
+                          $
+                        </span>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={option.priceDeltas[valueIndex] ?? ""}
+                          onChange={(e) => updateOptionPriceDelta(index, valueIndex, e.target.value)}
+                          placeholder="Add-on"
+                          aria-label={`Price add-on for ${value || "this value"}`}
+                          className="pl-4.5 text-sm"
+                        />
+                      </div>
+                    )}
                     {option.values.length > 1 && (
                       <button
                         type="button"

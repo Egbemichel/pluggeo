@@ -1,0 +1,1 @@
+ALTER TABLE "product_options" ADD COLUMN "value_price_deltas" jsonb DEFAULT '{}'::jsonb NOT NULL;

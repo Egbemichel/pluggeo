@@ -6,6 +6,32 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+### Added (batch 84 — Grillz customization options + additive per-value pricing)
+
+- Grillz products now get their own Customize attribute set (Top Teeth
+  Count, Bottom Teeth Count, Mold Kit, Perm Cuts, Deep Cuts) instead of the
+  jewelry Size/Gold Type/Stone list, decided by the selected category's
+  *slug*, not display name (`product-form.tsx`'s `isGrillzCategory`).
+- New additive pricing model, `product_options.valuePriceDeltas`
+  (`db/schema.ts`, migration `0003_classy_proteus.sql`) — an optional $
+  add-on per option value that sums with every other selected value's
+  add-on on top of the base price, alongside (not replacing) the existing
+  exact-combination `product_variants` override model. Chosen because
+  Grillz's ~13×13-plus-toggles option space would otherwise generate a
+  1,000+ row Cartesian combination table.
+  - Admin: a small inline "$ Add-on" input next to each option value,
+    shown only for Grillz products; the combination-pricing table doesn't
+    render for Grillz at all.
+  - Storefront: `ProductCustomize`'s existing chip UI shows a "+$X" hint
+    under a value when it carries an add-on, and the PDP's displayed price
+    now adds up every currently-selected chip's own delta
+    (`product-detail-section.tsx`'s `additionalPrice`) — no new UI
+    components, per the owner's explicit "stick to my design system"
+    instruction.
+- Switching a product's category across the Grillz/jewelry line mid-edit
+  clears its options/pricing (with a toast explaining why), only when
+  there's actually something to clear and the mode genuinely flips.
+
 ### Fixed (batch 83 — Telegram notifications confirmed live, debug scaffolding removed)
 
 - The owner's secrets weren't taking effect immediately after being set

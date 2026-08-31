@@ -14,7 +14,10 @@ export default async function EditProductPage({
 
   const [result, categoryRows] = await Promise.all([
     getProductWithRelations(id),
-    db.select({ id: categories.id, name: categories.name }).from(categories).orderBy(asc(categories.displayOrder)),
+    db
+      .select({ id: categories.id, name: categories.name, slug: categories.slug })
+      .from(categories)
+      .orderBy(asc(categories.displayOrder)),
   ]);
 
   if (!result) notFound();
@@ -32,7 +35,7 @@ export default async function EditProductPage({
     status: product.status,
     featured: product.featured,
     media: media.map((m) => ({ type: m.type, url: m.url, altText: m.altText ?? undefined })),
-    options: options.map((o) => ({ key: o.key, values: o.values })),
+    options: options.map((o) => ({ key: o.key, values: o.values, valuePriceDeltas: o.valuePriceDeltas })),
     variants: variants.map((v) => ({
       attributes: v.attributes,
       priceOverride: v.priceOverride ?? "",

@@ -86,22 +86,37 @@ export function ProductDetailSection({
   // in one real case literally the word "Length" — instead of what was
   // actually picked).
   const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
+  // Sum of every currently-selected chip's own per-value price add-on — see
+  // `ProductCustomize`'s file comment on `additionalPrice`/Grillz's
+  // `valuePriceDeltas`. 0 for a product that doesn't use this pricing path,
+  // so `displayPrice` below is identical to before this existed.
+  const [additionalPrice, setAdditionalPrice] = useState(0);
   const [quantity, setQuantity] = useState(1);
-  const displayPrice = activeVariant?.priceOverride ?? price;
+  // An exact-combination override (jewelry) takes precedence when present;
+  // otherwise the base price plus any additive per-value pricing (Grillz) —
+  // the two pricing paths are mutually exclusive in practice (a product
+  // uses one or the other) but this correctly falls through to a plain
+  // `price` when neither applies.
+  const displayPrice = activeVariant?.priceOverride ?? price + additionalPrice;
   const available = activeVariant?.available ?? true;
-  // A variant's own override price is a fixed final price, not a discount
-  // off the base compareAtPrice — the strikethrough only makes sense while
-  // showing the base price itself.
-  const onSale = activeVariant == null && compareAtPrice != null && compareAtPrice > price;
+  // True while `displayPrice` is still the product's own starting price —
+  // false the moment either pricing path (an exact-combination override, or
+  // any additive per-value add-on) changes it to something else. A variant
+  // override / active add-on is a fixed final price, not a discount off the
+  // base compareAtPrice, so the strikethrough and "From" prefix below only
+  // make sense while this is true.
+  const isBasePrice = activeVariant == null && additionalPrice === 0;
+  const onSale = isBasePrice && compareAtPrice != null && compareAtPrice > price;
   const fieldsRef = useReveal<HTMLDivElement>({
     direction: "up",
     stagger: STAGGER.list,
     distance: 28,
   });
 
-  const handleCustomizeChange = ({ variant, values }: ProductCustomizeSelection) => {
+  const handleCustomizeChange = ({ variant, values, additionalPrice }: ProductCustomizeSelection) => {
     setActiveVariant(variant);
     setSelectedOptions(values);
+    setAdditionalPrice(additionalPrice);
   };
 
   const href = `/product/${slug}`;
@@ -116,8 +131,8 @@ export function ProductDetailSection({
     title,
     category,
     price: displayPrice,
-    compareAtPrice: activeVariant ? undefined : compareAtPrice,
-    isFromPrice: activeVariant ? false : isFromPrice,
+    compareAtPrice: isBasePrice ? compareAtPrice : undefined,
+    isFromPrice: isBasePrice ? isFromPrice : false,
     selectedOptions,
   };
 
@@ -135,7 +150,7 @@ export function ProductDetailSection({
           </h1>
           <div className="flex flex-wrap items-baseline gap-(--space-2)">
             <span className="text-h5 font-sans font-bold text-text-primary md:text-h4">
-              {isFromPrice && activeVariant == null ? "From " : ""}
+              {isFromPrice && isBasePrice ? "From " : ""}
               {currency.format(displayPrice)}
             </span>
             {onSale && (

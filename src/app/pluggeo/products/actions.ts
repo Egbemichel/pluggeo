@@ -51,6 +51,7 @@ async function writeMediaAndOptionsAndVariants(productId: string, input: Product
         productId,
         key: option.key,
         values: option.values,
+        valuePriceDeltas: option.valuePriceDeltas ?? {},
         sortOrder: index,
       }))
     );

@@ -39,3 +39,31 @@ export const VARIANT_ATTRIBUTE_VALUE_PLACEHOLDER: Record<VariantAttributeCategor
   "Chain Length": "22 Inch",
   Stone: "Diamond",
 };
+
+// Grillz's own attribute set (2026-08-31, per the owner: a Grillz product's
+// Customize dropdown needs completely different fields from every other
+// category, per a real competitor reference — johnnydangandco.com). A
+// separate list, not additions to the jewelry one above, since a Grillz
+// product's admin should see exactly these five options, not a combined
+// 13-entry dropdown mixing "Stone" and "Mold Kit". Which list the admin's
+// product form offers is decided by the product's selected category (see
+// `product-form.tsx`'s `isGrillzCategory`), keyed off the category's slug
+// (`"grillz"`), not its display name, so a future rename doesn't silently
+// break the switch.
+export const GRILLZ_ATTRIBUTE_CATEGORIES = [
+  "Top Teeth Count",
+  "Bottom Teeth Count",
+  "Mold Kit",
+  "Perm Cuts",
+  "Deep Cuts",
+] as const;
+
+export type GrillzAttributeCategory = (typeof GRILLZ_ATTRIBUTE_CATEGORIES)[number];
+
+export const GRILLZ_ATTRIBUTE_VALUE_PLACEHOLDER: Record<GrillzAttributeCategory, string> = {
+  "Top Teeth Count": "8",
+  "Bottom Teeth Count": "8",
+  "Mold Kit": "Yes",
+  "Perm Cuts": "Yes",
+  "Deep Cuts": "Yes",
+};

@@ -17,9 +17,13 @@ export const mediaItemSchema = z.object({
 // What a shopper can pick from for one attribute — e.g. `{ key: "Size",
 // values: ["16 Inch", "17 Inch", "18 Inch"] }`. See db/schema.ts's own
 // comment on `productOptions` for the full rework this belongs to.
+// `valuePriceDeltas` is optional and keyed by one of `values` — see
+// db/schema.ts's own comment on that column for why this exists alongside
+// (not instead of) combination-based `variants` pricing below.
 export const productOptionSchema = z.object({
   key: z.string().min(1),
   values: z.array(z.string().min(1)).min(1),
+  valuePriceDeltas: z.record(z.string(), z.number()).optional(),
 });
 
 // One *complete* combination that costs or stocks differently from the

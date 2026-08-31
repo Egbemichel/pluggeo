@@ -77,6 +77,23 @@ export const productOptions = pgTable("product_options", {
     .references(() => products.id, { onDelete: "cascade" }),
   key: text("key").notNull(),
   values: jsonb("values").$type<string[]>().notNull().default([]),
+  // Optional per-value price add-on, keyed by the exact string in `values`
+  // (2026-08-31, added for Grillz customization — see docs/PROJECT.md/the
+  // admin-cms-forms skill). Jewelry options price by *complete combination*
+  // instead (`product_variants` below) because a combination there is
+  // small and each one genuinely needs its own independent price; Grillz's
+  // "how many top/bottom teeth" alone is already 13 x 13 = 169 combinations
+  // before Mold Kit/Perm Cuts/Deep Cuts multiply it further, and in
+  // practice every tooth count really does cost differently on its own —
+  // an admin-editable combination table at that size stops being usable,
+  // while pricing per individual value (more teeth = a bigger add-on,
+  // independent of what else is picked) is both the natural real-world
+  // model and small to enter/maintain. A value with no entry here (or an
+  // entry of 0) simply adds nothing, same "blank = no change" convention
+  // `product_variants.priceOverride` already uses. Coexists with, doesn't
+  // replace, combination pricing — a product could in principle use both,
+  // though today only Grillz products populate this.
+  valuePriceDeltas: jsonb("value_price_deltas").$type<Record<string, number>>().notNull().default({}),
   sortOrder: integer("sort_order").notNull().default(0),
 });
 

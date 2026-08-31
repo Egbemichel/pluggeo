@@ -6,6 +6,7 @@ import { Icon } from "@/components/ui/icon";
 import { Pill } from "@/components/ui/pill";
 import { Divider } from "@/components/ui/divider";
 import { useAccordion } from "@/hooks/use-accordion";
+import { currency } from "@/components/product-card";
 import { cn } from "@/lib/utils";
 
 // PDP's variant-selector section, sitting directly under "Add to bag" — built
@@ -36,7 +37,14 @@ import { cn } from "@/lib/utils";
 // that's the correct starting state, not every group defaulting to its
 // first value. Tapping an already-selected chip clears it back to nothing.
 
-export type ProductOption = { key: string; values: string[] };
+export type ProductOption = {
+  key: string;
+  values: string[];
+  /** Optional per-value price add-on, keyed by one of `values` — see
+   * db/schema.ts's comment on `productOptions.valuePriceDeltas`. Empty for
+   * any option priced by exact-combination `variants` instead. */
+  valuePriceDeltas: Record<string, number>;
+};
 
 export type ProductVariantOverride = {
   attributes: Record<string, string>;
@@ -55,6 +63,7 @@ function OptionGroup({
   label,
   options,
   value,
+  priceDeltas,
   onChange,
 }: {
   label: string;
@@ -62,6 +71,12 @@ function OptionGroup({
   /** `undefined` when nothing's picked yet for this group — the base
    * product with no chip selected is a real, intended state, not a bug. */
   value: string | undefined;
+  /** Per-value price add-on shown as a small hint under a chip's label when
+   * non-zero, so the cost of a choice is visible before picking it, not
+   * just after (e.g. Grillz's "how many top teeth" — see db/schema.ts's
+   * `productOptions.valuePriceDeltas`). Empty object for an option that
+   * doesn't use this pricing path — every chip renders exactly as before. */
+  priceDeltas: Record<string, number>;
   /** Tapping the already-selected chip again clears the selection back to
    * nothing, same as tapping any other chip selects it — a real toggle,
    * not a one-way radio group. */
@@ -71,17 +86,32 @@ function OptionGroup({
     <div className="flex flex-col gap-(--space-4)">
       <h4 className="text-h6 font-heading font-bold text-text-primary">{label}</h4>
       <div className="flex flex-wrap gap-(--space-4)">
-        {options.map((option) => (
-          <button
-            key={option}
-            type="button"
-            onClick={() => onChange(option === value ? undefined : option)}
-          >
-            <Pill active={option === value}>
-              <span className="text-body-sm font-sans font-light">{option}</span>
-            </Pill>
-          </button>
-        ))}
+        {options.map((option) => {
+          const delta = priceDeltas[option];
+          return (
+            <button
+              key={option}
+              type="button"
+              onClick={() => onChange(option === value ? undefined : option)}
+            >
+              <Pill active={option === value}>
+                <span className="flex flex-col items-center">
+                  <span className="text-body-sm font-sans font-light">{option}</span>
+                  {Boolean(delta) && (
+                    <span
+                      className={cn(
+                        "text-caption font-sans font-light",
+                        option === value ? "text-white/80" : "text-text-secondary"
+                      )}
+                    >
+                      +{currency.format(delta!)}
+                    </span>
+                  )}
+                </span>
+              </Pill>
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -97,6 +127,12 @@ export type ProductCustomizeSelection = {
    * rendered chip groups (e.g. `["16 Inch", "Rose Gold"]`). Empty while
    * nothing is selected. */
   values: string[];
+  /** Sum of every currently-selected value's own `valuePriceDeltas` entry
+   * (0 for a product that doesn't use per-value pricing) — accumulates as
+   * soon as each chip is picked, independent of whether every group has a
+   * selection yet, unlike `variant` which only ever resolves once the
+   * whole combination is complete. */
+  additionalPrice: number;
 };
 
 export type ProductCustomizeProps = {
@@ -140,9 +176,18 @@ export function ProductCustomize({ options, variants, className, onSelectionChan
     [options, selected]
   );
 
+  const additionalPrice = useMemo(
+    () =>
+      options.reduce((sum, option) => {
+        const value = selected[option.key];
+        return value ? sum + (option.valuePriceDeltas[value] ?? 0) : sum;
+      }, 0),
+    [options, selected]
+  );
+
   useEffect(() => {
-    onSelectionChange?.({ variant: activeVariant, values: selectedValues });
-  }, [activeVariant, selectedValues, onSelectionChange]);
+    onSelectionChange?.({ variant: activeVariant, values: selectedValues, additionalPrice });
+  }, [activeVariant, selectedValues, additionalPrice, onSelectionChange]);
 
   if (options.length === 0) return null;
 
@@ -169,6 +214,7 @@ export function ProductCustomize({ options, variants, className, onSelectionChan
           label={firstGroup.key}
           options={firstGroup.values}
           value={selected[firstGroup.key]}
+          priceDeltas={firstGroup.valuePriceDeltas}
           onChange={(value) => setSelected((prev) => ({ ...prev, [firstGroup.key]: value }))}
         />
 
@@ -181,6 +227,7 @@ export function ProductCustomize({ options, variants, className, onSelectionChan
                   label={group.key}
                   options={group.values}
                   value={selected[group.key]}
+                  priceDeltas={group.valuePriceDeltas}
                   onChange={(value) => setSelected((prev) => ({ ...prev, [group.key]: value }))}
                 />
               </div>
