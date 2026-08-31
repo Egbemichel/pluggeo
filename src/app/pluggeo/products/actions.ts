@@ -6,6 +6,7 @@ import { eq, asc, desc } from "drizzle-orm";
 import { db } from "@/db";
 import { products, productMedia, productOptions, productVariants } from "@/db/schema";
 import { getAdminUser } from "@/lib/admin-auth";
+import { revalidateStorefront } from "@/lib/revalidate";
 import { productInputSchema, type ProductInput } from "./schema";
 
 // All input here comes from a browser form, not a trusted internal caller —
@@ -88,6 +89,7 @@ export async function createProduct(rawInput: ProductInput) {
   await writeMediaAndOptionsAndVariants(product.id, input);
 
   revalidatePath("/pluggeo/products");
+  revalidateStorefront();
   // `?created=1` — a Server Action that redirects never gives the client a
   // "this resolved successfully" moment to toast from (see product-form.tsx's
   // own comment); the edit page reads this once on landing to fire its own
@@ -118,6 +120,7 @@ export async function updateProduct(id: string, rawInput: ProductInput) {
 
   revalidatePath("/pluggeo/products");
   revalidatePath(`/pluggeo/products/${id}/edit`);
+  revalidateStorefront();
 }
 
 export async function deleteProduct(id: string) {
@@ -126,12 +129,14 @@ export async function deleteProduct(id: string) {
   // db/schema.ts) — no separate cleanup needed.
   await db.delete(products).where(eq(products.id, id));
   revalidatePath("/pluggeo/products");
+  revalidateStorefront();
 }
 
 export async function setProductStatus(id: string, status: "draft" | "published") {
   await assertAdmin();
   await db.update(products).set({ status, updatedAt: new Date() }).where(eq(products.id, id));
   revalidatePath("/pluggeo/products");
+  revalidateStorefront();
 }
 
 // Homepage curation ("which products/collections are featured and where" —
@@ -144,7 +149,7 @@ export async function setFeatured(id: string, featured: boolean, featuredOrder: 
     .set({ featured, featuredOrder, updatedAt: new Date() })
     .where(eq(products.id, id));
   revalidatePath("/pluggeo/homepage");
-  revalidatePath("/");
+  revalidateStorefront();
 }
 
 export async function getPublishedProductsForHomepage() {

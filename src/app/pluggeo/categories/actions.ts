@@ -6,6 +6,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { categories } from "@/db/schema";
 import { getAdminUser } from "@/lib/admin-auth";
+import { revalidateStorefront } from "@/lib/revalidate";
 import { categoryInputSchema, type CategoryInput } from "./schema";
 
 async function assertAdmin() {
@@ -20,6 +21,7 @@ export async function createCategory(rawInput: CategoryInput) {
   const input = categoryInputSchema.parse(rawInput);
   await db.insert(categories).values(input);
   revalidatePath("/pluggeo/categories");
+  revalidateStorefront();
   // `?created=1` — see products/actions.ts's own comment: a redirecting
   // Server Action never resolves back to the client to toast from, so the
   // page it lands on reads this once to fire its own toast instead.
@@ -31,6 +33,7 @@ export async function updateCategory(id: string, rawInput: CategoryInput) {
   const input = categoryInputSchema.parse(rawInput);
   await db.update(categories).set(input).where(eq(categories.id, id));
   revalidatePath("/pluggeo/categories");
+  revalidateStorefront();
   // Unlike updateProduct (which just resolves, staying on its own edit
   // page), this always redirected back to the list — meaning a client-side
   // "it saved" message placed after `await updateCategory(...)` could never
@@ -50,6 +53,7 @@ export async function deleteCategory(id: string) {
   // admin as a plain error rather than silently orphaning products.
   await db.delete(categories).where(eq(categories.id, id));
   revalidatePath("/pluggeo/categories");
+  revalidateStorefront();
 }
 
 export async function getCategoryById(id: string) {

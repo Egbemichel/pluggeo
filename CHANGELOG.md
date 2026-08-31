@@ -6,6 +6,16 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+### Fixed (batch 79 — storefront not reflecting new/updated products and categories without a manual refresh)
+
+- `createProduct`, `updateProduct`, `deleteProduct`, `setProductStatus`, and
+  all three category actions only ever revalidated their own admin list
+  page, never a storefront path — so Next's client Router Cache could keep
+  serving stale Home/Shop/Grillz/category/PDP content after a same-session
+  navigation until a hard refresh. Confirmed the server side was already
+  instant (a fresh request always reflected new data immediately) — the fix
+  is `revalidateStorefront()`, wired into every product/category mutation.
+
 ### Fixed (batch 78 — fourth PageSpeed follow-up: Clerk redirect chain, oversized card images, static-asset caching)
 
 - Every public storefront page was paying for Clerk's dev-instance cookie

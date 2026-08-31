@@ -77,6 +77,33 @@ genuinely filter) + grid/list toggle + pagination.
 
 ## Resolved decisions
 
+- **Admin uploads/publishes a product and the storefront doesn't reflect
+  it without a manual refresh** (2026-08-31, the admin: "why do I need a
+  refresh every time I upload products... I want real time up to date").
+  Root-caused with a direct test, not assumed: wrote a real product straight
+  to the DB, then curled `/shop` fresh (no cookies, cache-busted) — it
+  appeared instantly, confirming the *server* side (every storefront page is
+  already `force-dynamic`, and Cloudflare isn't caching the HTML — no
+  `cf-cache-status` header at all) was never the problem. The actual gap:
+  `createProduct`, `updateProduct`, `deleteProduct`, and `setProductStatus`
+  (`pluggeo/products/actions.ts`) only ever called `revalidatePath` for
+  their own `/pluggeo/products` admin list — never a single storefront path
+  — same for all three category actions. Next's *client* Router Cache can
+  still serve a stale RSC payload for a same-session `<Link>` navigation
+  (e.g. the admin's own "Back to site" link) until something calls
+  `revalidatePath` for that path, which nothing did. Added
+  `revalidateStorefront()` (`src/lib/revalidate.ts`) — one
+  `revalidatePath("/", "layout")` call that invalidates every route nested
+  under the storefront's shared layout at once (home, shop, grillz, every
+  category slug, every PDP) rather than enumerating each one — wired into
+  every product and category mutation. Costs nothing on performance/SEO/
+  accessibility: `force-dynamic` pages have no server-side cache for this to
+  invalidate in the first place, so this only clears the client-side entry.
+  Note for the admin: this fixes "the site doesn't show my latest data until
+  I navigate again" — it does not make an *already-open* browser tab update
+  itself with zero interaction, which would need a genuinely different
+  mechanism (polling/WebSocket push) and isn't how any ecommerce catalog
+  actually needs to behave.
 - **Fourth PageSpeed follow-up: Performance findings — a Clerk redirect
   chain, oversized card images, no static-asset cache lifetime**
   (2026-08-31, the owner sent five more Insights panels) —
