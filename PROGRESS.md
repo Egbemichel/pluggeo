@@ -77,6 +77,60 @@ genuinely filter) + grid/list toggle + pagination.
 
 ## Resolved decisions
 
+- **Second PageSpeed follow-up: Accessibility/Best Practices regressed to
+  96 (from 100), Performance up to 82** (2026-08-31, the owner ran another
+  audit after the recent batch of work) —
+  1. **Accessibility regression, root-caused and fixed**: "Links do not
+     have a discernible name." Traced to the exact product that most
+     needed the earlier video fix — `22mm CUBAN CHAIN WITH CUSTOM CLASP`
+     (real DB check: `featured: true`, its *entire* media set is one video,
+     no images at all). `ProductCard`'s "card" layout has the product image
+     inside its own `<Link>`, separate from the text — for a plain photo,
+     the `<img alt>` gives that link its accessible name for free, but a
+     `<video>` element contributes none, so a video-only product's card
+     link had literally no name a screen reader could announce. Fixed with
+     an explicit `aria-label={title}` on that Link — a good hardening
+     regardless of media type, not just a video-specific patch. Verified
+     via a real production build + server: the exact product's link now
+     reads `aria-label="22mm CUBAN CHAIN WITH CUSTOM CLASP"`.
+  2. **Best Practices regression ("Browser errors were logged to the
+     console") — investigated, not confirmed fixed**: checked every
+     resource Home actually requests (all real 200s, no 404s), confirmed
+     `goey-toast`/`framer-motion` are not in any chunk the storefront
+     loads (only one production chunk contains them, and it's absent from
+     Home's own script tags), and re-audited every `video.play()` call in
+     `media-tile.tsx` for unhandled rejections (all properly `.catch()`'d).
+     Couldn't reproduce a live console error in this environment (the same
+     standing Playwright/sandboxed-proxy limitation from earlier in this
+     session — tried several proxy/TLS configurations, all failed against
+     even our own loopback dev server). Flagged rather than guessed at
+     further — asked the owner to expand that row in their own report and
+     share the actual error text so this can be fixed precisely.
+  3. **The real, large, fixable finding: "Avoid enormous network payloads
+     — 17,881 KiB" and "Improve image delivery — 490 KiB"** — the
+     `public/celebrity/` folder (CelebrityShowcase's real media) had never
+     been touched by any of this session's earlier compression passes.
+     Videos were raw exports at 720px-wide, 1.3–3.1 Mbps H.264 (up to 21MB
+     each, 75MB total across 8 files) — installed `ffmpeg` (not previously
+     available in this environment) and re-encoded every one to 480px
+     wide/CRF 28/96k AAC audio, 75MB → 29MB (61% smaller); Home's own
+     default celebrity (`@jamorant`, whichever sorts first) alone dropped
+     from ~12.7MB to ~4.9MB of video. The 12 celebrity photos were full
+     phone-camera resolution (1170×1463) serving into a tile that never
+     renders past ~320–400px — resized to 700px wide via `sharp` (already
+     a project dependency) at quality 80, 2.0MB → 973KB (52% smaller). Both
+     checked visually after compression (a grillz/jewelry close-up and a
+     portrait) — no visible artifacts, the fine diamond detail these
+     videos exist to show off is still crisp. No code/path changes needed
+     — same filenames, same `celebrities.json`, just smaller file bytes.
+  Verified via `tsc`/lint/`vitest`/`next build` (all clean) plus a real
+  production server check (`next build && next start`, not just dev) —
+  confirmed the compressed video/photo assets serve correctly at their new
+  sizes and the aria-label fix is present in the actual rendered HTML. A
+  fresh PageSpeed re-run to see how far these move the numbers (especially
+  the huge video-weight one) couldn't be done from here — ask the owner to
+  re-run it once this deploys, and to send the literal "browser errors"
+  text if Best Practices is still short of 100.
 - **Admin CRUD actions now give real feedback — toasts via `goey-toast`**
   (2026-08-31, per the admin: "I click Save Changes... it finishes... I
   don't know what just happened" — no confirmation of any kind). New

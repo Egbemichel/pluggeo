@@ -6,6 +6,24 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+### Fixed (batch 75 — second PageSpeed follow-up: accessibility regression, celebrity media weight)
+
+- A video-only featured product's card had a completely nameless link —
+  screen readers had nothing to announce for it. A photo's `alt` text
+  normally gives its card link a name for free; a `<video>` doesn't. Fixed
+  with an explicit label on the link, regardless of media type.
+- `public/celebrity/`'s videos and photos had never been compressed —
+  videos were raw 720p exports up to 21MB each (75MB total), photos were
+  full phone-camera resolution serving into a small tile. Re-encoded every
+  video (75MB → 29MB) and resized every photo (2.0MB → 973KB), no visible
+  quality loss. This was the actual "avoid enormous network payloads"
+  finding, unrelated to the accessibility fix above.
+- Investigated a "browser errors were logged to the console" regression
+  but couldn't reproduce it live in this environment — ruled out several
+  likely causes (broken resources, admin-only dependencies leaking into
+  the storefront bundle, unhandled video promise rejections) without a
+  confirmed root cause; flagged for a follow-up with the actual error text.
+
 ### Added (batch 74 — real toast feedback on every admin create/update/delete)
 
 - Clicking "Save changes" in the admin gave no confirmation once it

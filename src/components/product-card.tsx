@@ -296,6 +296,7 @@ export function ProductCard({
     >
       <Link
         href={href}
+        aria-label={title}
         transitionTypes={["nav-forward"]}
         className="relative aspect-square w-full hover:opacity-100"
       >
