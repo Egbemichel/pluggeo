@@ -147,9 +147,26 @@ genuinely filter) + grid/list toggle + pagination.
   confirmed both real product videos now request their `f_auto,q_auto,
   w_720` URLs on the actual Home and PDP pages, the compressed celebrity
   video/photo assets serve correctly, and the aria-label fix is present in
-  the rendered HTML. A fresh PageSpeed re-run to confirm all four
-  categories actually land at/near 100 couldn't be done from here — ask
-  the owner to re-run it once this deploys.
+  the rendered HTML.
+- **Third PageSpeed follow-up: Best Practices still at 96** (2026-08-31,
+  after the above deployed) — same "browser errors" audit, but a *different*
+  product video now failing: `x4aw4isdgtuphj0zgbyt.mp4` (Presidential Rolex
+  Rose Gold) with `net::ERR_TIMED_OUT`, not a connection failure. Root
+  cause: Cloudinary transcodes a derived video on the *first* real request
+  to that exact transformation string, and this video (23s, 720×1280,
+  8.9MB source) at `w_720,q_auto` was slow enough cold that Lighthouse's
+  own timeout tripped before the transcode finished — the file wasn't
+  broken, the on-demand generation just wasn't warm yet. Fixed by dropping
+  `withCloudinaryVideoAutoFormat()` (`lib/products.ts`) to
+  `f_auto,q_auto:eco,w_480` — confirmed via direct requests against both
+  real product videos: this one now comes back at 2.1MB in ~4.5s cold
+  (vs. timing out before), the other (22mm Cuban Chain) at 1.8MB. Both
+  transformation URLs were then requested directly against the production
+  Cloudinary account to warm the cache ahead of the next crawl. Verified
+  the new transform string is what the live PDP actually renders (curled
+  the deployed page, not just the code). A fresh PageSpeed re-run to
+  confirm Accessibility/Best Practices land at 100 couldn't be done from
+  here — ask the owner to re-run it once this deploys.
 - **Admin CRUD actions now give real feedback — toasts via `goey-toast`**
   (2026-08-31, per the admin: "I click Save Changes... it finishes... I
   don't know what just happened" — no confirmation of any kind). New

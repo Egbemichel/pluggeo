@@ -6,6 +6,17 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+### Fixed (batch 76 — third PageSpeed follow-up: product video cold-transcode timeout)
+
+- The previous batch's product-video Cloudinary fix (`f_auto,q_auto,w_720`)
+  fixed one video but exposed a different failure on another: Cloudinary
+  transcodes a derived video on its *first* real request, and this 23s
+  source was slow enough cold that Lighthouse's own timeout tripped
+  (`net::ERR_TIMED_OUT`) before it finished — still counted as a "browser
+  errors" regression. Dropped the transform to `f_auto,q_auto:eco,w_480`
+  (both real product videos now 1.8–2.1MB) and warmed the production
+  Cloudinary cache directly so the next crawl hits a hot derived asset.
+
 ### Fixed (batch 75 — second PageSpeed follow-up: accessibility regression, celebrity media weight)
 
 - A video-only featured product's card had a completely nameless link —

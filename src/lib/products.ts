@@ -103,19 +103,25 @@ function withCloudinaryAutoFormat(url: string): string {
 // throttled mobile connection — `net::ERR_CONNECTION_FAILED` — because it
 // was a raw, un-transformed upload at **17.2MB**, the single biggest
 // resource on the entire page by a wide margin). Cloudinary's `f_auto,q_auto`
-// works for video delivery exactly like it does for images (confirmed
-// directly: the same real product video came back at 3.5MB with it, 2.9MB
-// with a `w_720` cap added on top — this catalog's videos are close-up
-// jewelry shots meant to play in a card tile or the PDP gallery, never
-// anywhere near source resolution). Same idempotency/no-op guards as the
-// image version above, just against `/video/upload/` instead.
+// works for video delivery exactly like it does for images. A follow-up
+// PageSpeed run then caught a second product video (23s, 720x1280, 8.9MB
+// source) failing with `net::ERR_TIMED_OUT` at `w_720,q_auto` — Cloudinary
+// transcodes a never-before-requested derived video on the first real
+// request, and at that size/quality the cold-start transcode was slow
+// enough to blow Lighthouse's timeout. Dropped to `w_480,q_auto:eco`
+// (confirmed: same video came back at 2.1MB in ~4.5s cold) — this catalog's
+// videos are close-up jewelry shots meant to play in a card tile or the PDP
+// gallery, never anywhere near source resolution, so the smaller cap costs
+// no visible quality while cutting both payload and transcode time. Same
+// idempotency/no-op guards as the image version above, just against
+// `/video/upload/` instead.
 function withCloudinaryVideoAutoFormat(url: string): string {
   const marker = "/video/upload/";
   const index = url.indexOf(marker);
   if (index === -1) return url;
   const afterMarker = url.slice(index + marker.length);
   if (/^[a-z_]+_[^/]+\//.test(afterMarker)) return url;
-  return url.slice(0, index + marker.length) + "f_auto,q_auto,w_720/" + afterMarker;
+  return url.slice(0, index + marker.length) + "f_auto,q_auto:eco,w_480/" + afterMarker;
 }
 
 // Renamed from `imagesForProduct` (2026-08-30) — it was filtering every row
