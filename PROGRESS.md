@@ -77,6 +77,59 @@ genuinely filter) + grid/list toggle + pagination.
 
 ## Resolved decisions
 
+- **Telegram visitor notifications — new** (2026-08-31, per the owner: ping
+  him on Telegram with a real visitor's IP/country/page every time someone
+  visits). `src/lib/telegram.ts`'s `notifyVisitor()` POSTs to the Telegram
+  Bot API, reading `TELEGRAM_BOT_TOKEN`/`TELEGRAM_ADMIN_CHAT_ID` — silently
+  no-ops if either is unset, so this ships safely with zero effect until
+  the owner sets both as Cloudflare Worker secrets (same pattern as
+  `DATABASE_URL`/`CLERK_SECRET_KEY`: `wrangler secret put`, never a
+  committed value or a GitHub Actions build-time env — see deploy.yml's own
+  comment for why server-only secrets go that route, not this one). Two
+  real design decisions the owner picked explicitly, not assumed: **once
+  per visit session**, not per page view (a shopper clicking through 5
+  pages sends one message — a 30-minute `pg_visited` cookie set in
+  `middleware.ts` gates it), and **the owner's own browsing is excluded**
+  (visiting any page with `?admin-preview` once sets a year-long
+  `pg_no_notify` cookie). Also filters out known bots/crawlers/monitors
+  (Googlebot, Lighthouse/PageSpeed, uptime checkers, etc. — a UA-pattern
+  check) and non-visit metadata routes (`robots.txt`, `sitemap.xml`,
+  `manifest.webmanifest`, the icon/OG-image routes) so this stays "a real
+  person is on the site," not noise.
+  1. **Where this lives and why**: `middleware.ts` (already the one place a
+     request is guaranteed to pass through before any page renders) — but
+     it used to be wrapped entirely in `clerkMiddleware()`, and re-widening
+     its matcher to cover the storefront again (needed to see real visitors)
+     would have reintroduced the exact Clerk redirect-chain regression this
+     session had just fixed. Restructured instead: `clerkMiddleware()`'s
+     handler is now only *invoked* for `/pluggeo`/`/sign-in`/`/api` requests
+     (an `isClerkRoute` check gates the call itself, not just what Clerk
+     does once running) — the storefront branch never touches Clerk at all.
+     Verified directly: a storefront request carries zero `x-clerk-*`
+     headers, `/pluggeo` still gets Clerk's auth handshake, `robots.txt`
+     doesn't set the visit cookie's real-visitor path (it's excluded before
+     that even matters), and a Googlebot UA is correctly skipped.
+  2. **IP/country come from Cloudflare's own request headers**
+     (`CF-Connecting-IP`, `CF-IPCountry`) — deliberately not
+     `getCloudflareContext()`'s raw `cf` object (which has city/region too),
+     since that API's support inside Edge Middleware specifically (a
+     different OpenNext execution path than the main server function) isn't
+     confirmed, while these two headers are guaranteed present on any
+     request reaching a Cloudflare-proxied Worker, no adapter-specific API
+     needed. Country-level is what was actually asked for.
+  3. **Awaited with a 2s timeout, not fire-and-forget** — middleware's
+     `NextFetchEvent.waitUntil` exists in principle, but whether OpenNext's
+     Cloudflare adapter threads a *real* `ExecutionContext` into Edge
+     Middleware specifically (vs. a stub that drops background work when
+     the response is returned) wasn't something this session could verify
+     confidently. Since the entire point of this feature is the owner
+     reliably finding out about a visit, a dropped "fire-and-forget" send
+     would defeat it — awaiting directly, bounded to 2s worst case, and
+     only on the *one* first-page-load of a session (every page after that
+     is cookied and skips this entirely), was the safer tradeoff.
+  Still needed before this does anything: the owner creates a bot via
+  @BotFather, messages it once, and sends the token + their chat id to set
+  as the two Worker secrets above.
 - **Creating a product left the form full of what was just entered instead
   of clearing for the next one** (2026-08-31, the admin: "it's a form, once
   you fill it, it empties out... why doesn't it refresh?" — entering a

@@ -6,6 +6,20 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+### Added (batch 82 — Telegram visitor notifications)
+
+- `middleware.ts` now pings the owner's Telegram (`src/lib/telegram.ts`)
+  with a real visitor's IP, country, page, and browser — once per visit
+  session (a 30-minute cookie), not per page view. Excludes the owner's own
+  browsing (`?admin-preview` once sets a year-long opt-out cookie),
+  known bots/crawlers/monitors, and non-visit metadata routes
+  (robots.txt, sitemap.xml, manifest, icon/OG-image routes). Restructured
+  middleware so `clerkMiddleware()` is only invoked for admin/sign-in/api
+  requests — reintroducing a storefront-wide matcher for this without that
+  change would have brought back the Clerk redirect-chain regression fixed
+  earlier this session. No-ops safely until `TELEGRAM_BOT_TOKEN`/
+  `TELEGRAM_ADMIN_CHAT_ID` are set as Cloudflare Worker secrets.
+
 ### Fixed (batch 81 — creating a product now returns to a blank form)
 
 - `createProduct` redirected to the new product's own edit page, which
