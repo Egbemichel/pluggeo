@@ -6,6 +6,17 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+### Added (batch 80 — admin product/category forms autosave a draft)
+
+- A forced refresh after the "Server Action ... was not found on the
+  server" case (unavoidable after a deploy — the stale action id is baked
+  into the already-loaded JS bundle) was wiping out everything typed into
+  a half-filled product form. The product and category admin forms now
+  autosave their full state to `sessionStorage` as the admin types,
+  restore it silently on the next load with a small dismissible notice,
+  and clear it on a real successful save — a forced refresh now costs one
+  click, not lost work.
+
 ### Fixed (batch 79 — storefront not reflecting new/updated products and categories without a manual refresh)
 
 - `createProduct`, `updateProduct`, `deleteProduct`, `setProductStatus`, and

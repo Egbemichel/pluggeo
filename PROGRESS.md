@@ -77,6 +77,35 @@ genuinely filter) + grid/list toggle + pagination.
 
 ## Resolved decisions
 
+- **Admin dashboard "keeps asking him to refresh" and it's stressful**
+  (2026-08-31, a follow-up complaint about the `describeActionError`
+  message added earlier this session). Root cause isn't a bug in that
+  message — it's genuinely unavoidable per Next's own architecture: a
+  Server Action's id is baked into the JS bundle a browser already loaded,
+  and a new deploy always invalidates it; only an actual page reload (not a
+  soft `router.refresh()`) picks up the new build. Confirmed this is
+  happening because of how often this session deploys: 10 "Deploy to
+  Cloudflare" runs in ~9 hours, several within the same hour — if the admin
+  is actively editing during one of those windows, he *will* hit this, more
+  than once. What was actually fixable: the real "stressful" part wasn't
+  the error itself, it was that a forced refresh wiped out everything he'd
+  typed into a half-filled product form (name, price, media, every
+  option/combination row) — hours of data entry gone, not just an
+  annoyance. Added `useFormDraft()`/`clearFormDraft()`
+  (`src/lib/use-form-draft.ts`, real Vitest coverage including the
+  restore-vs-clobber ordering) — autosaves the product/category form's full
+  state to `sessionStorage` (not `localStorage`: deliberately clears on tab
+  close so an old abandoned draft can't resurface and confuse a later
+  session) keyed by product/category id, restores it silently on mount with
+  a small dismissible "Restored your unsaved changes" banner, and clears it
+  on an actual successful save. Wired into both `product-form.tsx` and
+  `category-form.tsx`. Now a forced refresh from this error costs the admin
+  one click, not lost work. Flagged directly to the owner: the *error itself*
+  will keep happening sometimes as long as deploys land while he's actively
+  in the admin — the fix here is about making it a non-event, not about
+  eliminating deploys colliding with his session (that would mean either
+  pacing deploys around his active hours or a genuinely different
+  mechanism, neither of which is a code change).
 - **Admin uploads/publishes a product and the storefront doesn't reflect
   it without a manual refresh** (2026-08-31, the admin: "why do I need a
   refresh every time I upload products... I want real time up to date").

@@ -21,6 +21,7 @@ import { createProduct, updateProduct } from "@/app/pluggeo/products/actions";
 import { productInputSchema } from "@/app/pluggeo/products/schema";
 import { VARIANT_ATTRIBUTE_CATEGORIES, VARIANT_ATTRIBUTE_VALUE_PLACEHOLDER } from "@/lib/product-attributes";
 import { slugify } from "@/lib/slugify";
+import { useFormDraft, clearFormDraft } from "@/lib/use-form-draft";
 import { cn } from "@/lib/utils";
 
 // Plain HTML form + Server Actions, not react-hook-form — the shadcn `form`
@@ -192,6 +193,66 @@ export function ProductForm({ categories, initialValues }: ProductFormProps) {
   const [formError, setFormError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
+  // Draft persistence (2026-08-31) — see use-form-draft.ts's own comment for
+  // why. Keyed by product id (or "new") so an abandoned draft never leaks
+  // into a different product's edit page.
+  const draftKey = `product-draft-${initialValues.id ?? "new"}`;
+  const [draftRestored, setDraftRestored] = useState(false);
+  const draftSnapshot = useMemo(
+    () => ({
+      name,
+      slug,
+      slugTouched,
+      description,
+      price,
+      compareAtPrice,
+      categoryId,
+      status,
+      featured,
+      media,
+      options,
+      combinationOverrides,
+    }),
+    [name, slug, slugTouched, description, price, compareAtPrice, categoryId, status, featured, media, options, combinationOverrides]
+  );
+  useFormDraft(draftKey, draftSnapshot, (draft) => {
+    setName(draft.name);
+    setSlug(draft.slug);
+    setSlugTouched(draft.slugTouched);
+    setDescription(draft.description);
+    setPrice(draft.price);
+    setCompareAtPrice(draft.compareAtPrice);
+    setCategoryId(draft.categoryId);
+    setStatus(draft.status);
+    setFeatured(draft.featured);
+    setMedia(draft.media);
+    setOptions(draft.options);
+    setCombinationOverrides(draft.combinationOverrides);
+    setDraftRestored(true);
+  });
+  const discardDraft = () => {
+    clearFormDraft(draftKey);
+    setName(initialValues.name);
+    setSlug(initialValues.slug);
+    setSlugTouched(isEditing);
+    setDescription(initialValues.description);
+    setPrice(initialValues.price);
+    setCompareAtPrice(initialValues.compareAtPrice);
+    setCategoryId(initialValues.categoryId);
+    setStatus(initialValues.status);
+    setFeatured(initialValues.featured);
+    setMedia(initialValues.media);
+    setOptions(initialValues.options);
+    setCombinationOverrides(() => {
+      const map: Record<string, CombinationOverride> = {};
+      for (const v of initialValues.variants) {
+        map[comboKeyFor(v.attributes)] = { priceOverride: v.priceOverride, available: v.available };
+      }
+      return map;
+    });
+    setDraftRestored(false);
+  };
+
   const handleNameChange = (value: string) => {
     setName(value);
     if (!slugTouched) setSlug(slugify(value));
@@ -291,12 +352,22 @@ export function ProductForm({ categories, initialValues }: ProductFormProps) {
       try {
         if (isEditing && initialValues.id) {
           await updateProduct(initialValues.id, parsed.data);
+          clearFormDraft(draftKey);
           adminToast.success("Product saved.");
         } else {
           // Redirects to the new product's edit page on success (see
           // actions.ts) — there's no client-side "resolved" moment to toast
           // from here, so that page fires its own "Product created" toast
-          // once it lands (see its `?created=1` handling).
+          // once it lands (see its `?created=1` handling). Cleared *before*
+          // the call, not after — a line after `await createProduct` here
+          // is dead code on success (the redirect throws before reaching
+          // it), and there's no public API to tell a genuine failure apart
+          // from that redirect inside the catch below. Client validation
+          // already passed by this point, so the one thing this trades away
+          // is the draft surviving a rare genuine server-side failure — the
+          // in-memory form itself is untouched either way, so nothing is
+          // lost unless the tab also closes in that exact moment.
+          clearFormDraft(draftKey);
           await createProduct(parsed.data);
         }
       } catch (err) {
@@ -314,6 +385,21 @@ export function ProductForm({ categories, initialValues }: ProductFormProps) {
 
   return (
     <form onSubmit={handleSubmit} noValidate className="flex max-w-3xl flex-col gap-8">
+      {draftRestored && (
+        <div
+          role="status"
+          className="flex items-center justify-between gap-3 rounded-md border border-border bg-muted/50 px-3 py-2 text-sm text-muted-foreground"
+        >
+          <span>Restored your unsaved changes from before the refresh.</span>
+          <button
+            type="button"
+            onClick={discardDraft}
+            className="shrink-0 font-medium text-foreground underline-offset-2 hover:underline"
+          >
+            Discard, start over
+          </button>
+        </div>
+      )}
       {formError && (
         <div
           role="alert"

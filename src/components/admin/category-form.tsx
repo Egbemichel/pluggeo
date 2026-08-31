@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { unstable_rethrow } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,6 +8,7 @@ import { adminToast, describeActionError } from "@/components/admin/toast";
 import { createCategory, updateCategory } from "@/app/pluggeo/categories/actions";
 import { categoryInputSchema } from "@/app/pluggeo/categories/schema";
 import { slugify } from "@/lib/slugify";
+import { useFormDraft, clearFormDraft } from "@/lib/use-form-draft";
 
 // Same UI/UX pass as product-form.tsx (2026-08-29) — see that file's own
 // comment for the reasoning behind each piece (auto-slug, shared
@@ -65,6 +66,30 @@ export function CategoryForm({ initialValues }: CategoryFormProps) {
   const [formError, setFormError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
+  // Draft persistence (2026-08-31) — see use-form-draft.ts's own comment and
+  // product-form.tsx's identical wiring for why.
+  const draftKey = `category-draft-${initialValues.id ?? "new"}`;
+  const [draftRestored, setDraftRestored] = useState(false);
+  const draftSnapshot = useMemo(
+    () => ({ name, slug, slugTouched, displayOrder }),
+    [name, slug, slugTouched, displayOrder]
+  );
+  useFormDraft(draftKey, draftSnapshot, (draft) => {
+    setName(draft.name);
+    setSlug(draft.slug);
+    setSlugTouched(draft.slugTouched);
+    setDisplayOrder(draft.displayOrder);
+    setDraftRestored(true);
+  });
+  const discardDraft = () => {
+    clearFormDraft(draftKey);
+    setName(initialValues.name);
+    setSlug(initialValues.slug);
+    setSlugTouched(isEditing);
+    setDisplayOrder(initialValues.displayOrder);
+    setDraftRestored(false);
+  };
+
   const handleNameChange = (value: string) => {
     setName(value);
     if (!slugTouched) setSlug(slugify(value));
@@ -95,6 +120,14 @@ export function CategoryForm({ initialValues }: CategoryFormProps) {
 
     startTransition(async () => {
       try {
+        // Cleared *before* either call, not after — both branches redirect
+        // on success (see actions.ts), so a line after either `await` here
+        // is dead code on success and there's no public API to tell a
+        // genuine failure apart from that redirect once it's thrown. Client
+        // validation already passed by this point, so the only thing this
+        // trades away is the draft surviving a rare genuine server-side
+        // failure — see product-form.tsx's identical tradeoff.
+        clearFormDraft(draftKey);
         if (isEditing && initialValues.id) {
           await updateCategory(initialValues.id, parsed.data);
         } else {
@@ -114,6 +147,21 @@ export function CategoryForm({ initialValues }: CategoryFormProps) {
 
   return (
     <form onSubmit={handleSubmit} noValidate className="flex max-w-md flex-col gap-6">
+      {draftRestored && (
+        <div
+          role="status"
+          className="flex items-center justify-between gap-3 rounded-md border border-border bg-muted/50 px-3 py-2 text-sm text-muted-foreground"
+        >
+          <span>Restored your unsaved changes from before the refresh.</span>
+          <button
+            type="button"
+            onClick={discardDraft}
+            className="shrink-0 font-medium text-foreground underline-offset-2 hover:underline"
+          >
+            Discard, start over
+          </button>
+        </div>
+      )}
       {formError && (
         <div
           role="alert"
