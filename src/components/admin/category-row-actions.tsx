@@ -18,9 +18,10 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import { adminToast } from "@/components/admin/toast";
 import { deleteCategory } from "@/app/pluggeo/categories/actions";
 
-export function CategoryRowActions({ id }: { id: string }) {
+export function CategoryRowActions({ id, name }: { id: string; name: string }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -32,12 +33,18 @@ export function CategoryRowActions({ id }: { id: string }) {
         await deleteCategory(id);
         setConfirmOpen(false);
         router.refresh();
+        adminToast.success(`"${name}" deleted.`);
       } catch (err) {
-        setError(
+        // Kept as an inline dialog message too, not just a toast — the
+        // dialog stays open on failure (see below), and the admin needs to
+        // read *why* while still looking at it, not from a toast that may
+        // have already faded.
+        const message =
           err instanceof Error
             ? err.message
-            : "Couldn't delete this category — it may still have products assigned to it."
-        );
+            : "Couldn't delete this category — it may still have products assigned to it.";
+        setError(message);
+        adminToast.error(message);
       }
     });
   };

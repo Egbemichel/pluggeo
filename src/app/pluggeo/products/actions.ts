@@ -88,7 +88,11 @@ export async function createProduct(rawInput: ProductInput) {
   await writeMediaAndOptionsAndVariants(product.id, input);
 
   revalidatePath("/pluggeo/products");
-  redirect(`/pluggeo/products/${product.id}/edit`);
+  // `?created=1` — a Server Action that redirects never gives the client a
+  // "this resolved successfully" moment to toast from (see product-form.tsx's
+  // own comment); the edit page reads this once on landing to fire its own
+  // "Product created" toast, then strips it so a refresh doesn't re-fire it.
+  redirect(`/pluggeo/products/${product.id}/edit?created=1`);
 }
 
 export async function updateProduct(id: string, rawInput: ProductInput) {

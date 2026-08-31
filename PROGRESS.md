@@ -77,6 +77,66 @@ genuinely filter) + grid/list toggle + pagination.
 
 ## Resolved decisions
 
+- **Admin CRUD actions now give real feedback — toasts via `goey-toast`**
+  (2026-08-31, per the admin: "I click Save Changes... it finishes... I
+  don't know what just happened" — no confirmation of any kind). New
+  dependencies: `goey-toast` (a gooey/morphing toast built on Sonner) +
+  its `framer-motion` peer dep — scoped entirely to `/pluggeo/**` admin
+  routes, never imported by the public storefront, so this doesn't touch
+  the storefront's own GSAP-only motion stack or its Core Web Vitals
+  budget (this session's own PageSpeed work).
+  1. **Themed to the site's own tokens, not the library's defaults** —
+     `adminToast` (`components/admin/toast.tsx`) wraps `gooeyToast.success`/
+     `.error`, pinning `fillColor`/`borderColor` to `--color-brand-primary`
+     (navy) and `--color-destructive` (red) — the exact same two colors
+     the admin's inline success/error banners already used, so this reuses
+     existing design-system tokens rather than introducing the library's
+     own green/red/yellow/blue palette (CLAUDE.md: navy/black/white/gray,
+     no standalone accent colors). Every admin mutation calls through this
+     wrapper, never raw `gooeyToast`, so theming only ever changes in one
+     place.
+  2. **A real build-breaking issue found and fixed**: `goey-toast`'s own
+     package has no `"use client"` directive anywhere in its dist output
+     (confirmed by reading the built files directly) — importing
+     `GooeyToaster` straight into the admin layout (a Server Component)
+     made Next try to evaluate the library server-side during the build's
+     page-data collection, crashing with "Class extends value undefined"
+     (something inside sonner/framer-motion assumes a browser). Fixed by
+     isolating it behind a dedicated `"use client"` wrapper
+     (`components/admin/admin-toaster.tsx`) — confirmed via a full
+     `next build` before and after (crashed, then clean).
+  3. **The actual `redirect()` gotcha, handled correctly** — `createProduct`
+     and (a genuine pre-existing dead-code bug, found while wiring this up)
+     `updateCategory` both call `redirect()` on success, which Next.js
+     implements as a thrown control-flow error; a plain `try/catch` around
+     the client's `await` would have shown a false "error" toast on every
+     successful create, and `category-form.tsx`'s old `setSuccessMessage`
+     after `await updateCategory(...)` could literally never have run
+     (the redirect always threw first — dead code, not just untested).
+     Fixed with `unstable_rethrow(err)` (Next's own documented API for
+     exactly this) before any of this code's own error handling runs, and
+     a `?created=1`/`?updated=1` query-param pattern
+     (`components/admin/created-toast.tsx`) so the page a redirect lands
+     on fires its own success toast once, then strips the param via
+     `router.replace` so a refresh doesn't re-fire it.
+  4. **Coverage**: product create/update/delete/publish-toggle, category
+     create/update/delete, and the homepage featured-list's feature-toggle
+     and order-commit — every admin mutation the user named
+     ("creating, updating, and deleting") plus the same silent-refresh
+     pattern found elsewhere in the admin. Inline validation-error banners
+     stay (they need to persist while the admin reads/fixes multiple field
+     errors, which a fading toast can't do); the redundant inline
+     "Product/Category saved" success banners are gone, replaced by the
+     toast.
+  Verified via `tsc`/lint/`vitest`/`next build` (all clean, including the
+  build crash found and fixed above) plus a live dev-server check
+  confirming the admin routes still render (the `dev-browser-missing`
+  Clerk gate is the same pre-existing, already-documented limitation from
+  this session's PageSpeed work, not a new issue). Couldn't click through
+  an actual save/delete to see a toast fire in a real browser in this
+  environment (same standing admin-auth caveat as every other admin-UI
+  change this session) — this relies on code review plus the library's
+  own documented API rather than a live click-test.
 - **Product options & pricing, full rework — replaces "variants" entirely**
   (2026-08-31, after several rounds with the admin working through "how
   should this actually behave," landing on: what a shopper can pick from

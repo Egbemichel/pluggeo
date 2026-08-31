@@ -20,7 +20,10 @@ export async function createCategory(rawInput: CategoryInput) {
   const input = categoryInputSchema.parse(rawInput);
   await db.insert(categories).values(input);
   revalidatePath("/pluggeo/categories");
-  redirect("/pluggeo/categories");
+  // `?created=1` — see products/actions.ts's own comment: a redirecting
+  // Server Action never resolves back to the client to toast from, so the
+  // page it lands on reads this once to fire its own toast instead.
+  redirect("/pluggeo/categories?created=1");
 }
 
 export async function updateCategory(id: string, rawInput: CategoryInput) {
@@ -28,7 +31,12 @@ export async function updateCategory(id: string, rawInput: CategoryInput) {
   const input = categoryInputSchema.parse(rawInput);
   await db.update(categories).set(input).where(eq(categories.id, id));
   revalidatePath("/pluggeo/categories");
-  redirect("/pluggeo/categories");
+  // Unlike updateProduct (which just resolves, staying on its own edit
+  // page), this always redirected back to the list — meaning a client-side
+  // "it saved" message placed after `await updateCategory(...)` could never
+  // actually run; the redirect throws first. `?updated=1` fixes that the
+  // same way `?created=1` does below.
+  redirect("/pluggeo/categories?updated=1");
 }
 
 export async function deleteCategory(id: string) {

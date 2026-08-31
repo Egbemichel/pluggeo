@@ -6,6 +6,19 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+### Added (batch 74 — real toast feedback on every admin create/update/delete)
+
+- Clicking "Save changes" in the admin gave no confirmation once it
+  finished — no toast, no redirect, nothing to indicate the save actually
+  landed. Added `goey-toast`, themed to this site's own navy/destructive
+  tokens instead of its default palette, firing on every product/category
+  create, update, delete, and status/feature toggle.
+- Fixed a real bug found while wiring this up: `updateCategory` redirects
+  on success, so a success message placed after `await updateCategory(...)`
+  in the client could never actually run — dead code, not just untested.
+  Both `createProduct` and `updateCategory`'s redirects now carry the page
+  they land on to its own "saved" toast instead.
+
 ### Changed (batch 73 — product options & pricing replace "variants" entirely)
 
 - The "variants" model let the admin group values into rows and price each

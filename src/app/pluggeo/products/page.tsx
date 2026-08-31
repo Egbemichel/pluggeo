@@ -121,6 +121,7 @@ export default async function AdminProductsPage() {
                   <TableCell>
                     <ProductRowActions
                       id={row.id}
+                      name={row.name}
                       status={row.status}
                     />
                   </TableCell>

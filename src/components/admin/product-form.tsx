@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useRef, useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
+import { unstable_rethrow } from "next/navigation";
 import { Add01Icon, Delete02Icon } from "@hugeicons/core-free-icons";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
@@ -15,6 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { MediaUpload, type MediaItem } from "@/components/admin/media-upload";
+import { adminToast } from "@/components/admin/toast";
 import { createProduct, updateProduct } from "@/app/pluggeo/products/actions";
 import { productInputSchema } from "@/app/pluggeo/products/schema";
 import { VARIANT_ATTRIBUTE_CATEGORIES, VARIANT_ATTRIBUTE_VALUE_PLACEHOLDER } from "@/lib/product-attributes";
@@ -182,10 +184,13 @@ export function ProductForm({ categories, initialValues }: ProductFormProps) {
     }
   );
   const [errors, setErrors] = useState<Record<string, string>>({});
+  // Validation-only now (2026-08-31) — the actual save outcome (network/
+  // server errors, and success) reports through a toast instead, per the
+  // user: clicking "Save changes" gave no real feedback once it finished.
+  // This banner stays purely for "you have unfixed field errors," which
+  // needs to persist while the admin reads it, not flash and vanish.
   const [formError, setFormError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const successTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleNameChange = (value: string) => {
     setName(value);
@@ -231,7 +236,6 @@ export function ProductForm({ categories, initialValues }: ProductFormProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
-    setSuccessMessage(null);
 
     const rawInput = {
       name,
@@ -287,14 +291,23 @@ export function ProductForm({ categories, initialValues }: ProductFormProps) {
       try {
         if (isEditing && initialValues.id) {
           await updateProduct(initialValues.id, parsed.data);
-          setSuccessMessage("Product saved.");
-          if (successTimeoutRef.current) clearTimeout(successTimeoutRef.current);
-          successTimeoutRef.current = setTimeout(() => setSuccessMessage(null), 3000);
+          adminToast.success("Product saved.");
         } else {
+          // Redirects to the new product's edit page on success (see
+          // actions.ts) — there's no client-side "resolved" moment to toast
+          // from here, so that page fires its own "Product created" toast
+          // once it lands (see its `?created=1` handling).
           await createProduct(parsed.data);
         }
       } catch (err) {
-        setFormError(err instanceof Error ? err.message : "Something went wrong saving this product.");
+        // A successful `createProduct` call never actually resolves — it
+        // redirects — which Next.js implements as a thrown control-flow
+        // error. Must rethrow it here before treating anything as a real
+        // failure, or every successful create would show as an error toast.
+        unstable_rethrow(err);
+        const message = err instanceof Error ? err.message : "Something went wrong saving this product.";
+        setFormError(message);
+        adminToast.error(message);
       }
     });
   };
@@ -307,14 +320,6 @@ export function ProductForm({ categories, initialValues }: ProductFormProps) {
           className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive"
         >
           {formError}
-        </div>
-      )}
-      {successMessage && (
-        <div
-          role="status"
-          className="rounded-md border border-primary/30 bg-primary/10 px-3 py-2 text-sm text-primary"
-        >
-          {successMessage}
         </div>
       )}
 

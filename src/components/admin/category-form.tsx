@@ -1,8 +1,10 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
+import { unstable_rethrow } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { adminToast } from "@/components/admin/toast";
 import { createCategory, updateCategory } from "@/app/pluggeo/categories/actions";
 import { categoryInputSchema } from "@/app/pluggeo/categories/schema";
 import { slugify } from "@/lib/slugify";
@@ -54,10 +56,14 @@ export function CategoryForm({ initialValues }: CategoryFormProps) {
   const [slugTouched, setSlugTouched] = useState(isEditing);
   const [displayOrder, setDisplayOrder] = useState(initialValues.displayOrder);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  // Validation-only — the actual save outcome reports through a toast
+  // instead (see product-form.tsx's identical comment). Both create *and*
+  // update redirect back to the category list here (unlike products, where
+  // only create redirects), so a `setSuccessMessage` placed after either
+  // `await` call could never actually run — the redirect throws first, a
+  // real pre-existing dead-code bug this replaces along with the fix.
   const [formError, setFormError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const successTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleNameChange = (value: string) => {
     setName(value);
@@ -71,7 +77,6 @@ export function CategoryForm({ initialValues }: CategoryFormProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
-    setSuccessMessage(null);
 
     const parsed = categoryInputSchema.safeParse({ name, slug, displayOrder });
     if (!parsed.success) {
@@ -92,14 +97,17 @@ export function CategoryForm({ initialValues }: CategoryFormProps) {
       try {
         if (isEditing && initialValues.id) {
           await updateCategory(initialValues.id, parsed.data);
-          setSuccessMessage("Category saved.");
-          if (successTimeoutRef.current) clearTimeout(successTimeoutRef.current);
-          successTimeoutRef.current = setTimeout(() => setSuccessMessage(null), 3000);
         } else {
           await createCategory(parsed.data);
         }
+        // Both branches redirect on success (see actions.ts) — neither
+        // ever actually reaches this line; the target list page fires its
+        // own toast on landing via `?created=1`/`?updated=1`.
       } catch (err) {
-        setFormError(err instanceof Error ? err.message : "Something went wrong saving this category.");
+        unstable_rethrow(err);
+        const message = err instanceof Error ? err.message : "Something went wrong saving this category.";
+        setFormError(message);
+        adminToast.error(message);
       }
     });
   };
@@ -114,15 +122,6 @@ export function CategoryForm({ initialValues }: CategoryFormProps) {
           {formError}
         </div>
       )}
-      {successMessage && (
-        <div
-          role="status"
-          className="rounded-md border border-primary/30 bg-primary/10 px-3 py-2 text-sm text-primary"
-        >
-          {successMessage}
-        </div>
-      )}
-
       <fieldset className="flex flex-col gap-6">
         <legend className="sr-only">Category details</legend>
         <div className="flex flex-col gap-1.5">

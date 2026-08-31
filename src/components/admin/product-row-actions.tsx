@@ -18,30 +18,43 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import { adminToast } from "@/components/admin/toast";
 import { deleteProduct, setProductStatus } from "@/app/pluggeo/products/actions";
 
 export type ProductRowActionsProps = {
   id: string;
+  name: string;
   status: "draft" | "published";
 };
 
-export function ProductRowActions({ id, status }: ProductRowActionsProps) {
+export function ProductRowActions({ id, name, status }: ProductRowActionsProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   const toggleStatus = () => {
+    const nextStatus = status === "published" ? "draft" : "published";
     startTransition(async () => {
-      await setProductStatus(id, status === "published" ? "draft" : "published");
-      router.refresh();
+      try {
+        await setProductStatus(id, nextStatus);
+        router.refresh();
+        adminToast.success(nextStatus === "published" ? "Product published." : "Product unpublished.");
+      } catch (err) {
+        adminToast.error(err instanceof Error ? err.message : "Couldn't update this product's status.");
+      }
     });
   };
 
   const confirmDelete = () => {
     startTransition(async () => {
-      await deleteProduct(id);
-      setConfirmOpen(false);
-      router.refresh();
+      try {
+        await deleteProduct(id);
+        setConfirmOpen(false);
+        router.refresh();
+        adminToast.success(`"${name}" deleted.`);
+      } catch (err) {
+        adminToast.error(err instanceof Error ? err.message : "Couldn't delete this product.");
+      }
     });
   };
 
