@@ -98,19 +98,38 @@ function withCloudinaryAutoFormat(url: string): string {
   return url.slice(0, index + marker.length) + "f_auto,q_auto/" + afterMarker;
 }
 
+// The video counterpart (2026-08-31, found via a real PageSpeed "browser
+// errors" audit: a product video was failing to even load under Lighthouse's
+// throttled mobile connection — `net::ERR_CONNECTION_FAILED` — because it
+// was a raw, un-transformed upload at **17.2MB**, the single biggest
+// resource on the entire page by a wide margin). Cloudinary's `f_auto,q_auto`
+// works for video delivery exactly like it does for images (confirmed
+// directly: the same real product video came back at 3.5MB with it, 2.9MB
+// with a `w_720` cap added on top — this catalog's videos are close-up
+// jewelry shots meant to play in a card tile or the PDP gallery, never
+// anywhere near source resolution). Same idempotency/no-op guards as the
+// image version above, just against `/video/upload/` instead.
+function withCloudinaryVideoAutoFormat(url: string): string {
+  const marker = "/video/upload/";
+  const index = url.indexOf(marker);
+  if (index === -1) return url;
+  const afterMarker = url.slice(index + marker.length);
+  if (/^[a-z_]+_[^/]+\//.test(afterMarker)) return url;
+  return url.slice(0, index + marker.length) + "f_auto,q_auto,w_720/" + afterMarker;
+}
+
 // Renamed from `imagesForProduct` (2026-08-30) — it was filtering every row
 // down to `type === "image"` before this even ran, so an uploaded video
 // never reached a single storefront surface (not the card, not Shop's
 // spotlight, not the PDP) despite the admin genuinely accepting and storing
 // it (`productMedia.type` has allowed "video" since 2026-08-29 — see that
 // column's own comment). Videos now pass through in the same admin-set
-// `sortOrder` as photos; `withCloudinaryAutoFormat` only ever touches
-// `/image/upload/` URLs, so it's already a no-op on a video's
-// `/video/upload/` URL.
+// `sortOrder` as photos, each run through its own Cloudinary auto-format
+// helper.
 function mediaForProduct(media: MediaRow[], title: string): MediaItem[] {
   const items = media.map((m) => ({
     type: m.type,
-    src: m.type === "image" ? withCloudinaryAutoFormat(m.url) : m.url,
+    src: m.type === "image" ? withCloudinaryAutoFormat(m.url) : withCloudinaryVideoAutoFormat(m.url),
     alt: m.altText || title,
   }));
   return items.length > 0 ? items : [PLACEHOLDER_IMAGE];

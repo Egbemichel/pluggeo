@@ -16,13 +16,15 @@ All notable changes to this project are documented here, following
   videos were raw 720p exports up to 21MB each (75MB total), photos were
   full phone-camera resolution serving into a small tile. Re-encoded every
   video (75MB → 29MB) and resized every photo (2.0MB → 973KB), no visible
-  quality loss. This was the actual "avoid enormous network payloads"
-  finding, unrelated to the accessibility fix above.
-- Investigated a "browser errors were logged to the console" regression
-  but couldn't reproduce it live in this environment — ruled out several
-  likely causes (broken resources, admin-only dependencies leaking into
-  the storefront bundle, unhandled video promise rejections) without a
-  confirmed root cause; flagged for a follow-up with the actual error text.
+  quality loss.
+- A real product video was 17.2MB, completely untransformed — big enough
+  that it failed to even finish loading under a throttled mobile
+  connection (`net::ERR_CONNECTION_FAILED`, the actual "browser errors"
+  regression, plus most of the "avoid enormous network payloads" finding).
+  Cloudinary's `f_auto,q_auto` — already used for product photos — now
+  applies to product videos too, cutting this one to 2.9MB (83% smaller);
+  the catalog's other product video dropped from 8.9MB to 4.5MB the same
+  way.
 
 ### Added (batch 74 — real toast feedback on every admin create/update/delete)
 

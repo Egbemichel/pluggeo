@@ -94,18 +94,37 @@ genuinely filter) + grid/list toggle + pagination.
      via a real production build + server: the exact product's link now
      reads `aria-label="22mm CUBAN CHAIN WITH CUSTOM CLASP"`.
   2. **Best Practices regression ("Browser errors were logged to the
-     console") — investigated, not confirmed fixed**: checked every
-     resource Home actually requests (all real 200s, no 404s), confirmed
-     `goey-toast`/`framer-motion` are not in any chunk the storefront
-     loads (only one production chunk contains them, and it's absent from
-     Home's own script tags), and re-audited every `video.play()` call in
-     `media-tile.tsx` for unhandled rejections (all properly `.catch()`'d).
-     Couldn't reproduce a live console error in this environment (the same
-     standing Playwright/sandboxed-proxy limitation from earlier in this
-     session — tried several proxy/TLS configurations, all failed against
-     even our own loopback dev server). Flagged rather than guessed at
-     further — asked the owner to expand that row in their own report and
-     share the actual error text so this can be fixed precisely.
+     console"), root-caused and fixed once the owner sent the actual error
+     text** (`net::ERR_CONNECTION_FAILED` on
+     `akiaer3vjet3ho5fvf3z.mp4`, `res.cloudinary.com`) — that file is the
+     real product video for "22mm Cuban Chain," and checking it directly
+     found a genuinely enormous, completely untransformed upload: **17.2MB**
+     for one video (confirmed via a direct request — Cloudinary's own
+     `server-timing` header even reported its real encode stats: 606×1080,
+     18.8s, ~916 kbps). Under Lighthouse's throttled mobile connection
+     simulation, a file that size failing to finish loading (hence the
+     connection error) is exactly what you'd expect — and it's also, on
+     its own, most of the "17,881 KiB" total-payload finding below; the
+     celebrity-media compression in the previous round targeted the wrong
+     videos. The actual fix: `withCloudinaryVideoAutoFormat()`
+     (`lib/products.ts`), the video counterpart to the image
+     `withCloudinaryAutoFormat()` this session already relies on —
+     `f_auto,q_auto,w_720` cuts this exact video to 2.9MB (an 83%
+     reduction) and the product's other video (Presidential Rolex,
+     8.9MB→4.5MB) benefits the same way, confirmed via direct requests
+     against both real Cloudinary URLs before wiring the code change in.
+     Before concluding this was the actual cause, checked and ruled out:
+     every resource Home requests returning a real 200 (no 404s), that
+     `goey-toast`/`framer-motion` aren't in any chunk the storefront loads
+     (only one production chunk contains them, absent from Home's script
+     tags), and that every `video.play()` call in `media-tile.tsx` is
+     properly `.catch()`'d (no unhandled rejections in this app's own
+     code) — none of those were it; a real browser/DevTools session was
+     needed to see the actual failing URL, which this sandboxed
+     environment's Playwright access couldn't provide (tried several
+     proxy/TLS configurations against even our own loopback server, all
+     failed) — the owner sending the exact error text is what actually
+     cracked this.
   3. **The real, large, fixable finding: "Avoid enormous network payloads
      — 17,881 KiB" and "Improve image delivery — 490 KiB"** — the
      `public/celebrity/` folder (CelebrityShowcase's real media) had never
@@ -125,12 +144,12 @@ genuinely filter) + grid/list toggle + pagination.
      — same filenames, same `celebrities.json`, just smaller file bytes.
   Verified via `tsc`/lint/`vitest`/`next build` (all clean) plus a real
   production server check (`next build && next start`, not just dev) —
-  confirmed the compressed video/photo assets serve correctly at their new
-  sizes and the aria-label fix is present in the actual rendered HTML. A
-  fresh PageSpeed re-run to see how far these move the numbers (especially
-  the huge video-weight one) couldn't be done from here — ask the owner to
-  re-run it once this deploys, and to send the literal "browser errors"
-  text if Best Practices is still short of 100.
+  confirmed both real product videos now request their `f_auto,q_auto,
+  w_720` URLs on the actual Home and PDP pages, the compressed celebrity
+  video/photo assets serve correctly, and the aria-label fix is present in
+  the rendered HTML. A fresh PageSpeed re-run to confirm all four
+  categories actually land at/near 100 couldn't be done from here — ask
+  the owner to re-run it once this deploys.
 - **Admin CRUD actions now give real feedback — toasts via `goey-toast`**
   (2026-08-31, per the admin: "I click Save Changes... it finishes... I
   don't know what just happened" — no confirmation of any kind). New
