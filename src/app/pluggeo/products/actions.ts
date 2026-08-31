@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { eq, asc, desc } from "drizzle-orm";
 import { db } from "@/db";
-import { products, productMedia, productVariants } from "@/db/schema";
+import { products, productMedia, productOptions, productVariants } from "@/db/schema";
 import { getAdminUser } from "@/lib/admin-auth";
 import { productInputSchema, type ProductInput } from "./schema";
 
@@ -23,12 +23,13 @@ async function assertAdmin() {
 
 export type { ProductInput };
 
-async function writeMediaAndVariants(productId: string, input: ProductInput) {
+async function writeMediaAndOptionsAndVariants(productId: string, input: ProductInput) {
   // Replace-in-place: simplest correct approach for a single-admin CMS with
-  // no concurrent editors — delete the product's existing media/variant
-  // rows and re-insert from the form's current state, rather than trying to
-  // diff and patch individual rows.
+  // no concurrent editors — delete the product's existing media/option/
+  // variant rows and re-insert from the form's current state, rather than
+  // trying to diff and patch individual rows.
   await db.delete(productMedia).where(eq(productMedia.productId, productId));
+  await db.delete(productOptions).where(eq(productOptions.productId, productId));
   await db.delete(productVariants).where(eq(productVariants.productId, productId));
 
   if (input.media.length > 0) {
@@ -43,11 +44,21 @@ async function writeMediaAndVariants(productId: string, input: ProductInput) {
     );
   }
 
+  if (input.options.length > 0) {
+    await db.insert(productOptions).values(
+      input.options.map((option, index) => ({
+        productId,
+        key: option.key,
+        values: option.values,
+        sortOrder: index,
+      }))
+    );
+  }
+
   if (input.variants.length > 0) {
     await db.insert(productVariants).values(
       input.variants.map((variant) => ({
         productId,
-        label: variant.label,
         attributes: variant.attributes,
         priceOverride: variant.priceOverride != null ? String(variant.priceOverride) : null,
         available: variant.available,
@@ -74,7 +85,7 @@ export async function createProduct(rawInput: ProductInput) {
     })
     .returning({ id: products.id });
 
-  await writeMediaAndVariants(product.id, input);
+  await writeMediaAndOptionsAndVariants(product.id, input);
 
   revalidatePath("/pluggeo/products");
   redirect(`/pluggeo/products/${product.id}/edit`);
@@ -99,7 +110,7 @@ export async function updateProduct(id: string, rawInput: ProductInput) {
     })
     .where(eq(products.id, id));
 
-  await writeMediaAndVariants(id, input);
+  await writeMediaAndOptionsAndVariants(id, input);
 
   revalidatePath("/pluggeo/products");
   revalidatePath(`/pluggeo/products/${id}/edit`);
@@ -145,13 +156,17 @@ export async function getProductWithRelations(id: string) {
   const product = await db.query.products.findFirst({ where: eq(products.id, id) });
   if (!product) return null;
 
-  const [media, variants] = await Promise.all([
+  const [media, options, variants] = await Promise.all([
     db.query.productMedia.findMany({
       where: eq(productMedia.productId, id),
       orderBy: asc(productMedia.sortOrder),
     }),
+    db.query.productOptions.findMany({
+      where: eq(productOptions.productId, id),
+      orderBy: asc(productOptions.sortOrder),
+    }),
     db.query.productVariants.findMany({ where: eq(productVariants.productId, id) }),
   ]);
 
-  return { product, media, variants };
+  return { product, media, options, variants };
 }

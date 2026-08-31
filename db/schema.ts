@@ -58,20 +58,43 @@ export const productMedia = pgTable("product_media", {
 // Jewelry attributes differ by category (material/karat, size, chain length, etc.) —
 // keep this flexible rather than modeling rigid columns per category. See docs/DATABASE.md.
 //
-// `attributes` values are arrays, not single strings (2026-08-30, per the
-// admin: a single "Size" attribute needs to hold every size this variant
-// comes in — 16/17/18/19 inch — not just one, with price/availability
-// shared across all of them since this is one row/one price point). One
-// specific value from each array is what a shopper actually selects on the
-// PDP's Customize chips; see `ProductCustomize`'s matching logic for how a
-// selection resolves back to this row.
+// Full rework (2026-08-31, per the admin, working through several rounds of
+// "how should this actually behave"): attributes and their possible values
+// are now defined once per product here — "what a shopper can pick from" —
+// completely separate from pricing. `product_variants` (below) went from
+// "one row per admin-chosen group of values" to a sparse table of
+// *complete* combinations that cost or stock differently from the base
+// product; a combination with no row here simply uses the product's own
+// price and is available by default. This removes the ambiguity the old
+// model had (two separate single-attribute rows both matching a selection
+// at once, with no real way to say which price should win) — every
+// possible combination is generated from *this* table, and each one either
+// has an explicit override or doesn't; there's never a competing pair.
+export const productOptions = pgTable("product_options", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  productId: uuid("product_id")
+    .notNull()
+    .references(() => products.id, { onDelete: "cascade" }),
+  key: text("key").notNull(),
+  values: jsonb("values").$type<string[]>().notNull().default([]),
+  sortOrder: integer("sort_order").notNull().default(0),
+});
+
+// One row per *complete* combination that needs a different price and/or
+// stock status than the base product — see `productOptions`'s comment. No
+// `label` column (dropped 2026-08-30 then 2026-08-31 for real — it was
+// never shown to a shopper anywhere and only ever caused confusion; the
+// admin never needs to name a row, since `attributes` already fully
+// describes it). `attributes` is one value per key (a genuinely complete
+// combination), not an array — the array shape briefly used here let one
+// row group several values under one price, which is exactly the source of
+// the "which price wins" ambiguity this rework removes.
 export const productVariants = pgTable("product_variants", {
   id: uuid("id").primaryKey().defaultRandom(),
   productId: uuid("product_id")
     .notNull()
     .references(() => products.id, { onDelete: "cascade" }),
-  label: text("label").notNull(),
-  attributes: jsonb("attributes").$type<Record<string, string[]>>().notNull().default({}),
+  attributes: jsonb("attributes").$type<Record<string, string>>().notNull().default({}),
   priceOverride: numeric("price_override", { precision: 10, scale: 2 }),
   available: boolean("available").notNull().default(true),
 });

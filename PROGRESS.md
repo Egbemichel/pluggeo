@@ -77,128 +77,81 @@ genuinely filter) + grid/list toggle + pagination.
 
 ## Resolved decisions
 
-- **Dropped the admin's "Label" field from the variant editor** (2026-08-30,
-  per the admin, after tracing every use of it: it's never shown to a
-  shopper anywhere, and a blank one used to silently drop the entire row on
-  save — the real "is this row real" signal has always actually been
-  whether it has at least one attribute with at least one value, so that's
-  what gates inclusion now). The variant card's grid goes from 3 columns
-  (Label/Price/Available) to 2 (Price/Available). The DB's `label` column
-  still can't be null, so it's still written on save — just auto-derived
-  from the row's own attributes (`deriveVariantLabel`, e.g. `"Size: 16
-  Inch, 17 Inch"`) rather than typed by the admin, purely so anyone reading
-  the raw data later sees something meaningful. `db/schema.ts` unchanged —
-  no migration needed, since the column itself was never the problem.
-  **The real mental model, restated for the admin (2026-08-30)**: a variant
-  row means "this group of values shares one price and one stock status" —
-  nothing more. Group values into one row only when they cost the same and
-  have the same availability; the moment one value needs a different price
-  or stock status, it goes on its own row. **Flagged, not yet fixed**: when
-  a shopper's selection spans two *different* single-attribute rows at once
-  (e.g. a Size row and a separate Gold Type row both apply), which price
-  wins is currently undefined — `ProductCustomize`'s "most specific wins"
-  tie-break only resolves the case where one row names *more* attributes
-  than another; two equally-specific rows (1 key each) that both match tie
-  arbitrarily by array order today. The correct fix when a *combination*
-  of attributes genuinely has its own price (e.g. "19-21 Inch + Rose Gold"
-  costs more than either alone) is a single row naming both attributes
-  together at the right price — that row already wins automatically today
-  since it's more specific. Proposed to the admin: also make the arbitrary
-  tie-break safer (prefer the higher-priced candidate over an
-  array-order-arbitrary pick, so an unresolved conflict never silently
-  undercharges) — awaiting their go-ahead before touching that logic.
-  Verified via `tsc`/lint/`vitest`/`next build` (all clean); the admin-form
-  click-through itself still relies on code review, same standing caveat
-  as every other admin-UI change this session (real Clerk auth, no
-  headless login path here).
-- **Three small but real PDP/bag/admin bugs, all from the same variant
-  rework** (2026-08-30, per the user):
-  1. **Customize chips no longer pre-select a default, and the dropdown
-     starts closed** — `ProductCustomize` defaulted every chip group to its
-     first value and rendered the disclosure open on load, so a visitor who
-     never touched it still silently had a variant "selected" underneath
-     them. Per the user: there's a real base product with no variant, and
-     that's the correct default until the customer actively opts in.
-     `selected` now starts `{}` (nothing chosen), `open` now starts `false`,
-     and tapping an already-selected chip again clears it back to nothing
-     (a real toggle, not a one-way radio) — `OptionGroup`'s `onChange` now
-     takes `string | undefined`. `activeVariant`'s matching already treated
-     a missing selection as "no match" for free (`values.includes(undefined
-     ?? "")` is always false), so the base product/base price falls out
-     correctly with zero chips picked.
-  2. **The bag was showing a variant's raw admin-typed `label` instead of
-     what was actually customized** — real, confirmed bug: one real variant
-     in the DB is literally labeled "Length" (an admin typo/category name,
-     not a value), and it rendered verbatim in the bag with no way for a
-     shopper to tell what it meant. `ProductCustomize` now reports the
-     customer's actual selected chip *values* alongside the matched variant
-     (`ProductCustomizeSelection = { variant, values }`) — independent of
-     which variant row(s) they came from, since Size and Gold Type can live
-     on entirely separate rows now. `CartLineItem`/`ProductLineItem`'s
-     `variantLabel?: string` renamed to `selectedOptions?: string[]`,
-     rendered in the bag joined as `"16 Inch | White Gold | 18k"`. The cart
-     line's own `id` is now keyed on the joined selected values instead of
-     a matched variant's label, so two different combinations always land
-     as distinct bag lines.
-  3. **Every attribute's value placeholder read "16 Inch," Gold Type
-     included** — new `VARIANT_ATTRIBUTE_VALUE_PLACEHOLDER` map
-     (`lib/product-attributes.ts`) gives each of the 8 known categories its
-     own real example (Gold Color → "Rose Gold", Gold Type → "18k",
-     Material → "Sterling Silver", Stone → "Diamond", etc.), keyed off
-     whichever category the admin actually picked for that attribute row.
-  Verified via `tsc`/lint/`vitest`/`next build` (all clean) plus a real
-  dev-server fetch of an actual live product (`emerald-cut-cuban-chain`) —
-  confirmed via its real DB row (`Size: ["16 Inch","18 Inch"], "Gold Type":
-  ["18k","14k"]`) that the admin has already been using the multi-value
-  editor from the previous fix in real use; the rendered PDP HTML shows
-  both chip groups with **no** chip carrying the active/selected class,
-  confirming nothing is pre-selected. Couldn't observe the closed-accordion
-  state itself over plain `curl` (it's animated in via a client-only
-  `useLayoutEffect`, so the collapse only happens after real JS hydration,
-  same as every other GSAP-driven disclosure here) or click through the
-  toggle-to-deselect/admin-form interactions live in this environment — the
-  chip-toggle and placeholder logic are verified by code review rather
-  than an actual click-test.
-- **A variant's attribute values are now a list, not a single string**
-  (2026-08-30, per the admin, correcting an earlier attempt that added a
-  separate "quickly add variants" section instead — per the admin, that
-  "made no sense": the fix belonged *inside* the existing variant card's
-  own Attributes editor, not bolted on top as a second UI) — confirmed the
-  real damage directly in the DB before fixing it: an existing variant row
-  had `attributes: { Size: "16 inch, 18 Inch" }`, the admin having typed
-  both values into the one text input the old form gave them since there
-  was no other way. Reworked what an attribute actually holds:
-  `productVariants.attributes` (`db/schema.ts`) is now
-  `Record<string, string[]>`, not `Record<string, string>` — one variant
-  card can hold every value it comes in for a given attribute (Size:
-  16/17/18/19 Inch), sharing that one card's own price override/
-  availability, exactly as the admin described. The per-variant Attributes
-  editor (`product-form.tsx`) now shows a repeatable value input per
-  attribute — a hugeicons `Add01Icon` "+" beside the last value adds
-  another input for that same attribute, a `Delete02Icon` removes one —
-  living directly under the category picker inside the same variant card,
-  not a separate section. `ProductCustomize` (the PDP's real chip UI)
-  updated to match: grouping now flattens every value across every
-  variant's arrays into that attribute's chip set (unchanged end result —
-  every value still becomes its own chip), and a variant now matches the
-  current chip selection when the selected value is *one of* its array for
-  each key it varies by, not the sole value. Ran a real one-time DB
-  migration converting the 2 existing variant rows' string values into
-  single-element arrays (splitting on comma first, which also retroactively
-  fixed the "16 inch, 18 Inch" row into its two real values). Purely a
-  data-shape and admin-UI change — `productInputSchema`'s top-level
-  `variants` field shape and the Server Action submission contract are
-  otherwise unchanged. Verified via `tsc`/lint/`vitest`/`next build` (all
-  clean) plus two real dev-server end-to-end checks against seeded data:
-  one variant row holding `Size: ["16 Inch","17 Inch","18 Inch","19 Inch"]`
-  renders as one "Size" section with 4 separate chips on the real PDP
-  HTML, and a second row holding `"Gold Color": ["Yellow Gold","White
-  Gold"]` renders as its own separate 2-chip section — confirmed by
-  fetching the actual rendered page, not just read from source. Couldn't
-  exercise the actual admin-form click-through in this environment (admin
-  routes sit behind real Clerk auth, no way to log in headlessly here), so
-  the form-side editing UI itself relies on code review rather than a live
-  click-test — flagged rather than silently assumed working.
+- **Product options & pricing, full rework — replaces "variants" entirely**
+  (2026-08-31, after several rounds with the admin working through "how
+  should this actually behave," landing on: what a shopper can pick from
+  (options) and what a specific combination costs (pricing) are two
+  separate things, and every combination needs exactly one unambiguous
+  place its price can live):
+  1. **The actual problem this solves**: the previous "variants" model let
+     the admin group values into rows and price each row — but two
+     separate single-attribute rows (a Size row, a Gold Type row) could
+     both match one shopper selection at once with no real way to say
+     which price should win (confirmed as a live gap, not hypothetical, via
+     the admin's own worked example: selecting a $2,200 size *and* a $4,500
+     gold type — which number is correct?). Also traced a second real bug
+     to its root while this was still the old model: an existing variant
+     row had `attributes: { Size: "16 inch, 18 Inch" }` — two values
+     crammed into one string because there was nowhere else to put a
+     second one.
+  2. **New shape**: `product_options` (new table, `db/schema.ts`) — one row
+     per attribute a product varies by, holding every value it comes in
+     (`{ key: "Size", values: ["16 Inch", "18 Inch"] }`), completely
+     separate from pricing. `product_variants` is now sparse — one row per
+     *complete* combination that costs or stocks differently from the base
+     product (`attributes: Record<string,string>`, one value per key, no
+     `label` column at all anymore — dropped for real this time via an
+     actual migration, not just hidden from the form). A combination with
+     no row simply uses the base price and is available by default.
+  3. **Why this actually removes the ambiguity, not just hides it**: every
+     row in the new `product_variants` always names a *complete*
+     combination, so a shopper's selection either finds its own exact row
+     or it doesn't — there's never a second, differently-scoped row that
+     could also apply. The admin form (`product-form.tsx`, fieldset
+     renamed "Options & pricing") generates every possible combination
+     across a product's options automatically (the Cartesian product) and
+     lists each one with an optional price override + availability toggle,
+     heavily explained inline (3-step plain-language walkthrough, live
+     base-price reference so "leave blank" has a concrete meaning). The
+     old per-variant manual escape hatch is gone entirely, per the admin:
+     "remove anything that doesn't align with this new matrix direction."
+  4. **A real migration, not just a data massage**: `db:generate` +
+     `db:migrate` ran against the actual Neon DB (new `product_options`
+     table, `label` column dropped from `product_variants`), followed by a
+     one-time backfill script expanding the 2 real existing variant rows'
+     old multi-value shape into the new model — extracting each product's
+     full option set and expanding each old row into every combination it
+     implied, all sharing that row's original price (a faithful
+     decomposition of what the old shape actually meant), then deleting
+     the old rows. No data lost; the "16 inch, 18 Inch" row's two values
+     are now two real, independently-addressable combinations.
+  5. **`ProductCustomize` (the PDP's chip UI)** now takes `options` (builds
+     the chip groups directly, in the admin's own order — no more "known
+     categories first" reshuffling) and `variants` (an exact lookup by
+     canonical combo signature, not a "most specific subset" search) as
+     two separate props. Chips still default to nothing selected, dropdown
+     still starts closed, tapping an active chip still deselects it — all
+     unchanged from the prior fix, just now backed by an unambiguous
+     matching rule instead of a heuristic one.
+  6. **Bag/cart-line customization display, admin value placeholders** —
+     both already fixed in the prior round and unaffected by this rework:
+     the bag shows the shopper's actual selected values joined as `"16
+     Inch | White Gold | 18k"` (`CartLineItem.selectedOptions`), and each
+     attribute category gets its own realistic placeholder example
+     (`VARIANT_ATTRIBUTE_VALUE_PLACEHOLDER`, `lib/product-attributes.ts`).
+  Verified via `tsc`/lint/`vitest`/`next build` (all clean) plus real
+  dev-server fetches of both actual live products post-migration: the
+  2-option product (`emerald-cut-cuban-chain`) renders "Size" and "Gold
+  Type" as separate chip sections sourced from the new `product_options`
+  table with nothing pre-selected, correct base price, video still intact;
+  the 1-option product (`22mm-cuban-chain-with-custom-clasp`) renders its
+  single "Size: 10mm" chip correctly (confirming the single-option case
+  degenerates cleanly, per the admin's own original question) and its
+  JSON-LD availability computes correctly against the new sparse model.
+  Couldn't exercise the actual admin-form click-through in this
+  environment (admin routes sit behind real Clerk auth, no way to log in
+  headlessly here) — the options/matrix editing UI itself relies on code
+  review rather than a live click-test.
 - **Product videos were being silently dropped everywhere, despite the
   admin genuinely accepting and storing them** (2026-08-30, per a user
   report: uploaded videos never showed up on the card, Shop's spotlight, or

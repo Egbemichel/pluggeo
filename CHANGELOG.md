@@ -6,14 +6,24 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
-### Removed (batch 72 — dropped the admin's unused variant "Label" field)
+### Changed (batch 73 — product options & pricing replace "variants" entirely)
 
-- The variant editor's "Label" field never showed up anywhere a shopper
-  could see, and a blank one used to silently drop the whole row on save.
-  Removed it from the form; a row now counts as real once it has at least
-  one attribute with at least one value. The DB column is still written
-  automatically (auto-derived from the row's attributes, e.g. "Size: 16
-  Inch, 17 Inch") since it can't be null, just no longer typed by hand.
+- The "variants" model let the admin group values into rows and price each
+  row, but two separate single-attribute rows (a Size row, a Gold Type row)
+  could both match one shopper's selection at once with no way to say which
+  price should win. Replaced it: the admin now defines *options* (what a
+  shopper can pick from, e.g. Size: 16/18 Inch) completely separately from
+  *pricing* (what a specific complete combination costs). Every possible
+  combination is generated automatically and listed with an optional price
+  override + availability toggle — leaving one blank means "same as the
+  base price." Every combination now has exactly one unambiguous place its
+  price can live.
+- New `product_options` table; `product_variants` is now sparse (only
+  combinations that actually cost or stock differently get a row) and its
+  `label` column is gone for real via a migration, not just hidden from the
+  form. Existing variant data migrated in place with no loss — the one row
+  that had `"16 inch, 18 Inch"` crammed into a single string is now two
+  real, independently-priceable combinations.
 
 ### Fixed (batch 71 — Customize defaults, bag customization display, admin placeholders)
 
@@ -31,17 +41,6 @@ All notable changes to this project are documented here, following
   Gold Type included. Each of the 8 known categories now gets its own real
   example placeholder.
 
-### Changed (batch 70 — a variant attribute now holds a list of values)
-
-- The admin's variant form only ever accepted one value per attribute, so
-  offering a product in several sizes had no real home for the extra values
-  (real DB evidence: an existing variant had `Size: "16 inch, 18 Inch"`
-  typed into one field). A variant's attribute now holds an array of
-  values directly in the same Attributes editor — a "+" beside the last
-  value input adds another one for that attribute, right inside the
-  existing variant card, sharing that card's price/availability. Every
-  value still becomes its own chip on the product page, grouped by
-  attribute, exactly as before. Existing variant data migrated in place.
 
 ### Fixed (batch 69 — product videos were silently dropped everywhere)
 

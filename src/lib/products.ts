@@ -1,7 +1,7 @@
 import { cache } from "react";
 import { asc, desc, eq, and, ne, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { products, productMedia, productVariants, categories } from "@/db/schema";
+import { products, productMedia, productVariants, productOptions, categories } from "@/db/schema";
 import type { MediaItem } from "@/lib/media";
 
 // Storefront-facing product queries — replaces the hardcoded placeholder
@@ -58,9 +58,17 @@ export type StorefrontProductDetail = {
   /** Always a real image, never a video — see `StorefrontProductCard.image`. */
   coverImage: { src: string; alt: string };
   images: MediaItem[];
+  /** What a shopper can pick from — one entry per attribute the admin
+   * defined, each with every value it comes in (e.g. `{ key: "Size",
+   * values: ["16 Inch", "17 Inch"] }`). Independent of pricing; see
+   * `variants` for what a specific complete combination actually costs. */
+  options: { key: string; values: string[] }[];
+  /** Sparse — only combinations that cost or stock differently from the
+   * base product get a row here. A combination with no matching row here
+   * uses this product's own `price` and is available by default; see
+   * `db/schema.ts`'s comment on `productVariants` for why. */
   variants: {
-    label: string;
-    attributes: Record<string, string[]>;
+    attributes: Record<string, string>;
     available: boolean;
     priceOverride: number | null;
   }[];
@@ -230,12 +238,17 @@ export const getProductDetailBySlug = cache(async function getProductDetailBySlu
 
   if (!row) return null;
 
-  const [mediaRows, variants] = await Promise.all([
+  const [mediaRows, options, variants] = await Promise.all([
     db
       .select()
       .from(productMedia)
       .where(eq(productMedia.productId, row.product.id))
       .orderBy(asc(productMedia.sortOrder)),
+    db
+      .select()
+      .from(productOptions)
+      .where(eq(productOptions.productId, row.product.id))
+      .orderBy(asc(productOptions.sortOrder)),
     db.select().from(productVariants).where(eq(productVariants.productId, row.product.id)),
   ]);
 
@@ -249,8 +262,8 @@ export const getProductDetailBySlug = cache(async function getProductDetailBySlu
     categoryId: row.product.categoryId,
     price: Number(row.product.price),
     compareAtPrice: row.product.compareAtPrice ? Number(row.product.compareAtPrice) : undefined,
+    options: options.map((o) => ({ key: o.key, values: o.values })),
     variants: variants.map((v) => ({
-      label: v.label,
       attributes: v.attributes,
       available: v.available,
       priceOverride: v.priceOverride != null ? Number(v.priceOverride) : null,

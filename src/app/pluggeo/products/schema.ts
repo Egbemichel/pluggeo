@@ -14,12 +14,21 @@ export const mediaItemSchema = z.object({
   altText: z.string().optional(),
 });
 
+// What a shopper can pick from for one attribute — e.g. `{ key: "Size",
+// values: ["16 Inch", "17 Inch", "18 Inch"] }`. See db/schema.ts's own
+// comment on `productOptions` for the full rework this belongs to.
+export const productOptionSchema = z.object({
+  key: z.string().min(1),
+  values: z.array(z.string().min(1)).min(1),
+});
+
+// One *complete* combination that costs or stocks differently from the
+// base product — no `label` (removed 2026-08-31; never shown to a shopper
+// anywhere, see db/schema.ts's own comment) and `attributes` is one value
+// per key, a genuinely complete combination, not a group of values sharing
+// one row.
 export const variantSchema = z.object({
-  label: z.string().min(1, "Variant label is required"),
-  // Each attribute holds every value this variant comes in (e.g. Size:
-  // ["16 Inch", "17 Inch", "18 Inch"]), not just one — see db/schema.ts's
-  // own comment on `productVariants.attributes`.
-  attributes: z.record(z.string(), z.array(z.string().min(1)).min(1)),
+  attributes: z.record(z.string(), z.string().min(1)),
   priceOverride: z.coerce.number().positive("Must be a positive number").optional(),
   available: z.boolean(),
 });
@@ -37,6 +46,7 @@ export const productInputSchema = z.object({
   status: z.enum(["draft", "published"]),
   featured: z.boolean(),
   media: z.array(mediaItemSchema),
+  options: z.array(productOptionSchema),
   variants: z.array(variantSchema),
 });
 

@@ -19,7 +19,7 @@ export default async function EditProductPage({
 
   if (!result) notFound();
 
-  const { product, media, variants } = result;
+  const { product, media, options, variants } = result;
 
   const initialValues: ProductFormInitialValues = {
     id: product.id,
@@ -32,10 +32,11 @@ export default async function EditProductPage({
     status: product.status,
     featured: product.featured,
     media: media.map((m) => ({ type: m.type, url: m.url, altText: m.altText ?? undefined })),
+    options: options.map((o) => ({ key: o.key, values: o.values })),
     variants: variants.map((v) => ({
+      attributes: v.attributes,
       priceOverride: v.priceOverride ?? "",
       available: v.available,
-      attributes: Object.entries(v.attributes).map(([key, values]) => ({ key, values })),
     })),
   };
 

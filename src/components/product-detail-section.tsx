@@ -9,7 +9,8 @@ import { AddToBagButton } from "@/components/ui/add-to-bag-button";
 import {
   ProductCustomize,
   type ProductCustomizeSelection,
-  type ProductVariantSummary,
+  type ProductOption,
+  type ProductVariantOverride,
 } from "@/components/product-customize";
 import { currency } from "@/components/product-card";
 import { useReveal } from "@/hooks/use-reveal";
@@ -52,9 +53,12 @@ export type ProductDetailSectionProps = {
   compareAtPrice?: number;
   isFromPrice?: boolean;
   description: string;
-  /** The product's real variants — see ProductCustomize's own comment for
-   * how these become chip groups. Empty array hides Customize entirely. */
-  variants: ProductVariantSummary[];
+  /** What a shopper can pick from — see ProductCustomize's own comment.
+   * Empty array hides Customize entirely. */
+  options: ProductOption[];
+  /** Sparse — only complete combinations that cost/stock differently from
+   * the base product. */
+  variants: ProductVariantOverride[];
 };
 
 export function ProductDetailSection({
@@ -67,13 +71,14 @@ export function ProductDetailSection({
   compareAtPrice,
   isFromPrice,
   description,
+  options,
   variants,
 }: ProductDetailSectionProps) {
   // The variant matching the customer's current chip selection, if any —
   // see ProductCustomize's file comment. `priceOverride` swaps in for the
   // base price and `available` disables Add to Bag, so selecting a variant
   // is no longer decorative.
-  const [activeVariant, setActiveVariant] = useState<ProductVariantSummary | null>(null);
+  const [activeVariant, setActiveVariant] = useState<ProductVariantOverride | null>(null);
   // The customer's actual selected chip values (e.g. ["16 Inch", "White
   // Gold"]), independent of which variant row(s) matched — this is what
   // the bag line item shows, not a variant's own admin-typed `label`
@@ -174,7 +179,7 @@ export function ProductDetailSection({
         </div>
 
         <div data-reveal-item>
-          <ProductCustomize variants={variants} onSelectionChange={handleCustomizeChange} />
+          <ProductCustomize options={options} variants={variants} onSelectionChange={handleCustomizeChange} />
         </div>
       </div>
     </div>

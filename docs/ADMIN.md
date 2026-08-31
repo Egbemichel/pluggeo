@@ -6,12 +6,20 @@ Still no roles/permissions system — every allowed email gets identical full ac
 
 ## What the admin manages
 
-- **Products** (built, 2026-08-29): create, edit, delete, publish/unpublish. Name, slug,
-  description, price, compare-at price, category, featured flag, variants (label,
-  price override, availability, and attributes picked from a fixed category list —
-  Size/Width/Length/Gold Color/Gold Type/Material/Chain Length/Stone, see
-  `src/lib/product-attributes.ts` — not free text, so the PDP's Customize section can
-  group every variant's values into clean, consistent chip rows), media.
+- **Products** (built, 2026-08-29; options & pricing reworked 2026-08-31): create,
+  edit, delete, publish/unpublish. Name, slug, description, price, compare-at price,
+  category, featured flag, media, and **options & pricing**: the admin defines
+  *options* — attributes picked from a fixed category list (Size/Width/Length/Gold
+  Color/Gold Type/Material/Chain Length/Stone, see `src/lib/product-attributes.ts` —
+  not free text, so the PDP's Customize section can group values into clean chip
+  rows) with every value each one comes in, completely separately from pricing.
+  Every possible combination across a product's options is generated automatically
+  in the form and listed with an optional price override + availability toggle —
+  leaving one blank means "same as the base price." This replaced an earlier
+  "variants" model where the admin manually grouped values into rows and picked a
+  price per row, which had no way to say which price should win when a shopper's
+  selection matched two different rows at once; every combination now has exactly
+  one place its price can live.
 - **Media**: image *and* video upload via Cloudinary (`next-cloudinary`'s
   `CldUploadWidget`, signed upload — see below), reorder/remove per product.
 - **Categories/collections** (built, 2026-08-29): name, slug, display order —
@@ -52,8 +60,9 @@ No order management — there's no checkout in scope (see [CLAUDE.md](../CLAUDE.
 - Product/category forms (`src/components/admin/product-form.tsx`,
   `category-form.tsx`) are plain HTML forms + Server Actions, not react-hook-form —
   the shadcn `form` primitive assumes it, which isn't part of this project's stack
-  (see `CLAUDE.md`'s locked data-fetching rules). Media/variants are replace-in-place
-  on every save (delete + re-insert), matching "send the whole current form state,"
+  (see `CLAUDE.md`'s locked data-fetching rules). Media/options/variants are
+  replace-in-place on every save (delete + re-insert), matching "send the whole
+  current form state,"
   not incremental diffing — fine for a single-admin CMS with no concurrent editors.
   Both forms validate client-side with the *same* zod schema the Server Action
   validates with (`src/app/pluggeo/products/schema.ts`,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import { Add01Icon, Delete02Icon } from "@hugeicons/core-free-icons";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
@@ -24,9 +24,10 @@ import { cn } from "@/lib/utils";
 // Plain HTML form + Server Actions, not react-hook-form — the shadcn `form`
 // primitive assumes react-hook-form, which isn't part of this project's
 // stack, and docs/API.md/CLAUDE.md already lock Server Actions as the
-// default data-mutation path. Replace-in-place for media/variants (the
-// Server Action deletes and re-inserts both on every save) matches this
-// form's own "send the whole current state" shape, not incremental diffing.
+// default data-mutation path. Replace-in-place for media/options/variants
+// (the Server Action deletes and re-inserts all three on every save)
+// matches this form's own "send the whole current state" shape, not
+// incremental diffing.
 //
 // UI/UX pass (2026-08-29), per the user asking for real form best
 // practices, not just a working form: auto-generated slug from the name
@@ -39,31 +40,26 @@ import { cn } from "@/lib/utils";
 // (proper semantic grouping, not just a styled heading), autofocus on the
 // first field, and a transient success message after an *edit* save
 // (create already redirects to the edit page, which is its own confirmation
-// that the save landed — a toast there would be redundant). Media/variants
-// validation errors surface as one summary line rather than granular
-// per-row messages — those are array-shaped errors zod's `flatten()`
-// doesn't map cleanly to a single field, and the one real failure mode
-// (a malformed price override) is already obvious from the row itself
-// once you look at it.
+// that the save landed — a toast there would be redundant).
+//
+// Options & pricing, full rework (2026-08-31, several rounds of "how should
+// this actually behave" with the admin) — replaces the old "Variants"
+// section entirely (per the admin: remove anything that doesn't fit the
+// new direction). The admin now defines *options* — what a shopper can
+// choose from, e.g. Size: 16/17/18 Inch — completely separately from
+// pricing. Every possible combination across all options is generated
+// automatically and listed below with its own optional price/availability;
+// leaving a combination blank means "same as the base price." This is what
+// actually removes the old ambiguity: there's no more manually deciding
+// which values to group into one row, and no more two separate rows both
+// matching one selection with no way to say which price should win —
+// every combination gets exactly one place to set its price, or none at
+// all if it doesn't need one.
 
 export type ProductCategory = { id: string; name: string };
 
-// `values` (plural) — one attribute row holds every value this variant
-// comes in (Size: 16/17/18/19 Inch), sharing this one row's own price
-// override/availability, not just a single value (2026-08-30, per the
-// admin). See db/schema.ts's own comment on `productVariants.attributes`.
-type VariantAttributeRow = { key: string; values: string[] };
-// No `label` field (2026-08-30, per the admin: it never showed up anywhere
-// a shopper could see, and a blank one used to silently drop the whole row
-// on save) — a row's DB `label` column still exists and still can't be
-// null, but it's now auto-derived from the row's own attributes right
-// before submit (`deriveVariantLabel`) rather than something the admin has
-// to type. See db/schema.ts's own comment on why the column stays.
-type VariantRow = {
-  priceOverride: string;
-  available: boolean;
-  attributes: VariantAttributeRow[];
-};
+type OptionRow = { key: string; values: string[] };
+type CombinationOverride = { priceOverride: string; available: boolean };
 
 export type ProductFormInitialValues = {
   id?: string;
@@ -76,7 +72,10 @@ export type ProductFormInitialValues = {
   status: "draft" | "published";
   featured: boolean;
   media: MediaItem[];
-  variants: VariantRow[];
+  options: OptionRow[];
+  /** Sparse — only combinations that cost or stock differently from the
+   * base product. */
+  variants: { attributes: Record<string, string>; priceOverride: string; available: boolean }[];
 };
 
 export const EMPTY_PRODUCT_FORM_VALUES: ProductFormInitialValues = {
@@ -89,6 +88,7 @@ export const EMPTY_PRODUCT_FORM_VALUES: ProductFormInitialValues = {
   status: "draft",
   featured: false,
   media: [],
+  options: [],
   variants: [],
 };
 
@@ -97,25 +97,45 @@ export type ProductFormProps = {
   initialValues: ProductFormInitialValues;
 };
 
-function unusedCategoryFor(attributes: VariantAttributeRow[], currentIndex: number): string {
-  const used = new Set(attributes.filter((_, i) => i !== currentIndex).map((a) => a.key));
+function unusedCategoryFor(rows: { key: string }[], currentIndex: number): string {
+  const used = new Set(rows.filter((_, i) => i !== currentIndex).map((r) => r.key));
   return VARIANT_ATTRIBUTE_CATEGORIES.find((c) => !used.has(c)) ?? "";
 }
 
-function emptyVariant(): VariantRow {
-  return { priceOverride: "", available: true, attributes: [{ key: "Size", values: [""] }] };
+// Canonical signature for one complete combination — sorted so the same
+// combination always produces the same key regardless of option order,
+// used both to look up an existing override and to key the submitted
+// `attributes` object the same way `ProductCustomize` does on the
+// storefront (see that file's own `comboKey`).
+function comboKeyFor(attributes: Record<string, string>): string {
+  return Object.entries(attributes)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, value]) => `${key}:${value}`)
+    .join("|");
 }
 
-// The DB's `label` column still can't be null (see db/schema.ts) but
-// nothing shopper-facing reads it anymore — this just gives it a real,
-// human-readable value for anyone glancing at the raw data later, built
-// from whatever the row actually holds instead of asking the admin to
-// type one.
-function deriveVariantLabel(attributes: VariantAttributeRow[]): string {
-  return attributes
-    .filter((a) => a.key.trim().length > 0 && a.values.some((v) => v.trim().length > 0))
-    .map((a) => `${a.key}: ${a.values.map((v) => v.trim()).filter(Boolean).join(", ")}`)
-    .join("; ");
+// Every possible combination across all options with real values — the
+// Cartesian product. A product with only one option (just Size) degenerates
+// to one combination per value, exactly the simple case; two options fan
+// out to every pairing.
+function combinationsFor(options: OptionRow[]): Record<string, string>[] {
+  const active = options
+    .filter((o) => o.key.trim().length > 0)
+    .map((o) => ({ key: o.key, values: o.values.map((v) => v.trim()).filter(Boolean) }))
+    .filter((o) => o.values.length > 0);
+
+  if (active.length === 0) return [];
+
+  return active.reduce<Record<string, string>[]>(
+    (combos, option) => {
+      const next: Record<string, string>[] = [];
+      for (const combo of combos) {
+        for (const value of option.values) next.push({ ...combo, [option.key]: value });
+      }
+      return next;
+    },
+    [{}]
+  );
 }
 
 function RequiredMark() {
@@ -148,7 +168,19 @@ export function ProductForm({ categories, initialValues }: ProductFormProps) {
   const [status, setStatus] = useState<"draft" | "published">(initialValues.status);
   const [featured, setFeatured] = useState(initialValues.featured);
   const [media, setMedia] = useState<MediaItem[]>(initialValues.media);
-  const [variants, setVariants] = useState<VariantRow[]>(initialValues.variants);
+  const [options, setOptions] = useState<OptionRow[]>(initialValues.options);
+  // Keyed by `comboKeyFor` so an override survives options being reordered
+  // or a new value being added elsewhere — only the exact combination it
+  // was set for ever looks it up again.
+  const [combinationOverrides, setCombinationOverrides] = useState<Record<string, CombinationOverride>>(
+    () => {
+      const map: Record<string, CombinationOverride> = {};
+      for (const v of initialValues.variants) {
+        map[comboKeyFor(v.attributes)] = { priceOverride: v.priceOverride, available: v.available };
+      }
+      return map;
+    }
+  );
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -164,85 +196,37 @@ export function ProductForm({ categories, initialValues }: ProductFormProps) {
     setSlugTouched(true);
   };
 
-  const addVariant = () => setVariants((prev) => [...prev, emptyVariant()]);
-  const removeVariant = (index: number) =>
-    setVariants((prev) => prev.filter((_, i) => i !== index));
-  const updateVariant = (index: number, patch: Partial<VariantRow>) =>
-    setVariants((prev) => prev.map((v, i) => (i === index ? { ...v, ...patch } : v)));
-  const addAttribute = (variantIndex: number) =>
-    setVariants((prev) =>
-      prev.map((v, i) =>
-        i === variantIndex
-          ? { ...v, attributes: [...v.attributes, { key: unusedCategoryFor(v.attributes, -1), values: [""] }] }
-          : v
+  const addOption = () =>
+    setOptions((prev) => [...prev, { key: unusedCategoryFor(prev, -1), values: [""] }]);
+  const removeOption = (index: number) => setOptions((prev) => prev.filter((_, i) => i !== index));
+  const updateOptionKey = (index: number, key: string) =>
+    setOptions((prev) => prev.map((o, i) => (i === index ? { ...o, key } : o)));
+  const addOptionValue = (index: number) =>
+    setOptions((prev) => prev.map((o, i) => (i === index ? { ...o, values: [...o.values, ""] } : o)));
+  const removeOptionValue = (index: number, valueIndex: number) =>
+    setOptions((prev) =>
+      prev.map((o, i) => (i === index ? { ...o, values: o.values.filter((_, vi) => vi !== valueIndex) } : o))
+    );
+  const updateOptionValue = (index: number, valueIndex: number, value: string) =>
+    setOptions((prev) =>
+      prev.map((o, i) =>
+        i === index ? { ...o, values: o.values.map((v, vi) => (vi === valueIndex ? value : v)) } : o
       )
     );
-  const removeAttribute = (variantIndex: number, attrIndex: number) =>
-    setVariants((prev) =>
-      prev.map((v, i) =>
-        i === variantIndex
-          ? { ...v, attributes: v.attributes.filter((_, ai) => ai !== attrIndex) }
-          : v
-      )
-    );
-  const updateAttributeKey = (variantIndex: number, attrIndex: number, key: string) =>
-    setVariants((prev) =>
-      prev.map((v, i) =>
-        i === variantIndex
-          ? { ...v, attributes: v.attributes.map((a, ai) => (ai === attrIndex ? { ...a, key } : a)) }
-          : v
-      )
-    );
-  // Adds another value input right after the last one for this attribute
-  // (2026-08-30, per the admin: clicking "+" beside Size's value field
-  // should add a second, third, fourth input for more sizes — not open a
-  // separate section) — this is the actual fix for the original complaint.
-  const addAttributeValue = (variantIndex: number, attrIndex: number) =>
-    setVariants((prev) =>
-      prev.map((v, i) =>
-        i === variantIndex
-          ? {
-              ...v,
-              attributes: v.attributes.map((a, ai) =>
-                ai === attrIndex ? { ...a, values: [...a.values, ""] } : a
-              ),
-            }
-          : v
-      )
-    );
-  const removeAttributeValue = (variantIndex: number, attrIndex: number, valueIndex: number) =>
-    setVariants((prev) =>
-      prev.map((v, i) =>
-        i === variantIndex
-          ? {
-              ...v,
-              attributes: v.attributes.map((a, ai) =>
-                ai === attrIndex ? { ...a, values: a.values.filter((_, vi) => vi !== valueIndex) } : a
-              ),
-            }
-          : v
-      )
-    );
-  const updateAttributeValue = (
-    variantIndex: number,
-    attrIndex: number,
-    valueIndex: number,
-    value: string
-  ) =>
-    setVariants((prev) =>
-      prev.map((v, i) =>
-        i === variantIndex
-          ? {
-              ...v,
-              attributes: v.attributes.map((a, ai) =>
-                ai === attrIndex
-                  ? { ...a, values: a.values.map((val, vi) => (vi === valueIndex ? value : val)) }
-                  : a
-              ),
-            }
-          : v
-      )
-    );
+
+  const combinations = useMemo(() => combinationsFor(options), [options]);
+
+  const updateCombination = (key: string, patch: Partial<CombinationOverride>) =>
+    setCombinationOverrides((prev) => {
+      const current = prev[key] ?? { priceOverride: "", available: true };
+      return { ...prev, [key]: { ...current, ...patch } };
+    });
+
+  const basePriceNumber = Number(price);
+  const basePriceDisplay =
+    price.trim() !== "" && Number.isFinite(basePriceNumber)
+      ? new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(basePriceNumber)
+      : null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -259,23 +243,23 @@ export function ProductForm({ categories, initialValues }: ProductFormProps) {
       status,
       featured,
       media: media.map((m) => ({ type: m.type, url: m.url, altText: m.altText })),
-      variants: variants
-        // A row is only real once it has at least one attribute with at
-        // least one value — that's the actual signal now, not a typed
-        // label (2026-08-30, per the admin: label never meant anything a
-        // shopper could see, and used to silently drop the whole row here
-        // if left blank).
-        .filter((v) => v.attributes.some((a) => a.key.trim() && a.values.some((val) => val.trim())))
-        .map((v) => ({
-          label: deriveVariantLabel(v.attributes),
-          attributes: Object.fromEntries(
-            v.attributes
-              .filter((a) => a.key.trim().length > 0)
-              .map((a) => [a.key, a.values.map((val) => val.trim()).filter(Boolean)])
-              .filter(([, values]) => (values as string[]).length > 0)
-          ),
-          priceOverride: v.priceOverride || undefined,
-          available: v.available,
+      options: options
+        .filter((o) => o.key.trim().length > 0 && o.values.some((v) => v.trim().length > 0))
+        .map((o) => ({ key: o.key, values: o.values.map((v) => v.trim()).filter(Boolean) })),
+      // Sparse on purpose — only a combination the admin actually gave a
+      // price to, or explicitly marked unavailable, becomes a real row.
+      // Everything else already means "same as the base price, in stock"
+      // without needing to say so.
+      variants: combinations
+        .map((attrs) => {
+          const override = combinationOverrides[comboKeyFor(attrs)];
+          return { attrs, override };
+        })
+        .filter(({ override }) => override && (override.priceOverride.trim() !== "" || !override.available))
+        .map(({ attrs, override }) => ({
+          attributes: attrs,
+          priceOverride: override!.priceOverride || undefined,
+          available: override!.available,
         })),
     };
 
@@ -287,8 +271,8 @@ export function ProductForm({ categories, initialValues }: ProductFormProps) {
         if (messages?.[0]) nextErrors[field] = messages[0];
       }
       setErrors(nextErrors);
-      if (nextErrors.media || nextErrors.variants) {
-        setFormError("Check the media/variants sections below — one of them isn't valid.");
+      if (nextErrors.media || nextErrors.options || nextErrors.variants) {
+        setFormError("Check the media/options sections below — one of them isn't valid.");
       }
       // Move focus to the first invalid field so a screen reader / keyboard
       // user lands exactly where the problem is, not just sees a banner.
@@ -480,161 +464,185 @@ export function ProductForm({ categories, initialValues }: ProductFormProps) {
         <MediaUpload items={media} onChange={setMedia} />
       </fieldset>
 
-      <fieldset className="flex flex-col gap-3 rounded-md border border-border bg-card px-4 py-5 sm:px-6">
-        <legend className="px-2 font-heading text-base font-semibold">Variants</legend>
+      <fieldset className="flex flex-col gap-4 rounded-md border border-border bg-card px-4 py-5 sm:px-6">
+        <legend className="px-2 font-heading text-base font-semibold">Options &amp; pricing</legend>
 
-        <div className="flex items-center justify-end">
-          <button
-            type="button"
-            onClick={addVariant}
-            className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-          >
-            <Icon icon={Add01Icon} size={16} />
-            Add variant
-          </button>
+        {/* Heavy, plain-language explainer, per the user: anyone uploading a
+            product should understand this immediately, not have to guess. */}
+        <div className="flex flex-col gap-1.5 rounded-md bg-muted/50 p-3 text-sm text-muted-foreground">
+          <p>
+            <strong className="text-foreground">1. Add an option</strong> for anything a shopper
+            picks — Size, Gold Type, Stone, etc. — and list every value it comes in.
+          </p>
+          <p>
+            <strong className="text-foreground">2. If you add more than one option</strong>, every
+            possible combination is generated below automatically — no need to build them by hand.
+          </p>
+          <p>
+            <strong className="text-foreground">3. Leave a combination&apos;s price blank</strong>{" "}
+            to use this product&apos;s own price{basePriceDisplay ? ` (${basePriceDisplay})` : ""} for
+            it. Only type a price if that exact combination should cost something different.
+            Uncheck &quot;Available&quot; for a combination you don&apos;t actually carry.
+          </p>
         </div>
 
-        {variants.length === 0 && (
-          <p className="text-sm text-muted-foreground">
-            No variants — this product has a single fixed price/attributes. Add a variant
-            for things like size, width, or gold color/type; each value becomes a chip on
-            the product page&apos;s Customize section.
-          </p>
-        )}
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <Label>Options</Label>
+            <button
+              type="button"
+              onClick={addOption}
+              className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+            >
+              <Icon icon={Add01Icon} size={16} />
+              Add option
+            </button>
+          </div>
 
-        {variants.map((variant, index) => (
-          <div key={index} className="flex flex-col gap-3 rounded-lg border border-border p-4">
-            <div className="flex items-start justify-between gap-4">
-              <div className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-2">
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor={`variant-${index}-price`}>Price override</Label>
-                  <div className="relative">
-                    <span className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-muted-foreground">
-                      $
-                    </span>
-                    <Input
-                      id={`variant-${index}-price`}
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={variant.priceOverride}
-                      onChange={(e) => updateVariant(index, { priceOverride: e.target.value })}
-                      className="pl-5.5"
-                    />
-                  </div>
-                </div>
-                <label className="flex items-center gap-2 pt-6 text-sm">
-                  <Checkbox
-                    checked={variant.available}
-                    onCheckedChange={(checked) => updateVariant(index, { available: checked === true })}
-                  />
-                  Available
-                </label>
+          {options.length === 0 && (
+            <p className="text-sm text-muted-foreground">
+              No options yet — this product has a single fixed price. Add one to offer choices
+              like size or gold type.
+            </p>
+          )}
+
+          {options.map((option, index) => (
+            <div key={index} className="flex flex-col gap-2 rounded-lg border border-border p-4">
+              <div className="flex items-center gap-2">
+                <Select
+                  value={option.key || undefined}
+                  onValueChange={(value) => updateOptionKey(index, value as string)}
+                >
+                  <SelectTrigger className="w-40 shrink-0">
+                    <SelectValue placeholder="Category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {VARIANT_ATTRIBUTE_CATEGORIES.filter(
+                      (c) => c === option.key || !options.some((o, i) => i !== index && o.key === c)
+                    ).map((category) => (
+                      <SelectItem key={category} value={category}>
+                        {category}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <button
+                  type="button"
+                  aria-label="Remove option"
+                  onClick={() => removeOption(index)}
+                  className="ml-auto flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                >
+                  <Icon icon={Delete02Icon} size={16} />
+                </button>
               </div>
-              <button
-                type="button"
-                aria-label="Remove variant"
-                onClick={() => removeVariant(index)}
-                className="mt-6 flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-              >
-                <Icon icon={Delete02Icon} size={16} />
-              </button>
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <Label>Attributes</Label>
-              <p className="text-xs text-muted-foreground">
-                Pick a category (Size, Width, Gold Color, ...), then list every value it
-                comes in — the + beside a value adds another one. Every value becomes its
-                own chip on the product page, sharing this variant&apos;s price/availability.
-              </p>
-              {variant.attributes.map((attr, attrIndex) => {
-                const options = VARIANT_ATTRIBUTE_CATEGORIES.filter(
-                  (c) => c === attr.key || !variant.attributes.some((a, i) => i !== attrIndex && a.key === c)
-                );
-                return (
-                  <div key={attrIndex} className="flex flex-col gap-2 rounded-md border border-border p-3">
-                    <div className="flex items-center gap-2">
-                      <Select
-                        value={attr.key || undefined}
-                        onValueChange={(value) => updateAttributeKey(index, attrIndex, value as string)}
-                      >
-                        <SelectTrigger className="w-40 shrink-0">
-                          <SelectValue placeholder="Category" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {options.map((option) => (
-                            <SelectItem key={option} value={option}>
-                              {option}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+              <div className="flex flex-wrap gap-2">
+                {option.values.map((value, valueIndex) => (
+                  <div key={valueIndex} className="flex items-center gap-1">
+                    <Input
+                      value={value}
+                      onChange={(e) => updateOptionValue(index, valueIndex, e.target.value)}
+                      placeholder={`e.g. ${VARIANT_ATTRIBUTE_VALUE_PLACEHOLDER[option.key as keyof typeof VARIANT_ATTRIBUTE_VALUE_PLACEHOLDER] ?? "value"}`}
+                      className="w-32"
+                    />
+                    {option.values.length > 1 && (
                       <button
                         type="button"
-                        aria-label="Remove attribute"
-                        onClick={() => removeAttribute(index, attrIndex)}
-                        className="ml-auto flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                        aria-label="Remove value"
+                        onClick={() => removeOptionValue(index, valueIndex)}
+                        className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
                       >
                         <Icon icon={Delete02Icon} size={14} />
                       </button>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {attr.values.map((value, valueIndex) => (
-                        <div key={valueIndex} className="flex items-center gap-1">
-                          <Input
-                            value={value}
-                            onChange={(e) => updateAttributeValue(index, attrIndex, valueIndex, e.target.value)}
-                            placeholder={`e.g. ${VARIANT_ATTRIBUTE_VALUE_PLACEHOLDER[attr.key as keyof typeof VARIANT_ATTRIBUTE_VALUE_PLACEHOLDER] ?? "value"}`}
-                            className="w-32"
-                          />
-                          {attr.values.length > 1 && (
-                            <button
-                              type="button"
-                              aria-label="Remove value"
-                              onClick={() => removeAttributeValue(index, attrIndex, valueIndex)}
-                              className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-                            >
-                              <Icon icon={Delete02Icon} size={14} />
-                            </button>
-                          )}
-                          {valueIndex === attr.values.length - 1 && (
-                            <button
-                              type="button"
-                              aria-label="Add another value"
-                              onClick={() => addAttributeValue(index, attrIndex)}
-                              className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-                            >
-                              <Icon icon={Add01Icon} size={14} />
-                            </button>
-                          )}
-                        </div>
-                      ))}
-                    </div>
+                    )}
+                    {valueIndex === option.values.length - 1 && (
+                      <button
+                        type="button"
+                        aria-label="Add another value"
+                        onClick={() => addOptionValue(index)}
+                        className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                      >
+                        <Icon icon={Add01Icon} size={14} />
+                      </button>
+                    )}
                   </div>
-                );
-              })}
-              <button
-                type="button"
-                disabled={unusedCategoryFor(variant.attributes, -1) === ""}
-                onClick={() => addAttribute(index)}
-                className={cn(
-                  "self-start text-xs text-muted-foreground hover:text-foreground",
-                  unusedCategoryFor(variant.attributes, -1) === "" && "cursor-not-allowed opacity-50"
-                )}
-              >
-                + Add attribute
-              </button>
+                ))}
+              </div>
             </div>
+          ))}
+        </div>
+
+        {combinations.length > 0 && (
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-1">
+              <Label>
+                Pricing for each combination ({combinations.length}
+                {combinations.length === 1 ? " combination" : " combinations"})
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Generated automatically from the options above — blank price = same as the base
+                price{basePriceDisplay ? ` (${basePriceDisplay})` : ""}.
+              </p>
+            </div>
+
+            {combinations.map((attrs) => {
+              const key = comboKeyFor(attrs);
+              const override = combinationOverrides[key] ?? { priceOverride: "", available: true };
+              return (
+                <div
+                  key={key}
+                  className="flex flex-col gap-3 rounded-md border border-border p-3 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {Object.entries(attrs).map(([attrKey, value]) => (
+                      <span
+                        key={attrKey}
+                        className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium whitespace-nowrap"
+                      >
+                        <span className="text-muted-foreground">{attrKey}: </span>
+                        {value}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="flex shrink-0 items-center gap-3">
+                    <div className="relative w-32">
+                      <span className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-xs text-muted-foreground">
+                        $
+                      </span>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={override.priceOverride}
+                        onChange={(e) => updateCombination(key, { priceOverride: e.target.value })}
+                        placeholder="Same as base"
+                        className="pl-5 text-sm"
+                      />
+                    </div>
+                    <label className="flex items-center gap-1.5 text-xs whitespace-nowrap">
+                      <Checkbox
+                        checked={override.available}
+                        onCheckedChange={(checked) =>
+                          updateCombination(key, { available: checked === true })
+                        }
+                      />
+                      Available
+                    </label>
+                  </div>
+                </div>
+              );
+            })}
           </div>
-        ))}
+        )}
       </fieldset>
 
       <div className="flex items-center gap-3">
         <button
           type="submit"
           disabled={isPending}
-          className="rounded-md bg-primary px-5 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+          className={cn(
+            "rounded-md bg-primary px-5 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90",
+            "disabled:opacity-50"
+          )}
         >
           {isPending ? "Saving..." : isEditing ? "Save changes" : "Create product"}
         </button>
