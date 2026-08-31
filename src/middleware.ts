@@ -59,24 +59,6 @@ async function handleStorefrontVisit(req: NextRequest): Promise<NextResponse> {
     return res;
   }
 
-  // TEMPORARY (2026-08-31): a real visit wasn't reaching Telegram even
-  // though the token/chat id work when called directly, and the old
-  // `catch {}` gave zero visibility into why. Visiting any page with
-  // `?pg-debug-telegram=1` short-circuits straight to a plain-text
-  // diagnostic response (no page render, bypasses the cookie gate) instead
-  // of a normal page load, so the actual result is readable directly — no
-  // devtools/header-inspection needed. Remove this whole block once the
-  // real cause is found and fixed.
-  if (req.nextUrl.searchParams.get("pg-debug-telegram") === "1") {
-    const result = await notifyVisitor({
-      ip: req.headers.get("cf-connecting-ip") ?? "unknown",
-      country: req.headers.get("cf-ipcountry") ?? "unknown",
-      userAgent: req.headers.get("user-agent") ?? "unknown",
-      path: req.nextUrl.pathname,
-    });
-    return NextResponse.json(result);
-  }
-
   const res = NextResponse.next();
 
   const shouldNotify =
