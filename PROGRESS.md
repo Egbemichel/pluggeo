@@ -82,10 +82,11 @@ genuinely filter) + grid/list toggle + pagination.
   competitor's grillz customizer — johnnydangandco.com — as "just a visual
   example," explicitly asking to keep this site's own Pill/chip/Customize-
   dropdown design rather than copy that reference's button-grid/checkbox
-  styling). Grillz needed a completely different attribute vocabulary (Top
-  Teeth Count, Bottom Teeth Count, Mold Kit, Perm Cuts, Deep Cuts, not
-  Size/Gold Type/Stone) and a different pricing shape than every other
-  category on the site.
+  styling). Grillz needed a completely different attribute vocabulary (Gold
+  Color, Design Type, Top Teeth Count, Bottom Teeth Count, Mold Kit, Perm
+  Cuts, Deep Cuts — Gold Color and Design Type added in a same-day follow-up
+  request, not part of the original list) and a different pricing shape
+  than every other category on the site.
   1. **Why the existing combination-pricing model doesn't fit**: Top Teeth
      Count alone can run 13 values, times 13 for Bottom Teeth Count, times
      up to several more for the 3 toggle-style options — the existing

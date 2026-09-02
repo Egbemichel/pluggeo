@@ -6,6 +6,13 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+### Added (batch 85 — Gold Color and Design Type added to Grillz's option list)
+
+- Grillz's Customize attribute set now also offers Gold Color and Design
+  Type, alongside Top Teeth Count/Bottom Teeth Count/Mold Kit/Perm Cuts/
+  Deep Cuts (`src/lib/product-attributes.ts`'s `GRILLZ_ATTRIBUTE_CATEGORIES`)
+  — an app-layer list, not a schema change, so nothing else needed updating.
+
 ### Added (batch 84 — Grillz customization options + additive per-value pricing)
 
 - Grillz products now get their own Customize attribute set (Top Teeth

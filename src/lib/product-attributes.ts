@@ -51,6 +51,8 @@ export const VARIANT_ATTRIBUTE_VALUE_PLACEHOLDER: Record<VariantAttributeCategor
 // (`"grillz"`), not its display name, so a future rename doesn't silently
 // break the switch.
 export const GRILLZ_ATTRIBUTE_CATEGORIES = [
+  "Gold Color",
+  "Design Type",
   "Top Teeth Count",
   "Bottom Teeth Count",
   "Mold Kit",
@@ -61,6 +63,8 @@ export const GRILLZ_ATTRIBUTE_CATEGORIES = [
 export type GrillzAttributeCategory = (typeof GRILLZ_ATTRIBUTE_CATEGORIES)[number];
 
 export const GRILLZ_ATTRIBUTE_VALUE_PLACEHOLDER: Record<GrillzAttributeCategory, string> = {
+  "Gold Color": "Rose Gold",
+  "Design Type": "Diamond Cut",
   "Top Teeth Count": "8",
   "Bottom Teeth Count": "8",
   "Mold Kit": "Yes",
