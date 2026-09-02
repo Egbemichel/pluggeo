@@ -132,6 +132,7 @@ export default async function ProductPage({
           title={product.title}
           price={product.price}
           compareAtPrice={product.compareAtPrice}
+          isFromPrice={product.categorySlug === "grillz"}
           description={product.description ?? "No description yet for this piece."}
           options={product.options}
           variants={product.variants}

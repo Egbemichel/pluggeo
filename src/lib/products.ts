@@ -10,13 +10,19 @@ import type { MediaItem } from "@/lib/media";
 // (see `StorefrontProductCard`, which matches `ProductCardProps` minus
 // `layout`) and the same "only published products" rule.
 //
-// `isFromPrice` is always `false` on `StorefrontProductCard` (list/grid
-// views) — computing a real variant price range would mean loading every
-// listed product's variants just to render a grid (against the
-// drizzle-schema skill's "no per-row queries in a loop" rule). The PDP
-// (`StorefrontProductDetail`) DOES load real variants now — see
-// `getProductDetailBySlug` — since that's a single-product query and
-// ProductCustomize needs them to render real chip groups.
+// `isFromPrice` is `true` only for Grillz products, both on
+// `StorefrontProductCard` (list/grid views) and `StorefrontProductDetail`
+// (the PDP) — a plain category-slug check (`categorySlug === "grillz"`),
+// not a real variant price range, so this never means loading every listed
+// product's variants just to render a grid (against the drizzle-schema
+// skill's "no per-row queries in a loop" rule). It's correct specifically
+// because Grillz's own price *is* a per-tooth rate (2026-09-02, per the
+// owner: "$1,200" is 1 tooth, doubling at "2," tripling at "3," and so on
+// across Top + Bottom Teeth Count combined — see `ProductCustomize`'s own
+// file comment for the actual math) — the admin-entered price is always
+// the true minimum a Grillz product can cost, exactly what "From" promises.
+// No other category's price varies this way, so every other product stays
+// a flat, unprefixed price.
 
 const PLACEHOLDER_IMAGE: MediaItem = {
   type: "image",
@@ -52,6 +58,10 @@ export type StorefrontProductDetail = {
   title: string;
   category: string;
   categoryId: string | null;
+  /** Category slug, matched against `"grillz"` (not `category`'s display
+   * name) so a future rename can't silently break which products get the
+   * "From" price prefix — see `isFromPrice` on `StorefrontProductCard`. */
+  categorySlug: string | null;
   price: number;
   compareAtPrice?: number;
   description: string | null;
@@ -194,7 +204,7 @@ function toCard(
     title: product.name,
     price: Number(product.price),
     compareAtPrice: product.compareAtPrice ? Number(product.compareAtPrice) : undefined,
-    isFromPrice: false,
+    isFromPrice: categorySlug === "grillz",
   };
 }
 
@@ -312,6 +322,7 @@ export const getProductDetailBySlug = cache(async function getProductDetailBySlu
     title: row.product.name,
     category: row.categoryName ?? "pluggeo&co",
     categoryId: row.product.categoryId,
+    categorySlug: row.categorySlug,
     price: Number(row.product.price),
     compareAtPrice: row.product.compareAtPrice ? Number(row.product.compareAtPrice) : undefined,
     options: options.map((o) => ({ key: o.key, values: o.values, valuePriceDeltas: o.valuePriceDeltas })),

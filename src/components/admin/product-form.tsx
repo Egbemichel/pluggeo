@@ -24,6 +24,7 @@ import {
   VARIANT_ATTRIBUTE_VALUE_PLACEHOLDER,
   GRILLZ_ATTRIBUTE_CATEGORIES,
   GRILLZ_ATTRIBUTE_VALUE_PLACEHOLDER,
+  GRILLZ_PER_TOOTH_OPTION_KEYS,
 } from "@/lib/product-attributes";
 import { slugify } from "@/lib/slugify";
 import { useFormDraft, clearFormDraft } from "@/lib/use-form-draft";
@@ -141,6 +142,15 @@ function unusedCategoryFor(
 ): string {
   const used = new Set(rows.filter((_, i) => i !== currentIndex).map((r) => r.key));
   return attributeCategories.find((c) => !used.has(c)) ?? "";
+}
+
+// Top/Bottom Teeth Count don't get a manual $ add-on input — their price is
+// derived automatically (base price × tooth count, see
+// `GRILLZ_PER_TOOTH_OPTION_KEYS`'s own comment and `ProductCustomize`'s file
+// comment for the storefront math), so there's nothing for the admin to
+// type here.
+function isPerToothOptionKey(key: string): boolean {
+  return (GRILLZ_PER_TOOTH_OPTION_KEYS as readonly string[]).includes(key);
 }
 
 // Canonical signature for one complete combination — sorted so the same
@@ -678,20 +688,23 @@ export function ProductForm({ categories, initialValues }: ProductFormProps) {
         {isGrillzCategory ? (
           <div className="flex flex-col gap-1.5 rounded-md bg-muted/50 p-3 text-sm text-muted-foreground">
             <p>
-              <strong className="text-foreground">1. Add an option</strong> — Top Teeth Count,
-              Bottom Teeth Count, Mold Kit, Perm Cuts, or Deep Cuts — and list every value it
-              comes in (e.g. Top Teeth Count: 6, 8, 10, 12).
+              <strong className="text-foreground">1. Add an option</strong> — Gold Color, Design
+              Type, Top Teeth Count, Bottom Teeth Count, Mold Kit, Perm Cuts, or Deep Cuts — and
+              list every value it comes in (e.g. Top Teeth Count: 6, 8, 10, 12).
             </p>
             <p>
-              <strong className="text-foreground">2. Give a value its own price</strong> in the $
-              box right next to it. Leave it blank for no extra charge.
+              <strong className="text-foreground">2. Top &amp; Bottom Teeth Count price
+              themselves</strong> — this product&apos;s own price{basePriceDisplay ? ` (${basePriceDisplay})` : ""}{" "}
+              is the price of a single tooth. Picking &quot;1&quot; leaves the price unchanged,
+              &quot;2&quot; doubles it, &quot;3&quot; triples it, and so on — no $ box to fill in
+              for these two.
             </p>
             <p>
-              <strong className="text-foreground">3. Every selected value&apos;s price adds
-              together</strong> on top of this product&apos;s own price
-              {basePriceDisplay ? ` (${basePriceDisplay})` : ""} — e.g. picking an 8-tooth top
-              and a 6-tooth bottom adds both prices at once. There&apos;s no combination table
-              to fill in for Grillz.
+              <strong className="text-foreground">3. Every other option gets its own $ add-on</strong>{" "}
+              in the box next to each value (leave it blank for no extra charge) — Gold Color,
+              Design Type, Mold Kit, Perm Cuts, and Deep Cuts all work this way. Every selected
+              value&apos;s add-on sums together on top of the teeth-count price. There&apos;s no
+              combination table to fill in for Grillz.
             </p>
           </div>
         ) : (
@@ -762,6 +775,13 @@ export function ProductForm({ categories, initialValues }: ProductFormProps) {
                   <Icon icon={Delete02Icon} size={16} />
                 </button>
               </div>
+              {isGrillzCategory && isPerToothOptionKey(option.key) && (
+                <p className="text-xs text-muted-foreground">
+                  Priced automatically — each value is a tooth count, and the price adds this
+                  product&apos;s own price{basePriceDisplay ? ` (${basePriceDisplay})` : ""} once per
+                  tooth. No $ add-on to type here.
+                </p>
+              )}
               <div className="flex flex-wrap gap-2">
                 {option.values.map((value, valueIndex) => (
                   <div key={valueIndex} className="flex items-center gap-1">
@@ -771,7 +791,7 @@ export function ProductForm({ categories, initialValues }: ProductFormProps) {
                       placeholder={`e.g. ${valuePlaceholders[option.key] ?? "value"}`}
                       className="w-32"
                     />
-                    {isGrillzCategory && (
+                    {isGrillzCategory && !isPerToothOptionKey(option.key) && (
                       <div className="relative w-24 shrink-0">
                         <span className="pointer-events-none absolute top-1/2 left-2 -translate-y-1/2 text-xs text-muted-foreground">
                           $

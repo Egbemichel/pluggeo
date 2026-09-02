@@ -77,6 +77,56 @@ genuinely filter) + grid/list toggle + pagination.
 
 ## Resolved decisions
 
+- **Grillz's Top/Bottom Teeth Count now price by multiplying the base
+  price, not a manual $ add-on — and Grillz product cards/PDP always show
+  "From"** (2026-09-02, per the owner, a follow-up to the entry directly
+  below: the admin-entered price *is* a single tooth's price — selecting
+  "1" leaves it unchanged, "2" doubles it, "3" triples it, adding together
+  across Top + Bottom Teeth Count).
+  1. **The math**: `ProductCustomize`'s `additionalPrice` now computes
+     `totalTeeth` (parsed from the selected Top/Bottom Teeth Count values,
+     summed) and adds `price * (totalTeeth - 1)` on top of the base
+     price when `totalTeeth > 0` — the base price already covers the first
+     tooth, so only teeth beyond that add on. Every other Grillz option
+     (Mold Kit, Perm Cuts, Deep Cuts, Gold Color, Design Type) is
+     unaffected — still a flat, admin-entered `valuePriceDeltas` add-on
+     summed on top, exactly as before. New shared
+     `GRILLZ_PER_TOOTH_OPTION_KEYS` (`lib/product-attributes.ts`) names
+     which two keys use the multiplicative path, so the admin form and the
+     storefront can never disagree on which options mean "a tooth count."
+  2. **Admin form**: the manual "$ Add-on" input no longer renders for Top/
+     Bottom Teeth Count rows (there's nothing to type — the price is
+     derived), replaced by a small explanatory line ("Priced automatically
+     — each value is a tooth count..."); every other Grillz option keeps
+     its $ input unchanged. The Grillz explainer block was rewritten to a
+     3-step version distinguishing "these two price themselves" from
+     "everything else gets its own $ add-on."
+  3. **Storefront**: `OptionGroup` (PDP chip UI) shows a single explanatory
+     hint under the Top/Bottom Teeth Count label ("$1,200 per tooth")
+     instead of a per-chip "+$X" (which doesn't make sense once a value's
+     price depends on the base price, not a fixed number) — every other
+     option's per-chip "+$X" hint is unchanged.
+  4. **"From" price on Grillz product cards and the PDP** — since a
+     Grillz product's real price is inherently variable (it scales with
+     however many teeth a shopper picks), `StorefrontProductCard.isFromPrice`
+     (`lib/products.ts`'s `toCard`) is now `categorySlug === "grillz"`
+     instead of always `false`; `StorefrontProductDetail` gained a
+     `categorySlug` field so the PDP (`product/[slug]/page.tsx`) can do the
+     same check and pass `isFromPrice` into `ProductDetailSection`, which
+     already had all the "From "-prefix plumbing built (from the earlier
+     options/pricing rework) but nothing had ever actually passed it `true`
+     until now. Both are plain category-slug checks, not a real variant
+     price-range computation, so this doesn't add a per-row query to any
+     catalog grid (drizzle-schema skill's "no per-row queries in a loop"
+     rule) — `categorySlug` was already selected on every product-card
+     query. "From" correctly disappears the moment a shopper's selection
+     makes the price no longer the base price (`isBasePrice` flipping to
+     `false`), on both the card-driven bag flow and the PDP.
+  Verified via `tsc`/eslint/`vitest`/`next build` (all clean). Same standing
+  limitation as every other admin/PDP UI change this session — no
+  authenticated browser session available here to click through the actual
+  chip-selection math live; relies on code review of the formula plus the
+  already-proven "From "-prefix plumbing from the prior pricing rework.
 - **Grillz gets its own Customize options and a second, additive pricing
   model** (2026-08-31, per the owner: updated requirements, referencing a
   competitor's grillz customizer — johnnydangandco.com — as "just a visual

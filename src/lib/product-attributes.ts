@@ -71,3 +71,18 @@ export const GRILLZ_ATTRIBUTE_VALUE_PLACEHOLDER: Record<GrillzAttributeCategory,
   "Perm Cuts": "Yes",
   "Deep Cuts": "Yes",
 };
+
+// Top/Bottom Teeth Count are priced as "$ per tooth," not a flat
+// admin-entered add-on per value like Mold Kit/Perm Cuts/Deep Cuts/Gold
+// Color/Design Type (2026-09-02, per the owner: a Grillz product's own
+// price *is* the price of one tooth — picking "1" leaves the price
+// unchanged, picking "2" doubles it, "3" triples it, and so on, added
+// across both groups). Shared between the admin form (hides the manual $
+// add-on input for these two keys, since their price is derived instead
+// of entered) and the storefront's `ProductCustomize` (does the actual
+// multiplication) so the two can never disagree on which keys mean "a
+// tooth count."
+export const GRILLZ_PER_TOOTH_OPTION_KEYS: readonly GrillzAttributeCategory[] = [
+  "Top Teeth Count",
+  "Bottom Teeth Count",
+];

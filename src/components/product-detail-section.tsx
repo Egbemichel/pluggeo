@@ -194,7 +194,12 @@ export function ProductDetailSection({
         </div>
 
         <div data-reveal-item>
-          <ProductCustomize options={options} variants={variants} onSelectionChange={handleCustomizeChange} />
+          <ProductCustomize
+            options={options}
+            variants={variants}
+            price={price}
+            onSelectionChange={handleCustomizeChange}
+          />
         </div>
       </div>
     </div>

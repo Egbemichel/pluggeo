@@ -7,6 +7,7 @@ import { Pill } from "@/components/ui/pill";
 import { Divider } from "@/components/ui/divider";
 import { useAccordion } from "@/hooks/use-accordion";
 import { currency } from "@/components/product-card";
+import { GRILLZ_PER_TOOTH_OPTION_KEYS } from "@/lib/product-attributes";
 import { cn } from "@/lib/utils";
 
 // PDP's variant-selector section, sitting directly under "Add to bag" — built
@@ -36,6 +37,14 @@ import { cn } from "@/lib/utils";
 // user): there's a real base product with no customization chosen, and
 // that's the correct starting state, not every group defaulting to its
 // first value. Tapping an already-selected chip clears it back to nothing.
+//
+// Grillz's Top/Bottom Teeth Count price by multiplying the base price
+// instead of `valuePriceDeltas` (2026-09-02, per the owner: a Grillz
+// product's own price *is* one tooth's price — see `GRILLZ_PER_TOOTH_
+// OPTION_KEYS`'s comment and `additionalPrice`'s `totalTeeth` calculation
+// below). Every other option (Mold Kit, Perm Cuts, Deep Cuts, Gold Color,
+// Design Type, and every jewelry option) is unaffected — still a flat
+// per-value add-on, or an exact-combination `variants` override.
 
 export type ProductOption = {
   key: string;
@@ -59,11 +68,18 @@ function comboKey(attributes: Record<string, string>): string {
     .join("|");
 }
 
+// Top/Bottom Teeth Count price by multiplying the base price instead of a
+// per-value add-on — see `GRILLZ_PER_TOOTH_OPTION_KEYS`'s own comment.
+function isPerToothOption(key: string): boolean {
+  return (GRILLZ_PER_TOOTH_OPTION_KEYS as readonly string[]).includes(key);
+}
+
 function OptionGroup({
   label,
   options,
   value,
   priceDeltas,
+  hint,
   onChange,
 }: {
   label: string;
@@ -73,10 +89,18 @@ function OptionGroup({
   value: string | undefined;
   /** Per-value price add-on shown as a small hint under a chip's label when
    * non-zero, so the cost of a choice is visible before picking it, not
-   * just after (e.g. Grillz's "how many top teeth" — see db/schema.ts's
-   * `productOptions.valuePriceDeltas`). Empty object for an option that
-   * doesn't use this pricing path — every chip renders exactly as before. */
+   * just after (e.g. Grillz's Mold Kit/Perm Cuts/Deep Cuts/Gold Color/
+   * Design Type — see db/schema.ts's `productOptions.valuePriceDeltas`).
+   * Empty for a per-tooth group (its price isn't a fixed per-value number,
+   * see `hint` below) or an option that doesn't use this pricing path at
+   * all — every chip renders exactly as before either way. */
   priceDeltas: Record<string, number>;
+  /** A single explanatory line under the group's own label instead of a
+   * per-chip price — used for Top/Bottom Teeth Count ("$1,200 per tooth"),
+   * since every chip in that group shares the same per-tooth rate rather
+   * than each carrying its own independent add-on. `undefined` for every
+   * other group. */
+  hint?: string;
   /** Tapping the already-selected chip again clears the selection back to
    * nothing, same as tapping any other chip selects it — a real toggle,
    * not a one-way radio group. */
@@ -84,7 +108,10 @@ function OptionGroup({
 }) {
   return (
     <div className="flex flex-col gap-(--space-4)">
-      <h4 className="text-h6 font-heading font-bold text-text-primary">{label}</h4>
+      <div className="flex flex-col gap-(--space-1)">
+        <h4 className="text-h6 font-heading font-bold text-text-primary">{label}</h4>
+        {hint && <p className="text-caption font-sans font-light text-text-secondary">{hint}</p>}
+      </div>
       <div className="flex flex-wrap gap-(--space-4)">
         {options.map((option) => {
           const delta = priceDeltas[option];
@@ -138,13 +165,17 @@ export type ProductCustomizeSelection = {
 export type ProductCustomizeProps = {
   options: ProductOption[];
   variants: ProductVariantOverride[];
+  /** The product's own base price — used as the per-tooth rate for
+   * Top/Bottom Teeth Count (see `GRILLZ_PER_TOOTH_OPTION_KEYS`). Unused
+   * for a product with no per-tooth options. */
+  price: number;
   className?: string;
   /** Called whenever the current chip selection changes — see
    * `ProductCustomizeSelection`. */
   onSelectionChange?: (selection: ProductCustomizeSelection) => void;
 };
 
-export function ProductCustomize({ options, variants, className, onSelectionChange }: ProductCustomizeProps) {
+export function ProductCustomize({ options, variants, price, className, onSelectionChange }: ProductCustomizeProps) {
   // Nothing selected by default — see file comment.
   const [selected, setSelected] = useState<Record<string, string | undefined>>({});
   // Closed by default (same reasoning) — it's the customer choosing to
@@ -176,14 +207,35 @@ export function ProductCustomize({ options, variants, className, onSelectionChan
     [options, selected]
   );
 
-  const additionalPrice = useMemo(
+  // Total teeth picked across Top + Bottom Teeth Count combined — the base
+  // price is one tooth's price, so the first tooth is already paid for by
+  // `price` itself; only teeth beyond that first one add on top (picking
+  // "1" alone leaves the price unchanged, "2" doubles it, and a top pick
+  // plus a bottom pick add together the same way). Values are plain digit
+  // strings (see `GRILLZ_ATTRIBUTE_VALUE_PLACEHOLDER`), not something a
+  // shopper types, so `parseInt` is safe; a non-numeric value (shouldn't
+  // happen) contributes 0 rather than corrupting the total with `NaN`.
+  const totalTeeth = useMemo(
     () =>
       options.reduce((sum, option) => {
+        if (!isPerToothOption(option.key)) return sum;
         const value = selected[option.key];
-        return value ? sum + (option.valuePriceDeltas[value] ?? 0) : sum;
+        if (!value) return sum;
+        const count = parseInt(value, 10);
+        return sum + (Number.isFinite(count) ? count : 0);
       }, 0),
     [options, selected]
   );
+
+  const additionalPrice = useMemo(() => {
+    const teethPrice = totalTeeth > 0 ? price * (totalTeeth - 1) : 0;
+    const otherPrice = options.reduce((sum, option) => {
+      if (isPerToothOption(option.key)) return sum;
+      const value = selected[option.key];
+      return value ? sum + (option.valuePriceDeltas[value] ?? 0) : sum;
+    }, 0);
+    return teethPrice + otherPrice;
+  }, [options, selected, totalTeeth, price]);
 
   useEffect(() => {
     onSelectionChange?.({ variant: activeVariant, values: selectedValues, additionalPrice });
@@ -215,6 +267,7 @@ export function ProductCustomize({ options, variants, className, onSelectionChan
           options={firstGroup.values}
           value={selected[firstGroup.key]}
           priceDeltas={firstGroup.valuePriceDeltas}
+          hint={isPerToothOption(firstGroup.key) ? `${currency.format(price)} per tooth` : undefined}
           onChange={(value) => setSelected((prev) => ({ ...prev, [firstGroup.key]: value }))}
         />
 
@@ -228,6 +281,7 @@ export function ProductCustomize({ options, variants, className, onSelectionChan
                   options={group.values}
                   value={selected[group.key]}
                   priceDeltas={group.valuePriceDeltas}
+                  hint={isPerToothOption(group.key) ? `${currency.format(price)} per tooth` : undefined}
                   onChange={(value) => setSelected((prev) => ({ ...prev, [group.key]: value }))}
                 />
               </div>

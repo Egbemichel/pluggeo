@@ -6,6 +6,24 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+### Changed (batch 86 — Grillz Top/Bottom Teeth Count price per tooth; Grillz cards/PDP show "From")
+
+- Top/Bottom Teeth Count now multiply the base price instead of using a
+  manual $ add-on: the admin-entered price is one tooth's price, so
+  picking "1" leaves it unchanged, "2" doubles it, "3" triples it, adding
+  together across both groups (`ProductCustomize`'s `additionalPrice`).
+  Every other Grillz option (Mold Kit, Perm Cuts, Deep Cuts, Gold Color,
+  Design Type) is unaffected. New `GRILLZ_PER_TOOTH_OPTION_KEYS`
+  (`lib/product-attributes.ts`) names the two affected keys.
+- Admin form no longer shows a $ add-on input for these two option rows
+  (nothing to type — the price is derived); the Grillz explainer copy and
+  storefront chip UI both updated to explain the new per-tooth pricing.
+- Grillz product cards and the PDP now always show "From " before the
+  price (`StorefrontProductCard.isFromPrice`/`StorefrontProductDetail.
+  categorySlug`, both a plain category-slug check) — a Grillz product's
+  real price is inherently variable, so the admin-entered price is always
+  the true floor, not a fixed price.
+
 ### Added (batch 85 — Gold Color and Design Type added to Grillz's option list)
 
 - Grillz's Customize attribute set now also offers Gold Color and Design
