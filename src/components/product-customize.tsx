@@ -33,10 +33,17 @@ import { cn } from "@/lib/utils";
 // price should win. Now there's only ever one row per complete combination,
 // so a selection either finds its own row or it doesn't — no competition.
 //
-// Nothing selected and the dropdown closed by default (2026-08-30, per the
-// user): there's a real base product with no customization chosen, and
-// that's the correct starting state, not every group defaulting to its
-// first value. Tapping an already-selected chip clears it back to nothing.
+// Nothing selected by default (2026-08-30, per the user): there's a real
+// base product with no customization chosen, and that's the correct
+// starting state, not every group defaulting to its first value. Tapping
+// an already-selected chip clears it back to nothing.
+//
+// The dropdown itself now starts OPEN (2026-09-02, per the owner —
+// reversing the 2026-08-30 "closed by default" decision above: he wants
+// Customize visible immediately, not one extra tap away, only collapsing
+// when a shopper actually clicks the toggle). Still just the starting
+// `useState` value, not force-open — a shopper can still collapse it, and
+// it stays collapsed if they do (no scroll/selection re-opens it).
 //
 // Grillz's Top/Bottom Teeth Count price by multiplying the base price
 // instead of `valuePriceDeltas` (2026-09-02, per the owner: a Grillz
@@ -178,9 +185,10 @@ export type ProductCustomizeProps = {
 export function ProductCustomize({ options, variants, price, className, onSelectionChange }: ProductCustomizeProps) {
   // Nothing selected by default — see file comment.
   const [selected, setSelected] = useState<Record<string, string | undefined>>({});
-  // Closed by default (same reasoning) — it's the customer choosing to
-  // customize that opens this, not every PDP visit.
-  const [open, setOpen] = useState(false);
+  // Open by default (2026-09-02, per the owner — see file comment); a
+  // shopper can still collapse it via the toggle, which stays collapsed
+  // until they tap it again.
+  const [open, setOpen] = useState(true);
   const contentRef = useAccordion<HTMLDivElement>(open);
 
   const variantsByCombo = useMemo(() => {

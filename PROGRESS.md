@@ -77,6 +77,17 @@ genuinely filter) + grid/list toggle + pagination.
 
 ## Resolved decisions
 
+- **PDP's Customize dropdown now starts open, not closed** (2026-09-02, per
+  the owner — reverses the 2026-08-30 "closed by default" decision further
+  down this file). `ProductCustomize`'s `open` state now initializes
+  `true` instead of `false`; `useAccordion`'s existing first-render branch
+  already handles an initially-open accordion correctly (sets height:
+  "auto"/opacity: 1 with no animation on mount, only animates on a later
+  toggle), so no hook changes were needed. Still a real, working toggle —
+  a shopper can collapse it, and it stays collapsed until they tap it
+  again; applies to every product with any options, jewelry and Grillz
+  alike, not just Grillz. Verified via `tsc`/eslint/`vitest`/`next build`
+  (all clean).
 - **Grillz's Top/Bottom Teeth Count now price by multiplying the base
   price, not a manual $ add-on — and Grillz product cards/PDP always show
   "From"** (2026-09-02, per the owner, a follow-up to the entry directly

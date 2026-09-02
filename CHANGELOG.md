@@ -6,6 +6,13 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+### Changed (batch 88 — PDP's Customize dropdown now starts open)
+
+- Reversed the earlier "closed by default" decision — the PDP's Customize
+  disclosure (`ProductCustomize`) now starts open on every product, per
+  the owner. Still a real toggle: a shopper can collapse it, and it stays
+  collapsed until they tap it again.
+
 ### Fixed (batch 87 — "From $X" price overlapping the add-to-bag icon)
 
 - Grillz's new "From " price prefix (batch 86) made `ProductCard`'s price
