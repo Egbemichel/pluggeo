@@ -6,6 +6,19 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+### Fixed (batch 87 — "From $X" price overlapping the add-to-bag icon)
+
+- Grillz's new "From " price prefix (batch 86) made `ProductCard`'s price
+  string long enough to overflow its flex column and visually collide with
+  the add-to-bag icon next to it — the whole "From $1,200.00" string lived
+  in one `whitespace-nowrap` span, which can only overflow past its box,
+  never wrap. Split "From" into its own span, sibling to the amount's
+  span, inside the same `flex-wrap` price row that already wraps a
+  compare-at price to its own line — now the amount drops below "From"
+  instead of overlapping the icon when space is tight. Applied the same
+  fix to `ProductSpotlight` (Shop's list-layout featured product), which
+  has the identical pattern next to its own button column.
+
 ### Changed (batch 86 — Grillz Top/Bottom Teeth Count price per tooth; Grillz cards/PDP show "From")
 
 - Top/Bottom Teeth Count now multiply the base price instead of using a

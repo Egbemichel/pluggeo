@@ -122,11 +122,27 @@ genuinely filter) + grid/list toggle + pagination.
      query. "From" correctly disappears the moment a shopper's selection
      makes the price no longer the base price (`isBasePrice` flipping to
      `false`), on both the card-driven bag flow and the PDP.
-  Verified via `tsc`/eslint/`vitest`/`next build` (all clean). Same standing
-  limitation as every other admin/PDP UI change this session — no
-  authenticated browser session available here to click through the actual
-  chip-selection math live; relies on code review of the formula plus the
-  already-proven "From "-prefix plumbing from the prior pricing rework.
+  5. **A real regression this "From" prefix caused, reported live and
+     fixed** (2026-09-02, screenshot from the owner: on a Grillz card, the
+     longer "From $1,200.00" string visually overlapped the add-to-bag
+     icon next to it). Root cause: `ProductCard`'s price row put "From "
+     and the amount in one `whitespace-nowrap` span — a single unbreakable
+     string can only overflow past its box when too wide, never wrap, and
+     the overflow painted straight over the icon sitting to its right.
+     Split "From" into its own span, sibling to the amount's span, inside
+     the same `flex-wrap` row that already wraps a compare-at price to its
+     own line — now the amount drops below "From" instead of overlapping
+     anything. Same fix applied to `ProductSpotlight` (Shop's list-layout
+     featured product), which had the identical pattern next to its own
+     button column and would have hit the same bug the first time a
+     Grillz product appeared there.
+  Verified via `tsc`/eslint/`vitest`/`next build` (all clean), and this
+  entry's own point 5 was directly confirmed live by the owner (a real
+  screenshot of the deployed bug) — the deploy itself and the "From" text
+  rendering correctly are no longer just code-reviewed, only the exact
+  chip-selection multiplication math still is (same standing no-
+  authenticated-browser-session limitation as every other admin/PDP change
+  this session).
 - **Grillz gets its own Customize options and a second, additive pricing
   model** (2026-08-31, per the owner: updated requirements, referencing a
   competitor's grillz customizer — johnnydangandco.com — as "just a visual

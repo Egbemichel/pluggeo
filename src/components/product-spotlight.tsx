@@ -298,15 +298,25 @@ export function ProductSpotlight({ product, className }: ProductSpotlightProps) 
           <span className="text-card-title font-sans font-normal text-text-primary">
             {product.title}
           </span>
-          {/* flex-wrap + whitespace-nowrap per price (same pattern as
-              ProductCard's price row): if both prices don't fit on one line,
-              the compare-price drops to its own line as a whole unit instead
-              of forcing an unbreakable minimum width — omitting flex-wrap here
-              was exactly what forced the whole page ~30px wider than the
-              viewport on mobile (confirmed via a real overflow measurement). */}
+          {/* flex-wrap + whitespace-nowrap per piece (same pattern as
+              ProductCard's price row): if everything doesn't fit on one
+              line, a piece drops to its own line as a whole unit instead
+              of forcing an unbreakable minimum width — omitting flex-wrap
+              here was exactly what forced the whole page ~30px wider than
+              the viewport on mobile (confirmed via a real overflow
+              measurement). "From" is its own span, not concatenated into
+              the amount's span (2026-09-02, a real report on ProductCard's
+              own version of this row — see that file's comment for why a
+              single unbreakable "From $1,200.00" string can only overflow
+              past its box, never wrap, and ends up visually overlapping
+              whatever sits next to it). */}
           <div className="flex flex-wrap items-center gap-(--space-1)">
+            {product.isFromPrice && (
+              <span className="text-price font-sans font-medium whitespace-nowrap text-text-primary">
+                From
+              </span>
+            )}
             <span className="text-price font-sans font-medium whitespace-nowrap text-text-primary">
-              {product.isFromPrice ? "From " : ""}
               {currency.format(product.price)}
             </span>
             {onSale && (

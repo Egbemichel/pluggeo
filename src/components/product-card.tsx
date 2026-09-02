@@ -131,21 +131,31 @@ function ProductInfo({
       <p className="text-body-sm font-sans font-normal text-text-primary md:text-card-title">
         {title}
       </p>
-      {/* flex-wrap on the row + whitespace-nowrap on each price: if both prices
-          don't fit on one line (narrow mobile card, or desktop once the button
-          column eats into the info width), the compare-price drops to its own
-          line as a whole unit — never breaks mid-string ("From" / "$5,800.00"
-          split ugly) and never overflows/overlaps the basket icon (plain
-          whitespace-nowrap with no wrap-capable container did, at desktop).
-          Price is one step larger and bold vs. the title's regular weight
-          (2026-08-30, per the user: title/price read as "the same size"
-          with no real hierarchy between them, unlike category-vs-title's
-          obvious jump) — text-body-md/text-price (16px/22px) vs. the
-          title's text-body-sm/text-card-title (14px/20px), font-bold vs.
-          the title's font-normal, at both breakpoints. */}
+      {/* flex-wrap on the row + whitespace-nowrap on each piece: if
+          everything doesn't fit on one line (narrow mobile card, a Grillz
+          product's longer "From $1,200.00", or desktop once the button
+          column eats into the info width), a piece drops to its own line
+          as a whole unit — never breaks mid-string and never overflows/
+          overlaps the basket icon (plain whitespace-nowrap on one span
+          spanning "From" + the amount together did exactly that once
+          "From " made the combined string longer than the card has room
+          for — 2026-09-02, a real report — since a single unbreakable
+          span can only overflow past its box, not wrap; two separate
+          spans in this same wrap-able row can drop the amount to its own
+          line instead). Price is one step larger and bold vs. the title's
+          regular weight (2026-08-30, per the user: title/price read as
+          "the same size" with no real hierarchy between them, unlike
+          category-vs-title's obvious jump) — text-body-md/text-price
+          (16px/22px) vs. the title's text-body-sm/text-card-title
+          (14px/20px), font-bold vs. the title's font-normal, at both
+          breakpoints. */}
       <div className="flex flex-wrap items-baseline gap-(--space-1)">
+        {isFromPrice && (
+          <span className="text-body-md font-sans font-bold whitespace-nowrap text-text-primary md:text-price">
+            From
+          </span>
+        )}
         <span className="text-body-md font-sans font-bold whitespace-nowrap text-text-primary md:text-price">
-          {isFromPrice ? "From " : ""}
           {currency.format(price)}
         </span>
         {onSale && (
