@@ -6,6 +6,20 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+### Fixed (batch 89 — Grillz page only ever showed 4 of its products)
+
+- `/grillz` used `ProductCollectionSection`, the same deliberately-capped
+  "curated 4-item preview" pattern Home's Bracelet/Pendant Collection
+  sections use on purpose (with a mobile chevron windowing over that same
+  4-item cap, not real pagination) — wrong for a dedicated category page
+  with nowhere else for the rest of the catalog to show up. Replaced with
+  a new `PaginatedProductGrid` (extracted from `CategoryPageContent`'s own
+  main grid, now shared by both), which fetches and paginates every
+  published Grillz product 8 at a time with the same numeric pagination
+  Shop/`/category/[slug]` already use. Verified live: all 5 real published
+  Grillz products now render (confirmed against the actual DB count),
+  versus 4 before.
+
 ### Changed (batch 88 — PDP's Customize dropdown now starts open)
 
 - Reversed the earlier "closed by default" decision — the PDP's Customize

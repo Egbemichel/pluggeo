@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { ViewTransition } from "react";
 import { GrillzHeroSection } from "@/components/grillz-hero-section";
-import { ProductCollectionSection } from "@/components/product-collection-section";
+import { SectionHeader } from "@/components/section-header";
+import { PaginatedProductGrid } from "@/components/paginated-product-grid";
 import { GrillzCastSection } from "@/components/grillz-cast-section";
 import { getPublishedProductsByCategorySlug } from "@/lib/products";
 import { PAGE_TRANSITION } from "@/lib/motion";
@@ -26,11 +27,20 @@ export default async function GrillzPage() {
     <ViewTransition {...PAGE_TRANSITION}>
       <div className="flex flex-1 flex-col">
         <GrillzHeroSection />
-        <ProductCollectionSection
-          title="Best Grillz Collection"
-          viewAllHref="/shop"
-          products={products.slice(0, 4)}
-        />
+        {/* Every published Grillz product, with real pagination (2026-09-02,
+            a real report: this used to be `ProductCollectionSection`, the
+            same deliberately-capped "curated 4-item preview" pattern Home's
+            Bracelet/Pendant Collection sections use on purpose — fine there,
+            wrong here, since this dedicated page has nowhere else for the
+            rest of the catalog to show up). Same top-level `gap-(--space-9)`
+            wrapper `ProductCollectionSection` itself used, so the rhythm
+            against GrillzHeroSection/GrillzCastSection is unchanged — see
+            `PaginatedProductGrid`'s own comment for the shared paginated-grid
+            piece `/category/[slug]` also uses. */}
+        <section className="flex flex-col gap-(--space-9)">
+          <SectionHeader title="Best Grillz Collection" />
+          <PaginatedProductGrid products={products} emptyMessage="No grillz yet — check back soon." />
+        </section>
         <GrillzCastSection />
       </div>
     </ViewTransition>

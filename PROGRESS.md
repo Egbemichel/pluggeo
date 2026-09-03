@@ -77,6 +77,27 @@ genuinely filter) + grid/list toggle + pagination.
 
 ## Resolved decisions
 
+- **`/grillz` only ever showed 4 of its products — now shows all of them,
+  paginated** (2026-09-02, a real report from the owner: "only two of the
+  products show up on the grillz dedicated page" — mobile's 2-item window
+  plus a chevron that only ever cycled the same 4). Root cause: the page
+  used `ProductCollectionSection`, a deliberately-capped "curated preview"
+  pattern (4 items desktop, a 2-item mobile window with chevron pagination
+  that never goes past that same 4) — correct for Home's Bracelet/Pendant
+  Collection, wrong for `/grillz`, which has no separate "view all Grillz"
+  destination for the rest of the catalog to live on. New
+  `PaginatedProductGrid` (`components/paginated-product-grid.tsx`) — a
+  proper 8-per-page grid with real numeric pagination (`PaginationDial`/
+  `CategoryDial`, the same pair Shop and `/category/[slug]` already use) —
+  extracted from `CategoryPageContent`'s own main grid, which now uses it
+  too instead of duplicating the same block, rather than inventing new
+  pagination UI. The Grillz page's own Hero/Cast sections are untouched;
+  only the product-listing section between them changed, and Home's
+  Bracelet/Pendant Collection sections (still `ProductCollectionSection`,
+  still deliberately capped) are unaffected — only `/grillz` switched.
+  Verified via `tsc`/eslint/`vitest`/`next build` (all clean) plus a real
+  dev-server fetch of `/grillz`: confirmed all 5 real published Grillz
+  products render (checked directly against the DB's own count), not 4.
 - **PDP's Customize dropdown now starts open, not closed** (2026-09-02, per
   the owner — reverses the 2026-08-30 "closed by default" decision further
   down this file). `ProductCustomize`'s `open` state now initializes
