@@ -70,7 +70,10 @@ jobs:
           # Not secret (a public URL) — src/lib/seo.ts's metadataBase/canonical/
           # sitemap base, baked in at build time since robots.ts/manifest.ts
           # have no dynamic data of their own to force a runtime render.
-          NEXT_PUBLIC_SITE_URL: https://pluggeo.egbemichel39.workers.dev
+          # Custom domain live as of 2026-09-05 (pluggeoandco.shop, verified
+          # active on Cloudflare + attached to the Worker as a Custom Domain)
+          # — was the workers.dev URL until now.
+          NEXT_PUBLIC_SITE_URL: https://pluggeoandco.shop
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           # Cloud name + API key are NEXT_PUBLIC_ (next-cloudinary's
           # CldUploadWidget reads them client-side to talk to Cloudinary

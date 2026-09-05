@@ -9,12 +9,16 @@ true right now."
 
 ## Status at a glance
 
-**The app is live**: https://pluggeo.egbemichel39.workers.dev (Cloudflare
-Workers via OpenNext, no custom domain yet — free `workers.dev` subdomain).
-GitHub Actions (`.github/workflows/deploy.yml`) auto-deploys on every push to
-`main`, so the `github-sync` skill's auto-push after every prompt now also
-means auto-deploy — no manual step to get a change live. Real Neon Postgres
-is connected and migrated (see the resolved-decision entry below).
+**The app is live at its own custom domain**: https://pluggeoandco.shop
+(Cloudflare Workers via OpenNext — the owner bought the domain through
+Hostinger, moved it to Cloudflare nameservers, and attached it as a Custom
+Domain on the Worker; see the resolved-decision entry below for the full
+sequence. The old `pluggeo.egbemichel39.workers.dev` subdomain still works,
+just no longer the canonical address). GitHub Actions
+(`.github/workflows/deploy.yml`) auto-deploys on every push to `main`, so
+the `github-sync` skill's auto-push after every prompt now also means
+auto-deploy — no manual step to get a change live. Real Neon Postgres is
+connected and migrated (see the resolved-decision entry below).
 
 **Brand is pluggeo&co** (renamed 2026-08-30 from Plug Geo, see the
 resolved-decision entry below — the graphic wordmark logo images still read
@@ -76,6 +80,48 @@ has real DB integration: sidebar + controls (category/price/sort all
 genuinely filter) + grid/list toggle + pagination.
 
 ## Resolved decisions
+
+- **Custom domain live: pluggeoandco.shop** (2026-09-05, per the owner —
+  bought the domain via Hostinger). Real sequence, since it wasn't as
+  simple as one config change: (1) added the domain as a zone in
+  Cloudflare, (2) changed the domain's nameservers at Hostinger from
+  Hostinger's own (`apollo`/`athena.dns-parking.com`) to Cloudflare's
+  assigned pair, (3) waited for Cloudflare to detect the nameserver change
+  and mark the zone Active — this lagged behind what public DNS checkers
+  already showed, since Cloudflare polls the registry on its own schedule
+  rather than continuously (resolved once the owner used Cloudflare's own
+  "check nameservers now" and got the "zone active" confirmation email),
+  (4) added `pluggeoandco.shop` as a Custom Domain on the `pluggeo` Worker
+  (Cloudflare dashboard → Workers & Pages → Settings → Domains & Routes) —
+  this is the step that actually routes traffic; zone activation alone
+  doesn't. Two real false alarms along the way, worth remembering if this
+  ever needs redoing for a second domain: a DNS checker reporting the
+  root domain's CNAME record as "failed" is expected, not a bug (a domain
+  apex can never have a CNAME record — Cloudflare's proxying/flattening is
+  why it still works despite that); and AAAA failing just means no IPv6
+  record yet, harmless since IPv4 alone is enough.
+  Once the Custom Domain was confirmed attached, updated the one place
+  that actually needed a code change — `NEXT_PUBLIC_SITE_URL` in
+  `.github/workflows/deploy.yml` (`pluggeo.egbemichel39.workers.dev` →
+  `pluggeoandco.shop`), which is inlined into the build for
+  `src/lib/seo.ts`'s `SITE_URL` (metadataBase/canonical/sitemap/OG image
+  base) — per that file's own comment, no other code change was needed,
+  everything else already reads from that one constant. Also updated
+  `.env.local.example`'s own copy for consistency. Deliberately held this
+  change until the Custom Domain was confirmed attached rather than as
+  soon as the domain was purchased — flipping it earlier would have baked
+  a canonical/OG/sitemap base into the live build that didn't resolve yet,
+  worse for SEO than briefly staying on the working `workers.dev` address.
+  The old `workers.dev` subdomain still resolves and still works (Cloudflare
+  doesn't disable it just because a Custom Domain was added) — not
+  something to rely on going forward, but not a broken fallback either.
+  **Not yet done, flagged as a natural next step**: this project's own
+  PageSpeed work earlier flagged Clerk's admin auth as running a "dev
+  instance" cookie handshake that adds a redirect delay, fixable only with
+  a production Clerk instance tied to a verified custom domain — that
+  custom domain now exists, so switching Clerk to production mode is worth
+  doing next if the owner wants that redirect delay actually gone, but
+  nobody's asked for it yet and it wasn't done as part of this change.
 
 - **`/grillz` only ever showed 4 of its products — now shows all of them,
   paginated** (2026-09-02, a real report from the owner: "only two of the

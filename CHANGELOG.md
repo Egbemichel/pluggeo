@@ -6,6 +6,17 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+### Changed (batch 90 — switched to the custom domain, pluggeoandco.shop)
+
+- `NEXT_PUBLIC_SITE_URL` (`.github/workflows/deploy.yml`,
+  `.env.local.example`) now points at `https://pluggeoandco.shop` instead
+  of the `workers.dev` subdomain, now that the domain is bought, moved to
+  Cloudflare nameservers, and attached to the Worker as a Custom Domain.
+  Every canonical URL, the sitemap, `robots.txt`, and Open Graph image URL
+  (`src/lib/seo.ts`'s `SITE_URL`) now resolve to the real domain. No other
+  code change was needed — everything reads from that one constant. The
+  old `workers.dev` address still works, just isn't canonical anymore.
+
 ### Fixed (batch 89 — Grillz page only ever showed 4 of its products)
 
 - `/grillz` used `ProductCollectionSection`, the same deliberately-capped
