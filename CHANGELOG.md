@@ -6,6 +6,17 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+### Fixed (batch 91 — Telegram visitor notifications firing on vulnerability-scan bots)
+
+- Within hours of the custom domain going live, automated scanners (probing
+  for WordPress installers, exposed `.env`/`.git` files, `docker-compose.yml`,
+  adtech files, etc.) started triggering "New visitor" Telegram messages —
+  several fake a real Chrome User-Agent specifically to evade the existing
+  `BOT_USER_AGENT` filter. Confirmed none of these paths expose anything
+  (every one already 404s — this app has no WordPress/PHP/exposed config
+  files). Added `SCANNER_PATH`/`PHP_PATH` (`middleware.ts`) to filter by the
+  *requested path* instead, which catches these regardless of the UA string.
+
 ### Changed (batch 90 — switched to the custom domain, pluggeoandco.shop)
 
 - `NEXT_PUBLIC_SITE_URL` (`.github/workflows/deploy.yml`,

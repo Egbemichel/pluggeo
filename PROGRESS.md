@@ -302,9 +302,10 @@ genuinely filter) + grid/list toggle + pagination.
   (visiting any page with `?admin-preview` once sets a year-long
   `pg_no_notify` cookie). Also filters out known bots/crawlers/monitors
   (Googlebot, Lighthouse/PageSpeed, uptime checkers, etc. — a UA-pattern
-  check) and non-visit metadata routes (`robots.txt`, `sitemap.xml`,
-  `manifest.webmanifest`, the icon/OG-image routes) so this stays "a real
-  person is on the site," not noise.
+  check), non-visit metadata routes (`robots.txt`, `sitemap.xml`,
+  `manifest.webmanifest`, the icon/OG-image routes), and (see point 4
+  below) automated vulnerability-scan paths, so this stays "a real person
+  is on the site," not noise.
   1. **Where this lives and why**: `middleware.ts` (already the one place a
      request is guaranteed to pass through before any page renders) — but
      it used to be wrapped entirely in `clerkMiddleware()`, and re-widening
@@ -336,6 +337,24 @@ genuinely filter) + grid/list toggle + pagination.
      would defeat it — awaiting directly, bounded to 2s worst case, and
      only on the *one* first-page-load of a session (every page after that
      is cookied and skips this entirely), was the safer tradeoff.
+  4. **Vulnerability-scan bots started firing this the moment the custom
+     domain went live** (2026-09-05, a real report: a stream of "New
+     visitor" messages for `/wp-admin/install.php`, `/.env`, `/.git/HEAD`,
+     `docker-compose.yml`, `config.json`, `ads.txt`/`sellers.json`, etc.).
+     Confirmed none of these expose anything real (every one already 404s
+     on the live site — no WordPress, no PHP, no exposed dotfiles
+     anywhere) — this is ordinary internet-wide background scanning any
+     live domain gets, not evidence of a real vulnerability. Several of
+     these scanners fake a genuine Chrome User-Agent specifically to evade
+     `BOT_USER_AGENT` above, so UA sniffing alone can't catch them — added
+     `SCANNER_PATH`/`PHP_PATH` (`middleware.ts`) to filter by the
+     *requested path* instead (WordPress paths, `.env`/`.git`/`.aws`,
+     `docker-compose.yml`, `config.json`, adtech/security-probe files, and
+     any `.php` request — this app has zero PHP anywhere) — no real
+     shopper has any reason to request one of these regardless of what UA
+     string shows up. Verified the regexes directly against every path
+     from the actual reported notifications (all correctly filtered) and
+     against real storefront/admin paths (all correctly still notify).
   **Confirmed live end to end** (2026-08-31) — the owner set both secrets,
   an initial test showed no message (Cloudflare secret propagation timing,
   not a bug), so a temporary `?pg-debug-telegram=1` short-circuit was added

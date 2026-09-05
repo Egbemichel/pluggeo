@@ -43,6 +43,24 @@ const BOT_USER_AGENT = /bot|crawl|spider|slurp|bingpreview|facebookexternalhit|l
 // Metadata/crawler-only routes — never a real person "visiting the site" in
 // the sense this feature means, even though they're real page requests.
 const NON_VISIT_PATH = /^\/(robots\.txt|sitemap\.xml|manifest\.webmanifest|icon\.png|apple-icon\.png|opengraph-image\.png)$/;
+// Automated vulnerability/config-probe scanners — a firehose of these hit
+// the site within hours of the custom domain going live (2026-09-05, per
+// the owner: WordPress installer paths, .env/.git exposure probes,
+// docker-compose.yml, config.json, ads.txt/sellers.json adtech crawlers,
+// etc.), several using a real-looking Chrome User-Agent specifically to
+// evade `BOT_USER_AGENT` above — filtering by *path* instead catches those
+// regardless of how convincing the UA is, since no real shopper on this
+// Next.js app (zero PHP, no WordPress, no exposed dotfiles — confirmed
+// directly: every one of these paths already 404s on the live site) has
+// any reason to request one of these. Not a sign of an actual
+// vulnerability — normal background noise any live domain gets — this
+// just keeps it out of a feed meant to mean "a real person is here."
+const SCANNER_PATH =
+  /^\/(wp-admin|wp-content|wp-includes|wp-json|\.env(\..*)?|\.git(\/.*)?|\.aws(\/.*)?|\.well-known\/security\.txt|docker-compose\.ya?ml|config\.json|sellers\.json|app-ads\.txt|ads\.txt|security\.txt)(\/.*)?$/i;
+// Any request for a `.php` file is unambiguously a scanner — this app has
+// no PHP anywhere, ever (covers wp-login.php/xmlrpc.php/phpinfo.php/etc.
+// without listing each one).
+const PHP_PATH = /\.php$/i;
 
 async function handleStorefrontVisit(req: NextRequest): Promise<NextResponse> {
   if (req.nextUrl.searchParams.has("admin-preview")) {
@@ -65,6 +83,8 @@ async function handleStorefrontVisit(req: NextRequest): Promise<NextResponse> {
     !req.cookies.has(VISIT_COOKIE) &&
     !req.cookies.has(NO_NOTIFY_COOKIE) &&
     !NON_VISIT_PATH.test(req.nextUrl.pathname) &&
+    !SCANNER_PATH.test(req.nextUrl.pathname) &&
+    !PHP_PATH.test(req.nextUrl.pathname) &&
     !BOT_USER_AGENT.test(req.headers.get("user-agent") ?? "");
 
   if (shouldNotify) {
