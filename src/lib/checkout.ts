@@ -242,24 +242,24 @@ async function resolveProductPrice(
    * This prevents a malicious client from inventing combinations
    * that don't exist in the database.
    */
-  if (variants.length > 0) {
-    const matchingVariant = variants.find((variant) =>
-      variantMatchesSelectedOptions(
-        variant.attributes ?? {},
-        normalizedSelectedOptions,
-        options.map((option) => ({
-          key: option.key,
-          values: option.values ?? [],
-        })),
-      ),
-    );
+  const matchingVariant = variants.find((variant) =>
+    variantMatchesSelectedOptions(
+      variant.attributes ?? {},
+      normalizedSelectedOptions,
+      options.map((option) => ({
+        key: option.key,
+        values: option.values ?? [],
+      })),
+    ),
+  );
 
-    if (!matchingVariant) {
-      throw new Error(
-        `The selected configuration for "${product.name}" is not available.`,
-      );
-    }
-
+  /*
+   * `product_variants` is a sparse table of complete combinations that need
+   * a different price or stock state than the base product. A valid
+   * selection is still legitimate even when it has no explicit variant row —
+   * only the exact override row changes the effective price/availability.
+   */
+  if (matchingVariant) {
     if (!matchingVariant.available) {
       throw new Error(
         `The selected configuration for "${product.name}" is currently unavailable.`,
