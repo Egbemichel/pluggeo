@@ -162,11 +162,18 @@ export function buildPaymentUrl({
 }): string {
   const url = new URL(CARD2CRYPTO_PAYMENT);
 
-  url.searchParams.set("address", address);
-  url.searchParams.set(
-    "amount",
-    amount.toFixed(2),
-  );
+  let normalizedAddress = address;
+
+  try {
+    normalizedAddress = decodeURIComponent(address);
+  } catch {
+    throw new Error(
+      "Card2Crypto returned an invalid encrypted payment address.",
+    );
+  }
+
+  url.searchParams.set("address", normalizedAddress);
+  url.searchParams.set("amount", amount.toFixed(2));
   url.searchParams.set("provider", provider);
   url.searchParams.set("email", email);
   url.searchParams.set("currency", currency);
