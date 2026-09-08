@@ -93,38 +93,40 @@ function getVariantValues(
     .filter(Boolean);
 }
 
-function variantMatchesSelectedOptions(
+export function variantMatchesSelectedOptions(
   variantAttributes: Record<string, string>,
   selectedValues: string[],
   optionGroups: Array<{ key: string; values: string[] }> = [],
 ): boolean {
   if (optionGroups.length > 0) {
-    if (selectedValues.length !== optionGroups.length) {
-      return false;
-    }
-
+    const remainingNotMatched = [...selectedValues.map(normalizeOptionValue)];
     const expectedAttributes: Record<string, string> = {};
 
-    for (let index = 0; index < optionGroups.length; index += 1) {
-      const optionGroup = optionGroups[index];
-      const selectedValue = selectedValues[index];
+    for (const optionGroup of optionGroups) {
+      const allowedValues = optionGroup.values.map(normalizeOptionValue);
+      const matchedValue = allowedValues.find((allowedValue) => {
+        const index = remainingNotMatched.findIndex(
+          (remainingValue) =>
+            remainingValue.toLowerCase() === allowedValue.toLowerCase(),
+        );
 
-      if (!selectedValue) {
+        if (index === -1) {
+          return false;
+        }
+
+        remainingNotMatched.splice(index, 1);
+        return true;
+      });
+
+      if (!matchedValue) {
         return false;
       }
 
-      const normalizedSelectedValue = normalizeOptionValue(selectedValue);
-      const matchingValue = optionGroup.values.find(
-        (value) =>
-          normalizeOptionValue(value).toLowerCase() ===
-          normalizedSelectedValue.toLowerCase(),
-      );
+      expectedAttributes[optionGroup.key] = matchedValue;
+    }
 
-      if (!matchingValue) {
-        return false;
-      }
-
-      expectedAttributes[optionGroup.key] = matchingValue;
+    if (remainingNotMatched.length > 0) {
+      return false;
     }
 
     if (
@@ -134,17 +136,15 @@ function variantMatchesSelectedOptions(
       return false;
     }
 
-    return Object.entries(expectedAttributes).every(
-      ([key, value]) => {
-        const variantValue = variantAttributes[key];
+    return Object.entries(expectedAttributes).every(([key, value]) => {
+      const variantValue = variantAttributes[key];
 
-        return (
-          variantValue !== undefined &&
-          normalizeOptionValue(variantValue).toLowerCase() ===
-            value.trim().toLowerCase()
-        );
-      },
-    );
+      return (
+        variantValue !== undefined &&
+        normalizeOptionValue(variantValue).toLowerCase() ===
+          value.trim().toLowerCase()
+      );
+    });
   }
 
   const variantValues = getVariantValues(variantAttributes);
