@@ -65,6 +65,10 @@ function normalizeOptionValue(value: string): string {
   return trimmed.slice(separatorIndex + 1).trim();
 }
 
+function normalizeOptionKey(key: string): string {
+  return key.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
 function getPriceDelta(
   valuePriceDeltas: Record<string, number>,
   value: string,
@@ -98,8 +102,10 @@ export function variantMatchesSelectedOptions(
   selectedValues: string[],
   optionGroups: Array<{ key: string; values: string[] }> = [],
 ): boolean {
+  const normalizedSelectedValues = selectedValues.map(normalizeOptionValue);
+
   if (optionGroups.length > 0) {
-    const remainingNotMatched = [...selectedValues.map(normalizeOptionValue)];
+    const remainingNotMatched = [...normalizedSelectedValues];
     const expectedAttributes: Record<string, string> = {};
 
     for (const optionGroup of optionGroups) {
@@ -122,34 +128,42 @@ export function variantMatchesSelectedOptions(
         return false;
       }
 
-      expectedAttributes[optionGroup.key] = matchedValue;
+      expectedAttributes[normalizeOptionKey(optionGroup.key)] = matchedValue;
     }
 
     if (remainingNotMatched.length > 0) {
       return false;
     }
 
+    const normalizedVariantAttributes = Object.fromEntries(
+      Object.entries(variantAttributes).map(([key, value]) => [
+        normalizeOptionKey(key),
+        normalizeOptionValue(value),
+      ]),
+    );
+
     if (
       Object.keys(expectedAttributes).length !==
-      Object.keys(variantAttributes).length
+      Object.keys(normalizedVariantAttributes).length
     ) {
       return false;
     }
 
     return Object.entries(expectedAttributes).every(([key, value]) => {
-      const variantValue = variantAttributes[key];
+      const variantValue = normalizedVariantAttributes[key];
 
       return (
         variantValue !== undefined &&
-        normalizeOptionValue(variantValue).toLowerCase() ===
-          value.trim().toLowerCase()
+        variantValue.toLowerCase() === value.toLowerCase()
       );
     });
   }
 
-  const variantValues = getVariantValues(variantAttributes);
+  const variantValues = getVariantValues(variantAttributes).map(
+    normalizeOptionValue,
+  );
 
-  if (variantValues.length !== selectedValues.length) {
+  if (variantValues.length !== normalizedSelectedValues.length) {
     return false;
   }
 
@@ -157,7 +171,7 @@ export function variantMatchesSelectedOptions(
     variantValues.map((value) => value.toLowerCase()),
   );
 
-  return selectedValues.every((value) =>
+  return normalizedSelectedValues.every((value) =>
     variantSet.has(value.toLowerCase()),
   );
 }
