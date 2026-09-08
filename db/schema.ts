@@ -7,6 +7,8 @@ import {
   boolean,
   jsonb,
   timestamp,
+  uniqueIndex,
+  index,
 } from "drizzle-orm/pg-core";
 
 export const categories = pgTable("categories", {
@@ -16,6 +18,151 @@ export const categories = pgTable("categories", {
   displayOrder: integer("display_order").notNull().default(0),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
+
+export const orders = pgTable(
+  "orders",
+  {
+    id: text("id").primaryKey(),
+
+    orderNumber: text("order_number").notNull(),
+
+    email: text("email").notNull(),
+    customerName: text("customer_name").notNull(),
+    phone: text("phone").notNull(),
+
+    shippingLine1: text("shipping_line1").notNull(),
+    shippingLine2: text("shipping_line2"),
+    city: text("city").notNull(),
+    state: text("state"),
+    postalCode: text("postal_code").notNull(),
+    country: text("country").notNull(),
+
+    subtotal: numeric("subtotal", {
+      precision: 10,
+      scale: 2,
+    }).notNull(),
+
+    shipping: numeric("shipping", {
+      precision: 10,
+      scale: 2,
+    }).notNull(),
+
+    tax: numeric("tax", {
+      precision: 10,
+      scale: 2,
+    }).notNull(),
+
+    total: numeric("total", {
+      precision: 10,
+      scale: 2,
+    }).notNull(),
+
+    currency: text("currency").notNull().default("USD"),
+
+    status: text("status").notNull().default("pending"),
+
+    paymentStatus: text("payment_status")
+      .notNull()
+      .default("pending"),
+
+    paymentProvider: text("payment_provider"),
+    paymentProviderReference: text("payment_provider_reference"),
+
+    paymentProviderToken: text("payment_provider_token"),
+
+    paymentAddress: text("payment_address"),
+
+    paymentPolygonAddress: text("payment_polygon_address"),
+
+    paymentCallbackToken: text("payment_callback_token"),
+
+    txidIn: text("txid_in"),
+    txidOut: text("txid_out"),
+
+    paymentValueCoin: numeric("payment_value_coin", {
+      precision: 20,
+      scale: 8,
+    }),
+
+    paymentCoin: text("payment_coin"),
+
+    paymentValueForwardedCoin: numeric(
+      "payment_value_forwarded_coin",
+      {
+        precision: 20,
+        scale: 8,
+      },
+    ),
+
+    createdAt: timestamp("created_at", {
+      withTimezone: true,
+    })
+      .notNull()
+      .defaultNow(),
+
+    updatedAt: timestamp("updated_at", {
+      withTimezone: true,
+    })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => ({
+    orderNumberUnique: uniqueIndex(
+      "orders_order_number_unique",
+    ).on(table.orderNumber),
+
+    emailIndex: index("orders_email_idx").on(table.email),
+
+    paymentStatusIndex: index(
+      "orders_payment_status_idx",
+    ).on(table.paymentStatus),
+  }),
+);
+
+export const orderItems = pgTable(
+  "order_items",
+  {
+    id: text("id").primaryKey(),
+
+    orderId: text("order_id")
+      .notNull()
+      .references(() => orders.id, {
+        onDelete: "cascade",
+      }),
+
+    productId: text("product_id").notNull(),
+
+    productName: text("product_name").notNull(),
+
+    selectedOptions: jsonb("selected_options")
+      .$type<string[]>()
+      .notNull()
+      .default([]),
+
+    unitPrice: numeric("unit_price", {
+      precision: 10,
+      scale: 2,
+    }).notNull(),
+
+    quantity: integer("quantity").notNull(),
+
+    lineTotal: numeric("line_total", {
+      precision: 10,
+      scale: 2,
+    }).notNull(),
+
+    createdAt: timestamp("created_at", {
+      withTimezone: true,
+    })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => ({
+    orderIndex: index("order_items_order_idx").on(
+      table.orderId,
+    ),
+  }),
+);
 
 export const products = pgTable("products", {
   id: uuid("id").primaryKey().defaultRandom(),

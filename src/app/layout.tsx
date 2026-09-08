@@ -98,7 +98,7 @@ const websiteJsonLd = {
 // Clerk hook/component. `ClerkProvider` now wraps only `/pluggeo`'s and
 // `/sign-in`'s own layouts — the two places that actually render Clerk
 // components — and `middleware.ts`'s matcher was narrowed to match.
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html
       lang="en"

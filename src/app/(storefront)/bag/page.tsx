@@ -1,6 +1,7 @@
 "use client";
 
 import { ViewTransition } from "react";
+import { useRouter } from "next/navigation";
 import { ShoppingBagRemoveIcon, ShoppingBagCheckIcon } from "@hugeicons/core-free-icons";
 import { ProductLineItemCard } from "@/components/product-line-item-card";
 import { Button } from "@/components/ui/button";
@@ -31,6 +32,7 @@ import { PAGE_TRANSITION } from "@/lib/motion";
 // here.
 
 export default function BagPage() {
+  const router = useRouter();
   const { items, removeItem, setQuantity } = useBagFlight();
 
   const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
@@ -86,7 +88,8 @@ export default function BagPage() {
                 </span>
               </div>
 
-              <Button className="w-full text-brand-primary  bg-transparent border border-brand-primary justify-between lg:w-xs lg:h-xl md:w-auto md:self-end">
+              <Button onClick={() => router.push("/checkout")} 
+              className="w-full text-brand-primary  bg-transparent border border-brand-primary justify-between lg:w-xs lg:h-xl md:w-auto md:self-end">
                 <p className="text-h2 font-quin font-bold">Checkout</p>
                 <span className="flex items-center gap-(--space-4)">
                   <Divider orientation="vertical" length={24} className="bg-brand-primary/30" />
