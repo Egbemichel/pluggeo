@@ -92,6 +92,7 @@ export function ProductDetailSection({
   // so `displayPrice` below is identical to before this existed.
   const [additionalPrice, setAdditionalPrice] = useState(0);
   const [quantity, setQuantity] = useState(1);
+  const isSelectionComplete = options.length === 0 || selectedOptions.length === options.length;
   // An exact-combination override (jewelry) takes precedence when present;
   // otherwise the base price plus any additive per-value pricing (Grillz) —
   // the two pricing paths are mutually exclusive in practice (a product
@@ -186,7 +187,8 @@ export function ProductDetailSection({
         <div data-reveal-item>
           <AddToBagButton
             variant="labeled"
-            disabled={!available}
+            disabled={!available || !isSelectionComplete}
+            label={isSelectionComplete ? "Add to bag" : "Select options"}
             item={cartItem}
             quantity={quantity}
             onAdded={() => setQuantity(1)}

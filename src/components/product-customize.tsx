@@ -183,8 +183,15 @@ export type ProductCustomizeProps = {
 };
 
 export function ProductCustomize({ options, variants, price, className, onSelectionChange }: ProductCustomizeProps) {
-  // Nothing selected by default — see file comment.
-  const [selected, setSelected] = useState<Record<string, string | undefined>>({});
+  const initialSelection = useMemo(
+    () => Object.fromEntries(options.map((option) => [option.key, option.values[0] ?? undefined])),
+    [options],
+  );
+  // Preselect the first option in every group so a product is immediately
+  // ready for checkout; users can still change these chips, and if they
+  // intentionally clear a selection the add-to-bag control disables until
+  // the full configuration is complete again.
+  const [selected, setSelected] = useState<Record<string, string | undefined>>(initialSelection);
   // Open by default (2026-09-02, per the owner — see file comment); a
   // shopper can still collapse it via the toggle, which stays collapsed
   // until they tap it again.

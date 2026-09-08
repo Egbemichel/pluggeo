@@ -24,6 +24,7 @@ export type AddToBagButtonProps = {
   disabled?: boolean;
   item: CartLineItem;
   quantity?: number;
+  label?: string;
   /** Fires immediately on click (not on flight-landing) — e.g. the PDP uses
    * this to reset its quantity stepper back to 1 right away. */
   onAdded?: () => void;
@@ -35,16 +36,21 @@ export function AddToBagButton({
   disabled,
   item,
   quantity = 1,
+  label,
   onAdded,
 }: AddToBagButtonProps) {
   const { fly } = useBagFlight();
 
   const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    if (disabled) return;
+
     fly(e.currentTarget, item, quantity);
     onAdded?.();
   };
 
   if (variant === "labeled") {
+    const buttonLabel = label ?? (disabled ? "Out of stock" : "Add to bag");
+
     return (
       <Button
         type="button"
@@ -55,7 +61,7 @@ export function AddToBagButton({
           className
         )}
       >
-        {disabled ? "Out of stock" : "Add to bag"}
+        {buttonLabel}
         <Icon icon={ShoppingBasketAdd01Icon} size={24} className="text-brand-primary" />
       </Button>
     );
