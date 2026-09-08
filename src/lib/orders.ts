@@ -205,23 +205,18 @@ export async function createCheckoutOrder(
 
     /*
      * STEP 2 — Get the currently available payment
-     * providers from Card2Crypto.
+     * providers from Card2Crypto and validate the
+     * customer's explicit provider choice.
      */
     const providers =
       await getProviders();
 
-    /*
-     * Select either:
-     *
-     * CARD2CRYPTO_PROVIDER_ID
-     *
-     * when configured, or an appropriate active provider
-     * when it isn't configured.
-     */
     const provider =
       selectProvider(
         providers,
         quote.total,
+        quote.currency,
+        input.paymentProvider,
       );
 
     /*

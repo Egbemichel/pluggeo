@@ -6,6 +6,22 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+### Changed (batch 92 — customer-selected Card2Crypto provider)
+
+- Checkout now requires the shopper to choose an active Card2Crypto
+  payment provider from the live provider list instead of silently picking
+  one server-side.
+- `src/lib/card2crypto.ts` validates the requested provider by ID,
+  status, supported currency, and minimum order amount before generating
+  the payment URL, and no `CARD2CRYPTO_PROVIDER_ID` fallback remains in
+  the codebase.
+- `src/app/api/checkout/schema.ts` now accepts `paymentProvider`, and
+  `src/app/api/payments/card2crypto/providers/route.ts` exposes the
+  active provider list for the checkout UI.
+- `src/app/(storefront)/checkout/page.tsx` loads the provider list,
+  requires a selection before continuing, and submits the chosen provider
+  back to the checkout API.
+
 ### Fixed (batch 91 — Telegram visitor notifications firing on vulnerability-scan bots)
 
 - Within hours of the custom domain going live, automated scanners (probing

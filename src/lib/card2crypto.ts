@@ -99,51 +99,48 @@ export async function getProviders(): Promise<
 export function selectProvider(
   providers: Card2CryptoProvider[],
   amount: number,
+  currency: string,
+  requestedProviderId: string,
 ): Card2CryptoProvider {
-  const configuredProvider =
-    process.env.CARD2CRYPTO_PROVIDER_ID;
+  const providerId = requestedProviderId.trim();
 
-  if (configuredProvider) {
-    const provider = providers.find(
-      (item) => item.id === configuredProvider,
+  if (!providerId) {
+    throw new Error(
+      "A Card2Crypto provider must be selected before checkout continues.",
     );
-
-    if (!provider) {
-      throw new Error(
-        `Configured Card2Crypto provider "${configuredProvider}" was not found.`,
-      );
-    }
-
-    if (provider.status !== "active") {
-      throw new Error(
-        `Configured Card2Crypto provider "${configuredProvider}" is not active.`,
-      );
-    }
-
-    if (
-      provider.minimum_currency.toUpperCase() ===
-        "USD" &&
-      amount < provider.minimum_amount
-    ) {
-      throw new Error(
-        `Order amount is below the minimum for Card2Crypto provider "${configuredProvider}".`,
-      );
-    }
-
-    return provider;
   }
 
   const provider = providers.find(
-    (item) =>
-      item.status === "active" &&
-      item.minimum_currency.toUpperCase() ===
-        "USD" &&
-      amount >= item.minimum_amount,
+    (item) => item.id === providerId,
   );
 
   if (!provider) {
     throw new Error(
-      "No active Card2Crypto provider can process this USD order amount.",
+      `Selected Card2Crypto provider "${providerId}" was not found.`,
+    );
+  }
+
+  if (provider.status !== "active") {
+    throw new Error(
+      `Selected Card2Crypto provider "${providerId}" is not active.`,
+    );
+  }
+
+  const normalizedCurrency =
+    currency.trim().toUpperCase();
+
+  if (
+    provider.minimum_currency.toUpperCase() !==
+      normalizedCurrency
+  ) {
+    throw new Error(
+      `Selected Card2Crypto provider "${providerId}" does not support ${normalizedCurrency}.`,
+    );
+  }
+
+  if (amount < provider.minimum_amount) {
+    throw new Error(
+      `Order amount is below the minimum for Card2Crypto provider "${providerId}".`,
     );
   }
 

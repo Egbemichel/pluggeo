@@ -58,6 +58,14 @@ resolved-decision entry below). The product form is also now split into
 four visually distinct sections (Basic info/Pricing/Organization/Media/
 Variants) instead of one dense "Details" block.
 
+**Card2Crypto provider selection is customer-driven** (2026-09-08): the
+checkout API now requires an explicit `paymentProvider` value, the
+provider list is fetched from Card2Crypto at runtime, and the server
+validates the selected provider against the live provider status, required
+currency, and minimum amount before building the payment URL. This removes
+any server-side fallback to a hidden default provider and keeps the
+payment callback as the single authoritative source of payment confirmation.
+
 **Admin product CRUD is built** (`/pluggeo/products` list, new, edit — see
 the resolved-decision entries below). Real Cloudinary credentials are wired
 (`.env.local` + Cloudflare Worker secret + GitHub Actions build-time

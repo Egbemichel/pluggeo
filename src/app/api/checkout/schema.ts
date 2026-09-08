@@ -78,6 +78,12 @@ export const checkoutRequestSchema =
   z.object({
     customer: checkoutCustomerSchema,
 
+    paymentProvider: z
+      .string()
+      .trim()
+      .min(1)
+      .max(100),
+
     items: z
       .array(checkoutItemSchema)
       .min(1)
