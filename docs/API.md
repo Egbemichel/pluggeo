@@ -15,3 +15,40 @@ endpoints (see "Out of scope" in [CLAUDE.md](../CLAUDE.md)).
   directly.
 - Validate all Server Action input (zod or similar) even though there's a single trusted
   admin — inputs still come from a browser form and shouldn't be trusted blindly.
+
+## Payment providers
+
+Plug Geo supports multiple provider-backed checkout paths through the same order lifecycle.
+The shared server flow remains:
+
+1. Validate checkout request
+2. Create the local order
+3. Recalculate server-authoritative totals
+4. Select payment provider from the explicit customer choice
+5. Create the provider payment
+6. Redirect to the hosted checkout URL
+7. Confirm payment via provider callback/webhook
+
+### Card2Crypto
+
+The existing Card2Crypto flow remains intact and continues to work with the same order
+creation path unless the customer selects a different provider.
+
+### AllPays
+
+AllPays is added as a second provider behind the same order workflow. The server creates
+an AllPays payment from the stored order data and stores the provider payment ID and any
+returned payment secret server-side.
+
+The following environment variables are required when enabling AllPays:
+
+- `ALLPAYS_ENABLED`
+- `ALLPAYS_API_KEY`
+- `ALLPAYS_API_BASE_URL`
+- `ALLPAYS_WEBHOOK_SECRET`
+- `ALLPAYS_MERCHANT_WALLET`
+- `ALLPAYS_SETTLEMENT_ASSET`
+- `ALLPAYS_DEFAULT_CURRENCY`
+
+The AllPays webhook route is `GET /api/webhooks/allpays` and verifies `X-AllPays-Signature`
+against the signed callback query string before updating a local order as paid.

@@ -14,6 +14,11 @@ import {
 } from "@/lib/card2crypto";
 
 import {
+  createAllPaysPayment,
+  isAllPaysEnabled,
+} from "@/lib/payments/allpays";
+
+import {
   createCheckoutQuote,
   type CheckoutItemInput,
 } from "@/lib/checkout";
@@ -77,6 +82,10 @@ export async function createCheckoutOrder(
   const orderId = generateOrderId();
   const orderNumber = generateOrderNumber();
   const callbackToken = generateCallbackToken();
+  const requestedProvider =
+    (input.paymentProvider || "card2crypto")
+      .trim()
+      .toLowerCase();
 
   const siteUrl =
     process.env.APP_URL ??
@@ -195,44 +204,88 @@ export async function createCheckoutOrder(
         })),
       );
 
-    /*
-     * STEP 1 — Generate the temporary Card2Crypto wallet.
-     */
-    const wallet =
-      await createTemporaryWallet(
-        callbackUrl.toString(),
-      );
+    let paymentUrl = "";
+    let paymentProviderName = requestedProvider;
 
-    /*
-     * STEP 2 — Get the currently available payment
-     * providers from Card2Crypto and validate the
-     * customer's explicit provider choice.
-     */
-    const providers =
-      await getProviders();
+    if (requestedProvider === "allpays") {
+      if (!isAllPaysEnabled()) {
+        throw new Error(
+          "AllPays is not enabled for this environment.",
+        );
+      }
 
-    const provider =
-      selectProvider(
-        providers,
-        quote.total,
-        quote.currency,
-        input.paymentProvider,
-      );
+      const allPaysResult = await createAllPaysPayment({
+        orderId,
+        orderNumber,
+        amount: quote.total,
+        currency: quote.currency,
+        customerEmail: input.customer.email,
+        customerName: input.customer.name,
+        description: `Plug Geo order ${orderNumber}`,
+        returnUrl: new URL(
+          `/checkout/success?order=${encodeURIComponent(orderNumber)}`,
+          siteUrl,
+        ).toString(),
+        cancelUrl: new URL(
+          `/checkout?order=${encodeURIComponent(orderNumber)}`,
+          siteUrl,
+        ).toString(),
+        callbackUrl: callbackUrl.toString(),
+      });
 
-    /*
-     * STEP 3 — Build the actual Card2Crypto
-     * process-payment.php URL.
-     *
-     * The documented parameters are:
-     *
-     * address
-     * amount
-     * provider
-     * email
-     * currency
-     */
-    const paymentUrl =
-      buildPaymentUrl({
+      paymentUrl = allPaysResult.paymentUrl;
+      paymentProviderName = allPaysResult.providerName;
+
+      await db
+        .update(orders)
+        .set({
+          paymentProvider:
+            paymentProviderName,
+          paymentProviderReference:
+            allPaysResult.providerPaymentId || null,
+          paymentProviderToken:
+            allPaysResult.providerPaymentSecret || null,
+          updatedAt: new Date(),
+        })
+        .where(eq(orders.id, orderId));
+    } else {
+      /*
+       * STEP 1 — Generate the temporary Card2Crypto wallet.
+       */
+      const wallet =
+        await createTemporaryWallet(
+          callbackUrl.toString(),
+        );
+
+      /*
+       * STEP 2 — Get the currently available payment
+       * providers from Card2Crypto and validate the
+       * customer's explicit provider choice.
+       */
+      const providers =
+        await getProviders();
+
+      const provider =
+        selectProvider(
+          providers,
+          quote.total,
+          quote.currency,
+          input.paymentProvider,
+        );
+
+      /*
+       * STEP 3 — Build the actual Card2Crypto
+       * process-payment.php URL.
+       *
+       * The documented parameters are:
+       *
+       * address
+       * amount
+       * provider
+       * email
+       * currency
+       */
+      paymentUrl = buildPaymentUrl({
         address:
           wallet.address_in,
 
@@ -249,31 +302,32 @@ export async function createCheckoutOrder(
           quote.currency,
       });
 
-    /*
-     * Store everything we need to validate the eventual
-     * Card2Crypto callback.
-     */
-    await db
-      .update(orders)
-      .set({
-        paymentProvider:
-          provider.id,
+      /*
+       * Store everything we need to validate the eventual
+       * Card2Crypto callback.
+       */
+      await db
+        .update(orders)
+        .set({
+          paymentProvider:
+            provider.id,
 
-        paymentProviderToken:
-          wallet.ipn_token,
+          paymentProviderToken:
+            wallet.ipn_token,
 
-        paymentAddress:
-          wallet.address_in,
+          paymentAddress:
+            wallet.address_in,
 
-        paymentPolygonAddress:
-          wallet.polygon_address_in,
+          paymentPolygonAddress:
+            wallet.polygon_address_in,
 
-        updatedAt:
-          new Date(),
-      })
-      .where(
-        eq(orders.id, orderId),
-      );
+          updatedAt:
+            new Date(),
+        })
+        .where(
+          eq(orders.id, orderId),
+        );
+    }
 
     return {
       orderNumber,
@@ -285,6 +339,9 @@ export async function createCheckoutOrder(
 
       currency:
         quote.currency,
+
+      paymentProvider:
+        paymentProviderName,
     };
   } catch (error) {
     /*

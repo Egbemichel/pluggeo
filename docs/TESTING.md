@@ -16,3 +16,9 @@ build window, coverage should prioritize critical paths over exhaustive coverage
 - Playwright for admin CRUD and storefront navigation flows end-to-end
 - Don't chase 100% coverage in a 5-day build — critical paths first, expand after v1
   ships if time allows
+
+## Payment-provider checks
+
+The project now includes a focused AllPays unit test covering the canonical query-string
+signature logic and signature validation. The production payment lifecycle still requires a
+real low-value live AllPays transaction before trusting the integration for expensive orders.

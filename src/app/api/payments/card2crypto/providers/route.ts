@@ -1,27 +1,39 @@
 import { NextResponse } from "next/server";
 
 import { getProviders } from "@/lib/card2crypto";
+import { isAllPaysEnabled } from "@/lib/payments/allpays";
 
 export async function GET() {
   try {
     const providers = await getProviders();
+    const providerList = providers
+      .filter(
+        (provider) =>
+          provider.status === "active",
+      )
+      .map((provider) => ({
+        id: provider.id,
+        providerName: provider.provider_name,
+        status: provider.status,
+        minimumCurrency:
+          provider.minimum_currency,
+        minimumAmount:
+          provider.minimum_amount,
+      }));
+
+    if (isAllPaysEnabled()) {
+      providerList.push({
+        id: "allpays",
+        providerName: "AllPays",
+        status: "active",
+        minimumCurrency: "USD",
+        minimumAmount: 0,
+      });
+    }
 
     return NextResponse.json(
       {
-        providers: providers
-          .filter(
-            (provider) =>
-              provider.status === "active",
-          )
-          .map((provider) => ({
-            id: provider.id,
-            providerName: provider.provider_name,
-            status: provider.status,
-            minimumCurrency:
-              provider.minimum_currency,
-            minimumAmount:
-              provider.minimum_amount,
-          })),
+        providers: providerList,
       },
       {
         status: 200,
