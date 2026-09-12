@@ -43,12 +43,12 @@ returned payment secret server-side.
 The following environment variables are required when enabling AllPays:
 
 - `ALLPAYS_ENABLED`
-- `ALLPAYS_API_KEY`
 - `ALLPAYS_API_BASE_URL`
-- `ALLPAYS_WEBHOOK_SECRET`
 - `ALLPAYS_MERCHANT_WALLET`
 - `ALLPAYS_SETTLEMENT_ASSET`
 - `ALLPAYS_DEFAULT_CURRENCY`
 
 The AllPays webhook route is `GET /api/webhooks/allpays` and verifies `X-AllPays-Signature`
-against the signed callback query string before updating a local order as paid.
+against the signed callback query string before updating a local order as paid. The
+implementation uses the per-payment `payment_secret` returned by AllPays for that specific
+payment and does not rely on any global API key or global webhook secret.

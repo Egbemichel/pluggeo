@@ -157,20 +157,11 @@ export async function createAllPaysPayment(
   const merchantWallet =
     getAllPaysMerchantWallet();
 
-  const apiKey = process.env.ALLPAYS_API_KEY?.trim();
-
-  if (!apiKey) {
-    throw new Error(
-      "ALLPAYS_API_KEY is not configured.",
-    );
-  }
-
   const response = await fetch(
     `${ALLPAYS_API_BASE_URL}/v1/payments`,
     {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
         Accept: "application/json",
         "Accept-Language": "en",

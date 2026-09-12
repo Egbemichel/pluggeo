@@ -1,7 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   buildCanonicalQueryString,
+  createAllPaysPayment,
   verifyAllPaysSignature,
 } from "./allpays";
 
@@ -67,5 +68,52 @@ describe("AllPays canonical signing", () => {
         secret: "test-secret",
       }),
     ).resolves.toBe(false);
+  });
+
+  it("does not require a global API key for payment creation", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        payment_id: "pay_123",
+        payment_secret: "secret_456",
+        checkout_url: "https://checkout.example/pay/pay_123",
+      }),
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    process.env.ALLPAYS_ENABLED = "true";
+    process.env.ALLPAYS_MERCHANT_WALLET = "merchant-wallet-123";
+    delete process.env.ALLPAYS_API_KEY;
+
+    await expect(
+      createAllPaysPayment({
+        orderId: "order-1",
+        orderNumber: "PG-123",
+        amount: 42.5,
+        currency: "USD",
+        customerEmail: "buyer@example.com",
+        customerName: "Buyer",
+        description: "Test order",
+        returnUrl: "https://pluggeo.test/checkout/success",
+        cancelUrl: "https://pluggeo.test/checkout",
+        callbackUrl: "https://pluggeo.test/api/webhooks/allpays?order=PG-123",
+      }),
+    ).resolves.toMatchObject({
+      providerName: "allpays",
+      providerPaymentId: "pay_123",
+      providerPaymentSecret: "secret_456",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [, requestInit] = fetchMock.mock.calls[0];
+    expect(requestInit.headers.Authorization).toBeUndefined();
+
+    vi.unstubAllGlobals();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 });
