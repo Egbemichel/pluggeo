@@ -83,7 +83,10 @@ export async function createCheckoutOrder(
   const orderNumber = generateOrderNumber();
   const callbackToken = generateCallbackToken();
   const requestedProvider =
-    (input.paymentProvider || "card2crypto")
+    (
+      input.paymentProvider ||
+      (isAllPaysEnabled() ? "allpays" : "card2crypto")
+    )
       .trim()
       .toLowerCase();
 

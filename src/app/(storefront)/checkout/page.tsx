@@ -168,9 +168,16 @@ export default function CheckoutPage() {
 
         setProviders(providerList);
 
-        if (providerList[0]) {
+        const preferredProvider =
+          providerList.find(
+            (provider) =>
+              provider.id === "allpays",
+          ) ??
+          providerList[0];
+
+        if (preferredProvider) {
           setSelectedProviderId(
-            providerList[0].id,
+            preferredProvider.id,
           );
         }
       } catch (loadError) {

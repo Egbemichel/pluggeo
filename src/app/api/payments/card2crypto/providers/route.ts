@@ -22,7 +22,7 @@ export async function GET() {
       }));
 
     if (isAllPaysEnabled()) {
-      providerList.push({
+      providerList.unshift({
         id: "allpays",
         providerName: "AllPays",
         status: "active",
