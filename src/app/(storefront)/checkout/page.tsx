@@ -161,7 +161,7 @@ export default function CheckoutPage() {
           );
         }
 
-        const providerList =
+        const providerList: PaymentProviderOption[] =
           Array.isArray(data.providers)
             ? data.providers
             : [];
