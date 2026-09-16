@@ -157,6 +157,58 @@ export async function createAllPaysPayment(
   const merchantWallet =
     getAllPaysMerchantWallet();
 
+  const body = {
+    polygon_address: merchantWallet,
+    amount_editable: false,
+    fee_payer: "customer" as const,
+    amount: Number(input.amount.toFixed(2)),
+    currency: input.currency || "USD",
+    settlement_asset:
+      getAllPaysSettlementAsset(),
+    callback_url: input.callbackUrl,
+    return_url: input.returnUrl,
+    cancel_url: input.cancelUrl,
+    email: input.customerEmail,
+    customer_name: input.customerName,
+    name: input.customerName,
+    description: input.description,
+    order_id: input.orderId,
+    order_number: input.orderNumber,
+    external_order_id: input.orderNumber,
+  };
+
+  if (
+    typeof body.polygon_address !== "string" ||
+    !body.polygon_address
+  ) {
+    throw new Error(
+      "AllPays polygon_address is missing.",
+    );
+  }
+
+  if (body.amount_editable !== false) {
+    throw new Error(
+      "AllPays amount_editable must be false for Plug Geo.",
+    );
+  }
+
+  if (
+    body.fee_payer !== "customer" &&
+    body.fee_payer !== "merchant"
+  ) {
+    throw new Error(
+      "AllPays fee_payer must be customer or merchant.",
+    );
+  }
+
+  console.info("AllPays payment creation payload", {
+    polygon_address_present: !!body.polygon_address,
+    amount_editable: body.amount_editable,
+    fee_payer: body.fee_payer,
+    amount: body.amount,
+    currency: body.currency,
+  });
+
   const response = await fetch(
     `${ALLPAYS_API_BASE_URL}/v1/payments`,
     {
@@ -166,23 +218,7 @@ export async function createAllPaysPayment(
         Accept: "application/json",
         "Accept-Language": "en",
       },
-      body: JSON.stringify({
-        amount: Number(input.amount.toFixed(2)),
-        currency: input.currency || "USD",
-        merchant_wallet: merchantWallet,
-        settlement_asset:
-          getAllPaysSettlementAsset(),
-        callback_url: input.callbackUrl,
-        return_url: input.returnUrl,
-        cancel_url: input.cancelUrl,
-        email: input.customerEmail,
-        customer_name: input.customerName,
-        name: input.customerName,
-        description: input.description,
-        order_id: input.orderId,
-        order_number: input.orderNumber,
-        external_order_id: input.orderNumber,
-      }),
+      body: JSON.stringify(body),
       cache: "no-store",
     },
   );

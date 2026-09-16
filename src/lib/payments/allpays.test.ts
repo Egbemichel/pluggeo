@@ -109,6 +109,11 @@ describe("AllPays canonical signing", () => {
     const [, requestInit] = fetchMock.mock.calls[0];
     expect(requestInit.headers.Authorization).toBeUndefined();
 
+    const body = JSON.parse(requestInit.body as string);
+    expect(body.polygon_address).toBe("merchant-wallet-123");
+    expect(body.amount_editable).toBe(false);
+    expect(body.fee_payer).toBe("customer");
+
     vi.unstubAllGlobals();
   });
 
