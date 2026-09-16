@@ -11,13 +11,17 @@ const ALLPAYS_API_BASE_URL =
 
 const allPaysPaymentResponseSchema = z.object({
   payment_id: z.string().min(1).optional(),
+  id: z.union([
+    z.string().min(1),
+    z.number().transform(String),
+  ]).optional(),
   payment_secret: z.string().min(1).optional(),
-  hosted_payment_url: z
-    .string()
-    .url()
-    .optional(),
+  hosted_payment_url: z.string().url().optional(),
   checkout_url: z.string().url().optional(),
+  payment_url: z.string().url().optional(),
+  redirect_url: z.string().url().optional(),
   status: z.string().optional(),
+  data: z.unknown().optional(),
 });
 
 export type AllPaysPaymentResponse =
@@ -232,21 +236,49 @@ export async function createAllPaysPayment(
   }
 
   const json: unknown = await response.json();
-  const parsed =
-    allPaysPaymentResponseSchema.safeParse(json);
 
-  if (!parsed.success) {
-    throw new Error(
-      "AllPays returned an unexpected payment payload.",
-    );
-  }
+  const rootObject =
+    typeof json === "object" && json !== null
+      ? (json as Record<string, unknown>)
+      : {};
 
-  const payment = parsed.data;
+  const nestedData =
+    typeof rootObject.data === "object" &&
+    rootObject.data !== null
+      ? (rootObject.data as Record<string, unknown>)
+      : {};
+
+  const normalizedPayment = {
+    ...nestedData,
+    ...rootObject,
+  };
+
+  const paymentId =
+    typeof normalizedPayment.payment_id === "string"
+      ? normalizedPayment.payment_id
+      : typeof normalizedPayment.id === "string"
+        ? normalizedPayment.id
+        : typeof normalizedPayment.id === "number"
+          ? String(normalizedPayment.id)
+          : undefined;
+
+  const paymentSecret =
+    typeof normalizedPayment.payment_secret === "string"
+      ? normalizedPayment.payment_secret
+      : undefined;
 
   const paymentUrl =
-    payment.hosted_payment_url || payment.checkout_url;
+    typeof normalizedPayment.hosted_payment_url === "string"
+      ? normalizedPayment.hosted_payment_url
+      : typeof normalizedPayment.checkout_url === "string"
+        ? normalizedPayment.checkout_url
+        : typeof normalizedPayment.payment_url === "string"
+          ? normalizedPayment.payment_url
+          : typeof normalizedPayment.redirect_url === "string"
+            ? normalizedPayment.redirect_url
+            : undefined;
 
-  if (!payment.payment_id || !paymentUrl) {
+  if (!paymentId || !paymentUrl) {
     throw new Error(
       "AllPays did not return a usable payment identifier or checkout URL.",
     );
@@ -255,7 +287,7 @@ export async function createAllPaysPayment(
   return {
     providerName: "allpays",
     paymentUrl,
-    providerPaymentId: payment.payment_id,
-    providerPaymentSecret: payment.payment_secret,
+    providerPaymentId: paymentId,
+    providerPaymentSecret: paymentSecret,
   };
 }

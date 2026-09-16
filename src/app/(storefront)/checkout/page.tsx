@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import Image from "next/image";
 import { currency } from "@/components/product-card";
 
 type PaymentProviderOption = {
@@ -444,10 +445,12 @@ export default function CheckoutPage() {
                   className="flex gap-4 border-b border-black/10 pb-4 last:border-b-0 last:pb-0"
                 >
                   {item.image?.src && (
-                    <img
+                    <Image
                       src={item.image.src}
                       alt={item.image.alt || item.title}
                       className="h-14 w-14 shrink-0 rounded-sm object-cover"
+                      width={56}
+                      height={56}
                     />
                   )}
 

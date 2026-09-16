@@ -70,6 +70,47 @@ describe("AllPays canonical signing", () => {
     ).resolves.toBe(false);
   });
 
+  it("accepts nested AllPays payment payloads returned under data", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        data: {
+          id: "pay_nested_123",
+          payment_secret: "secret_nested_456",
+          hosted_payment_url:
+            "https://checkout.example/pay/pay_nested_123",
+        },
+      }),
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    process.env.ALLPAYS_ENABLED = "true";
+    process.env.ALLPAYS_MERCHANT_WALLET = "merchant-wallet-123";
+
+    await expect(
+      createAllPaysPayment({
+        orderId: "order-2",
+        orderNumber: "PG-456",
+        amount: 10,
+        currency: "USD",
+        customerEmail: "nested@example.com",
+        customerName: "Nested Buyer",
+        description: "Nested order",
+        returnUrl: "https://pluggeo.test/checkout/success",
+        cancelUrl: "https://pluggeo.test/checkout",
+        callbackUrl: "https://pluggeo.test/api/webhooks/allpays?order=PG-456",
+      }),
+    ).resolves.toMatchObject({
+      providerName: "allpays",
+      providerPaymentId: "pay_nested_123",
+      providerPaymentSecret: "secret_nested_456",
+      paymentUrl: "https://checkout.example/pay/pay_nested_123",
+    });
+
+    vi.unstubAllGlobals();
+  });
+
   it("does not require a global API key for payment creation", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
