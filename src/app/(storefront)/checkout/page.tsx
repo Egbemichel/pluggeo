@@ -174,6 +174,10 @@ export default function CheckoutPage() {
             (provider) =>
               provider.id === "allpays",
           ) ??
+          providerList.find(
+            (provider) =>
+              provider.id === "card2crypto",
+          ) ??
           providerList[0];
 
         if (preferredProvider) {
@@ -221,9 +225,23 @@ export default function CheckoutPage() {
       return;
     }
 
-    if (!selectedProviderId) {
+    const providerId =
+      selectedProviderId ||
+      (providers.some(
+        (provider) =>
+          provider.id === "allpays",
+      )
+        ? "allpays"
+        : providers.some(
+              (provider) =>
+                provider.id === "card2crypto",
+            )
+          ? "card2crypto"
+          : "");
+
+    if (!providerId) {
       setError(
-        "Please select a payment provider before continuing.",
+        "No payment provider is available right now.",
       );
       return;
     }
@@ -244,7 +262,7 @@ export default function CheckoutPage() {
 
             body: JSON.stringify({
               customer: form,
-              paymentProvider: selectedProviderId,
+              paymentProvider: providerId,
               items,
             }),
           },
@@ -487,58 +505,16 @@ export default function CheckoutPage() {
               </div>
             </div>
 
-            <div className="mt-6 space-y-3">
-              <label className="block text-sm font-medium">
-                Payment provider
-              </label>
-
-              {loadingProviders ? (
-                <div className="rounded border border-black/10 bg-black/5 px-4 py-3 text-sm opacity-70">
-                  Loading providers...
-                </div>
-              ) : providers.length === 0 ? (
-                <div className="rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                  No active payment providers are available right now.
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {providers.map((provider) => (
-                    <label
-                      key={provider.id}
-                      className="flex cursor-pointer items-center justify-between gap-3 rounded border border-black/10 px-3 py-2 text-sm"
-                    >
-                      <div className="flex items-center gap-3">
-                        <input
-                          type="radio"
-                          name="payment-provider"
-                          checked={
-                            selectedProviderId ===
-                            provider.id
-                          }
-                          onChange={() =>
-                            setSelectedProviderId(
-                              provider.id,
-                            )
-                          }
-                          className="h-4 w-4"
-                        />
-                        <span>{provider.providerName}</span>
-                      </div>
-
-                      <span className="text-xs opacity-70">
-                        Min {provider.minimumAmount} {provider.minimumCurrency}
-                      </span>
-                    </label>
-                  ))}
-                </div>
-              )}
-            </div>
+            {!loadingProviders && providers.length === 0 && (
+              <div className="mt-6 rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                Payment checkout is currently unavailable.
+              </div>
+            )}
 
             <p className="mt-6 text-sm opacity-60">
               You will be redirected to
-              our secure card payment
-              provider to complete
-              your payment.
+              our secure payment checkout
+              to complete your purchase.
             </p>
 
             {error && (
