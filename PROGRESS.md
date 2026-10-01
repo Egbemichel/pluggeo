@@ -58,13 +58,28 @@ resolved-decision entry below). The product form is also now split into
 four visually distinct sections (Basic info/Pricing/Organization/Media/
 Variants) instead of one dense "Details" block.
 
-**Card2Crypto provider selection is customer-driven** (2026-09-08): the
-checkout API now requires an explicit `paymentProvider` value, the
-provider list is fetched from Card2Crypto at runtime, and the server
-validates the selected provider against the live provider status, required
-currency, and minimum amount before building the payment URL. This removes
-any server-side fallback to a hidden default provider and keeps the
-payment callback as the single authoritative source of payment confirmation.
+**Legacy Card2Crypto provider selection remains customer-driven** (2026-09-08):
+the gateway integration validates the selected provider against live status,
+required currency, and minimum amount before building its payment URL. This
+integration remains in the codebase but is not selected by the current manual
+order-intake checkout; automated payment confirmation is not active.
+
+**Checkout is now manual order intake** (2026-10-01): checkout creates a local pending
+order from the device-local bag, re-prices all items server-side, and records the
+customer's name, email, WhatsApp number, shipping address, item/quantity/total snapshot,
+selected payment method, method-specific contact details, optional proof image, and order
+number. It never processes a card/bank payment. The owner is notified via Resend and is
+expected to contact the customer to confirm the order and provide payment instructions.
+`/pluggeo/payments` manages method availability/order, descriptions/instructions,
+customer fields, crypto wallets/assets, discount percentage, and the required-screenshot
+toggle. The initial methods are Card, bank transfer, Chime, Apple Pay, Cash App, Crypto,
+and Other. The crypto method has a 10% merchandise-subtotal discount and the supplied
+Polygon address; checkout blocks crypto until its accepted token is entered in the admin
+screen. Production needs `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, and
+`ORDER_NOTIFICATION_EMAIL` set on the Cloudflare Worker runtime, plus the existing
+Cloudinary credentials for proof uploads. These are runtime bindings, not GitHub Actions
+build variables. Manual order flow is not payment verification; an uploaded screenshot is
+an owner review artifact only.
 
 **Admin product CRUD is built** (`/pluggeo/products` list, new, edit — see
 the resolved-decision entries below). Real Cloudinary credentials are wired
@@ -1244,7 +1259,7 @@ genuinely filter) + grid/list toggle + pagination.
      product inserted via SQL (title/description/price/image all correct in
      the rendered JSON-LD and OG/Twitter tags), then deleted. Availability
      defaults to `InStock` — there's no real inventory/stock model
-     (checkout/orders are explicitly out of scope, `CLAUDE.md`), so this is
+    (checkout/orders were explicitly out of scope at that time, `CLAUDE.md`), so this is
      the correct default absent a real signal; if every variant on a product
      is explicitly marked unavailable, that's the one real signal this app
      does track, and now flips it to `OutOfStock`.
@@ -2899,7 +2914,7 @@ choreography), `hooks/use-accordion.ts` (shared dropdown/disclosure open/close),
 | `/grillz` | Hero (real images, back button, full-bleed) → Best Grillz Collection (ProductCollectionSection) → GrillzCastSection → Footer. Real `grillz`-category DB product data |
 | `/category/[slug]` | Real DB integration, built purely from existing components: SectionHeader + ProductGrid + pagination dial + "More from us" + Explore more Button. Shares NavBar's back-button variant with Grillz. Has a ProductGridSkeleton-based `loading.tsx` |
 | `/product/[slug]` | Real per-slug DB query, real `Product`/`BreadcrumbList` JSON-LD, real variant chips that now drive price/availability (see resolved-decision entry below) — image gallery + category/title/price/description/"Add to bag". Shares NavBar's back-button variant with Grillz/category/bag. Has a Spinner-based `loading.tsx` |
-| `/bag` | "My shopping bag" — **real cart** (2026-08-30): items come from `BagFlightProvider`'s shared state, persisted to `localStorage`, populated by real "Add to bag" clicks site-wide (quantity/remove genuinely update it). Checkout stays a plain, inert button — checkout/orders/payments remain out of scope (`CLAUDE.md`). Shares NavBar's back-button variant with Grillz/category/product |
+| `/bag` | "My shopping bag" — **real cart** (2026-08-30): items come from `BagFlightProvider`'s shared state, persisted to `localStorage`, populated by real "Add to bag" clicks site-wide (quantity/remove genuinely update it). Checkout proceeds to the manual order-intake flow; payment processing stays out of scope. Shares NavBar's back-button variant with Grillz/category/product |
 | `/pluggeo` (admin) | Fully built: product/category CRUD, homepage curation, Cloudinary media upload — moved from `/admin` for security (old path 404s) |
 
 ## Assets pulled from Figma

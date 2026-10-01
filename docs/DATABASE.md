@@ -1,8 +1,8 @@
 # Database
 
 Neon (Postgres) + Drizzle ORM. Single-tenant — one admin, no orgs/teams, no
-row-level multi-tenancy anywhere in the schema. No cart/order/payment tables — see
-"Out of scope" in [CLAUDE.md](../CLAUDE.md).
+row-level multi-tenancy anywhere in the schema. The bag remains device-local; submitted
+orders and configurable manual payment methods are persisted.
 
 ## Core entities (`db/schema.ts`)
 
@@ -25,6 +25,11 @@ row-level multi-tenancy anywhere in the schema. No cart/order/payment tables —
   a selection either finds its own row or falls back to the base price, never both.
 - **category** — watches, grillz, sets, bracelets, chains (+ whatever the Figma file
   confirms), slug, display order
+- **payment_method** — customer-facing manual method configuration, required customer
+  fields, owner instructions, optional crypto wallets/discount, and proof requirement.
+- **order** — customer contact/shipping details, authoritative totals, selected method,
+  method-specific customer details, optional proof URL, and status.
+- **order_item** — server-priced item snapshot with selected options and quantity.
 
 Admin identity comes from Clerk (Google) + an `ADMIN_EMAIL` allowlist check — no
 `admin_user` table, no roles/permissions system, since there's exactly one admin.
@@ -41,4 +46,4 @@ Admin identity comes from Clerk (Google) + an `ADMIN_EMAIL` allowlist check — 
 ## Open questions
 
 - Whether availability needs to be quantity-based or is just a publish/unpublish toggle
-  (leaning toggle, given the no-checkout scope)
+  (leaning toggle, given the manual order-intake scope)

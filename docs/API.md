@@ -16,39 +16,23 @@ endpoints (see "Out of scope" in [CLAUDE.md](../CLAUDE.md)).
 - Validate all Server Action input (zod or similar) even though there's a single trusted
   admin — inputs still come from a browser form and shouldn't be trusted blindly.
 
-## Payment providers
+## Manual order checkout
 
-Plug Geo supports multiple provider-backed checkout paths through the same order lifecycle.
-The shared server flow remains:
+The storefront's default checkout is manual order intake, not a payment gateway:
 
-1. Validate checkout request
-2. Create the local order
-3. Recalculate server-authoritative totals
-4. Select payment provider from the explicit customer choice
-5. Create the provider payment
-6. Redirect to the hosted checkout URL
-7. Confirm payment via provider callback/webhook
+1. Validate customer, method-specific fields, wallet choice, and proof upload.
+2. Requote products, options, quantities, and totals from the database.
+3. Apply the configured crypto discount to the merchandise subtotal only.
+4. Persist the order and item snapshots as pending.
+5. Send the order details to the owner through Resend.
+6. Show the order number and confirm that the owner will contact the customer on WhatsApp.
 
-### Card2Crypto
+Payment methods and their customer fields, instructions, wallets, discounts, sort order,
+availability, and screenshot requirement are managed at `/pluggeo/payments`. The checkout
+API re-reads the method from the database and never trusts customer-submitted prices or
+discounts. The proof upload route accepts JPEG/PNG/WebP images up to 5 MB, and only for an
+active method configured to require proof.
 
-The existing Card2Crypto flow remains intact and continues to work with the same order
-creation path unless the customer selects a different provider.
-
-### AllPays
-
-AllPays is added as a second provider behind the same order workflow. The server creates
-an AllPays payment from the stored order data and stores the provider payment ID and any
-returned payment secret server-side.
-
-The following environment variables are required when enabling AllPays:
-
-- `ALLPAYS_ENABLED`
-- `ALLPAYS_API_BASE_URL`
-- `ALLPAYS_MERCHANT_WALLET`
-- `ALLPAYS_SETTLEMENT_ASSET`
-- `ALLPAYS_DEFAULT_CURRENCY`
-
-The AllPays webhook route is `GET /api/webhooks/allpays` and verifies `X-AllPays-Signature`
-against the signed callback query string before updating a local order as paid. The
-implementation uses the per-payment `payment_secret` returned by AllPays for that specific
-payment and does not rely on any global API key or global webhook secret.
+Configure `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, and `ORDER_NOTIFICATION_EMAIL` in the
+runtime environment. Existing Card2Crypto and AllPays routes remain available for
+integration work, but are not part of the current storefront order flow.

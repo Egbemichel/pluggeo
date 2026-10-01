@@ -36,6 +36,13 @@
       "when": 1788806933041,
       "tag": "0004_harsh_wraith",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790854769641,
+      "tag": "0005_quick_juggernaut",
+      "breakpoints": true
     }
   ]
 }

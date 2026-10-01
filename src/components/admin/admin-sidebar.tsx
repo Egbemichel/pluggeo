@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
-import { Package01Icon, Store01Icon, Home09Icon, Menu03Icon, Cancel01Icon } from "@hugeicons/core-free-icons";
+import { Package01Icon, Store01Icon, Home09Icon, Menu03Icon, Cancel01Icon, CreditCardIcon } from "@hugeicons/core-free-icons";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 
@@ -12,6 +12,7 @@ const NAV_ITEMS = [
   { label: "Products", href: "/pluggeo/products", icon: Package01Icon, disabled: false },
   { label: "Categories", href: "/pluggeo/categories", icon: Store01Icon, disabled: false },
   { label: "Homepage", href: "/pluggeo/homepage", icon: Home09Icon, disabled: false },
+  { label: "Payments", href: "/pluggeo/payments", icon: CreditCardIcon, disabled: false },
 ] as const;
 
 function NavLinks({

@@ -58,16 +58,17 @@ chat history.
 
 ## Out of scope
 
-- **Checkout/orders/payments**: explicitly out of scope for this build. Don't scaffold
-  checkout flows, order tables, or payment integrations. "Checkout" on `/bag` stays a
-  plain, inert button — no checkout flow exists to send it to.
+- **Automated payment processing**: the site does not capture card/bank payments or
+  charge customers through a payment processor. Checkout creates a pending local order;
+  the owner confirms the order and sends payment instructions afterward.
 - **`/bag` itself is real** (2026-08-30, per the user): it reflects genuine "Add to bag"
   activity from anywhere on the site — real product/variant data, quantities, and
   totals — backed by client-side state (`BagFlightProvider`, `src/components/
   bag-flight-provider.tsx`) persisted to `localStorage`, not a database cart/order
   table. No customer accounts exist to key a server-side cart to (see Auth above), so
   this intentionally stays device-local rather than synced across devices/sessions.
-  Still no checkout/orders/payments beyond this — don't scaffold those.
+  Checkout now creates a real order record from the bag; there is still no customer
+  account, automated charge, or payment-status confirmation from a gateway.
 
 ## Open decisions (blocking — see chat, not guessed)
 
@@ -81,7 +82,7 @@ simplifications) live in [PROGRESS.md](PROGRESS.md), not here.
 - Admin access is a flat email allowlist (`ADMIN_EMAILS`, 2026-08-29: two admins), not a
   user/role system — every allowed email gets identical, unrestricted access. Never
   scaffold multi-tenant, org, or role/permission systems.
-- Public-facing site has no customer accounts and no checkout — pure browsing.
+- Public-facing site has no customer accounts; checkout is manual order intake only.
 - Update `CHANGELOG.md` at the end of each feature, not per-commit.
 
 ## Skills

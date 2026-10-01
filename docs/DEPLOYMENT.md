@@ -1,30 +1,33 @@
 # Deployment
 
 ## Environments
-- **Local** — current default, `next dev`, no domain yet
+- **Local** — `next dev`
 - **Staging** — Cloudflare, for pre-production review
-- **Production** — Cloudflare, once a domain is pointed at it (not yet set up)
+- **Production** — Cloudflare Worker at `pluggeoandco.shop`
 
 ## Target
 Cloudflare Workers via OpenNext (`@opennextjs/cloudflare`). Neon (Postgres) is reached
 over its serverless driver, which is Workers-compatible.
 
 ## Notes
-- No domain connected yet — deployment setup (wrangler.toml, Cloudflare project, env
-  bindings for Neon/Clerk secrets) can be scaffolded now, but actual staging/production
-  deploys wait until there's somewhere to point them.
-- Secrets (Clerk keys, Neon connection string, payment processor keys once decided) go
+- Secrets (Clerk keys, Neon connection string, Resend API key) go
   through Cloudflare environment variables/secrets, never committed.
 
-## Payment providers
+## Manual order payments
 
-Both Card2Crypto and AllPays are server-side providers. Production setup must include the
-relevant secret values in the Cloudflare environment, and the public site URL must match
-`NEXT_PUBLIC_SITE_URL` so callback and return URLs resolve correctly.
+Checkout creates pending orders and does not charge customers. The GitHub deployment
+workflow applies migration `0005` before deploying. Configure these under the deployed
+Worker's Settings → Variables and Secrets (runtime bindings, not GitHub Actions build
+environment values):
 
-For AllPays, the webhook URL should be registered to the live domain as:
+- `RESEND_API_KEY` — Resend API key
+- `RESEND_FROM_EMAIL` — sender address on a verified Resend domain
+- `ORDER_NOTIFICATION_EMAIL` — owner's order-notification inbox
 
-- `https://<live-domain>/api/webhooks/allpays`
+The proof-upload route also needs the existing Cloudinary values, including
+`CLOUDINARY_API_SECRET`. Set the accepted token/asset and customer instructions for each
+crypto wallet in `/pluggeo/payments` before customers send funds. The seeded Polygon
+wallet address does not identify an accepted token by itself.
 
-The same route must remain publicly reachable from the deployed runtime, with the webhook
-signature verified before any order is marked paid.
+Card2Crypto and AllPays callback integrations remain in the codebase but are not selected
+by the storefront's manual order flow.

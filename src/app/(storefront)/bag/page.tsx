@@ -24,10 +24,8 @@ import { PAGE_TRANSITION } from "@/lib/motion";
 // remove genuinely update the same shared cart everywhere it's rendered
 // (e.g. the navbar badge), not just this page's own local state.
 //
-// IMPORTANT SCOPE NOTE: checkout/orders/payments are still explicitly out
-// of scope for this build (see CLAUDE.md, docs/PROJECT.md) — only the bag
-// itself is real now. "Checkout" is a plain, inert button, same flag as
-// before — no checkout flow exists to send it to.
+// Checkout sends the device-local bag to the manual order-intake flow;
+// payment itself is confirmed with the owner after order submission.
 // Route is `/bag`, not `/cart`, per the user; both nav icons already link
 // here.
 

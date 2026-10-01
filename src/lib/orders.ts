@@ -1,29 +1,15 @@
-import { eq } from "drizzle-orm";
-
 import { db } from "@/db";
-import {
-  orders,
-  orderItems,
-} from "@/db/schema";
-
-import {
-  buildPaymentUrl,
-  createTemporaryWallet,
-  getProviders,
-  selectProvider,
-} from "@/lib/card2crypto";
-
-import {
-  createAllPaysPayment,
-  isAllPaysEnabled,
-} from "@/lib/payments/allpays";
+import { orderItems, orders, paymentMethods } from "@/db/schema";
 
 import {
   createCheckoutQuote,
   type CheckoutItemInput,
 } from "@/lib/checkout";
+import { sendOwnerOrderNotification } from "@/lib/order-email";
+import { calculateManualPaymentDiscount } from "@/lib/manual-payment";
 
 import type { CheckoutRequest } from "@/app/api/checkout/schema";
+import { eq } from "drizzle-orm";
 
 function generateOrderId() {
   return crypto.randomUUID();
@@ -41,13 +27,20 @@ function generateOrderNumber() {
   return `PG-${Date.now()}-${random}`;
 }
 
-function generateCallbackToken() {
-  const bytes = new Uint8Array(32);
-  crypto.getRandomValues(bytes);
-
-  return Array.from(bytes)
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("");
+function isPaymentProofUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+    return (
+      url.protocol === "https:" &&
+      url.hostname === "res.cloudinary.com" &&
+      !!cloudName &&
+      url.pathname.startsWith(`/${cloudName}/image/upload/`) &&
+      url.pathname.includes("/checkout-payment-proofs/")
+    );
+  } catch {
+    return false;
+  }
 }
 
 export async function createCheckoutOrder(
@@ -75,295 +68,143 @@ export async function createCheckoutOrder(
         item.selectedOptions ?? [],
     }));
 
-  const quote = await createCheckoutQuote(
-    checkoutItems,
-  );
+  const methodResult = await db
+    .select()
+    .from(paymentMethods)
+    .where(eq(paymentMethods.id, input.paymentMethodId))
+    .limit(1);
+  const method = methodResult[0];
 
-  const orderId = generateOrderId();
-  const orderNumber = generateOrderNumber();
-  const callbackToken = generateCallbackToken();
-  const requestedProvider =
-    (
-      input.paymentProvider ||
-      (isAllPaysEnabled() ? "allpays" : "card2crypto")
-    )
-      .trim()
-      .toLowerCase();
-
-  const siteUrl =
-    process.env.APP_URL ??
-    process.env.NEXT_PUBLIC_SITE_URL;
-
-  if (!siteUrl) {
-    throw new Error(
-      "APP_URL or NEXT_PUBLIC_SITE_URL is not configured.",
-    );
+  if (!method?.enabled) {
+    throw new Error("That payment method is no longer available.");
   }
 
-  const callbackUrl = new URL(
-    "/api/payments/card2crypto/callback",
-    siteUrl,
+  const fieldsByKey = new Map(
+    method.customerFields.map((field) => [field.key, field]),
   );
+  const suppliedKeys = Object.keys(input.paymentDetails);
+  if (suppliedKeys.some((key) => !fieldsByKey.has(key))) {
+    throw new Error("Payment details do not match the selected method.");
+  }
 
-  /*
-   * Card2Crypto requires the callback URL to contain
-   * at least one unique GET parameter per request.
-   *
-   * We provide both the order number and a unique token.
-   */
-  callbackUrl.searchParams.set(
-    "order",
-    orderNumber,
+  const paymentDetails: Record<string, string> = {};
+  for (const field of method.customerFields) {
+    const value = input.paymentDetails[field.key]?.trim() ?? "";
+    if (field.required && !value) {
+      throw new Error(`${field.label} is required.`);
+    }
+    if (value) paymentDetails[field.label] = value;
+  }
+
+  if (method.isCrypto) {
+    const wallet = method.wallets.find((item) => item.id === input.walletId);
+    if (!wallet) {
+      throw new Error("Choose a wallet for your crypto payment.");
+    }
+    paymentDetails["Selected wallet"] = `${wallet.name} (${wallet.network})`;
+    paymentDetails["Wallet address"] = wallet.address;
+    paymentDetails["Accepted asset"] = wallet.asset || "Not specified";
+  } else if (input.walletId) {
+    throw new Error("A crypto wallet was provided for a non-crypto method.");
+  }
+
+  if (method.requireProof && !input.paymentProofUrl) {
+    throw new Error("A payment screenshot is required for this method.");
+  }
+  if (input.paymentProofUrl && !isPaymentProofUrl(input.paymentProofUrl)) {
+    throw new Error("The payment screenshot URL is invalid.");
+  }
+
+  const quote = await createCheckoutQuote(checkoutItems);
+  const discount = calculateManualPaymentDiscount(
+    quote.subtotal,
+    method.isCrypto,
+    Number(method.discountPercent),
   );
+  const total = Math.max(0, quote.total - discount);
+  const orderId = generateOrderId();
+  const orderNumber = generateOrderNumber();
+  const subtotal = quote.subtotal.toFixed(2);
+  const shipping = quote.shipping.toFixed(2);
+  const tax = quote.tax.toFixed(2);
+  const discountAmount = discount.toFixed(2);
+  const totalAmount = total.toFixed(2);
 
-  callbackUrl.searchParams.set(
-    "token",
-    callbackToken,
-  );
-
-  const order = {
+  await db.insert(orders).values({
     id: orderId,
     orderNumber,
-
     email: input.customer.email,
     customerName: input.customer.name,
     phone: input.customer.phone,
-
-    shippingLine1:
-      input.customer.shippingLine1,
-
-    shippingLine2:
-      input.customer.shippingLine2 || null,
-
+    shippingLine1: input.customer.shippingLine1,
+    shippingLine2: input.customer.shippingLine2 || null,
     city: input.customer.city,
-
-    state:
-      input.customer.state || null,
-
-    postalCode:
-      input.customer.postalCode,
-
-    country:
-      input.customer.country,
-
-    subtotal: quote.subtotal.toFixed(2),
-    shipping: quote.shipping.toFixed(2),
-    tax: quote.tax.toFixed(2),
-    total: quote.total.toFixed(2),
-
+    state: input.customer.state || null,
+    postalCode: input.customer.postalCode,
+    country: input.customer.country,
+    subtotal,
+    shipping,
+    tax,
+    total: totalAmount,
     currency: quote.currency,
-
     status: "pending",
     paymentStatus: "pending",
+    paymentMethodId: method.id,
+    paymentMethodName: method.name,
+    paymentDetails,
+    paymentDiscount: discountAmount,
+    paymentProofUrl: input.paymentProofUrl || null,
+  });
 
-    paymentCallbackToken:
-      callbackToken,
-  };
-
-  /*
-   * Create the order first.
-   *
-   * Neon HTTP does not support Drizzle transactions, so the
-   * order items are inserted as one batch immediately afterward.
-   */
-  await db
-    .insert(orders)
-    .values(order);
+  const savedItems = quote.items.map((item) => ({
+    id: crypto.randomUUID(),
+    orderId,
+    productId: item.productId,
+    productName: item.productName,
+    selectedOptions: item.selectedOptions,
+    unitPrice: item.unitPrice.toFixed(2),
+    quantity: item.quantity,
+    lineTotal: item.lineTotal.toFixed(2),
+  }));
 
   try {
-    /*
-     * Persist the server-resolved order snapshot.
-     *
-     * These prices are now independent of whatever happens
-     * to the product price later.
-     */
-    await db
-      .insert(orderItems)
-      .values(
-        quote.items.map((item) => ({
-          id: crypto.randomUUID(),
-
-          orderId,
-
-          /*
-           * Stored as text in order_items, so the UUID from
-           * products.id is safely preserved as a string.
-           */
-          productId: item.productId,
-
-          productName: item.productName,
-
-          selectedOptions:
-            item.selectedOptions,
-
-          unitPrice:
-            item.unitPrice.toFixed(2),
-
-          quantity:
-            item.quantity,
-
-          lineTotal:
-            item.lineTotal.toFixed(2),
-        })),
-      );
-
-    let paymentUrl = "";
-    let paymentProviderName = requestedProvider;
-
-    if (requestedProvider === "allpays") {
-      if (!isAllPaysEnabled()) {
-        throw new Error(
-          "AllPays is not enabled for this environment.",
-        );
-      }
-
-      const allPaysResult = await createAllPaysPayment({
-        orderId,
-        orderNumber,
-        amount: quote.total,
-        currency: quote.currency,
-        customerEmail: input.customer.email,
-        customerName: input.customer.name,
-        description: `Plug Geo order ${orderNumber}`,
-        returnUrl: new URL(
-          `/checkout/success?order=${encodeURIComponent(orderNumber)}`,
-          siteUrl,
-        ).toString(),
-        cancelUrl: new URL(
-          `/checkout?order=${encodeURIComponent(orderNumber)}`,
-          siteUrl,
-        ).toString(),
-        callbackUrl: callbackUrl.toString(),
-      });
-
-      paymentUrl = allPaysResult.paymentUrl;
-      paymentProviderName = allPaysResult.providerName;
-
-      await db
-        .update(orders)
-        .set({
-          paymentProvider:
-            paymentProviderName,
-          paymentProviderReference:
-            allPaysResult.providerPaymentId || null,
-          paymentProviderToken:
-            allPaysResult.providerPaymentSecret || null,
-          updatedAt: new Date(),
-        })
-        .where(eq(orders.id, orderId));
-    } else {
-      /*
-       * STEP 1 — Generate the temporary Card2Crypto wallet.
-       */
-      const wallet =
-        await createTemporaryWallet(
-          callbackUrl.toString(),
-        );
-
-      /*
-       * STEP 2 — Get the currently available payment
-       * providers from Card2Crypto and validate the
-       * customer's explicit provider choice.
-       */
-      const providers =
-        await getProviders();
-
-      const provider =
-        selectProvider(
-          providers,
-          quote.total,
-          quote.currency,
-          input.paymentProvider,
-        );
-
-      /*
-       * STEP 3 — Build the actual Card2Crypto
-       * process-payment.php URL.
-       *
-       * The documented parameters are:
-       *
-       * address
-       * amount
-       * provider
-       * email
-       * currency
-       */
-      paymentUrl = buildPaymentUrl({
-        address:
-          wallet.address_in,
-
-        amount:
-          quote.total,
-
-        provider:
-          provider.id,
-
-        email:
-          input.customer.email,
-
-        currency:
-          quote.currency,
-      });
-
-      /*
-       * Store everything we need to validate the eventual
-       * Card2Crypto callback.
-       */
-      await db
-        .update(orders)
-        .set({
-          paymentProvider:
-            provider.id,
-
-          paymentProviderToken:
-            wallet.ipn_token,
-
-          paymentAddress:
-            wallet.address_in,
-
-          paymentPolygonAddress:
-            wallet.polygon_address_in,
-
-          updatedAt:
-            new Date(),
-        })
-        .where(
-          eq(orders.id, orderId),
-        );
-    }
-
-    return {
-      orderNumber,
-
-      paymentUrl,
-
-      total:
-        quote.total,
-
-      currency:
-        quote.currency,
-
-      paymentProvider:
-        paymentProviderName,
-    };
+    await db.insert(orderItems).values(savedItems);
   } catch (error) {
-    /*
-     * The order exists so there is an audit trail, but payment
-     * initialization failed.
-     */
     await db
       .update(orders)
-      .set({
-        paymentStatus:
-          "failed",
-
-        updatedAt:
-          new Date(),
-      })
-      .where(
-        eq(orders.id, orderId),
-      );
-
+      .set({ status: "failed", updatedAt: new Date() })
+      .where(eq(orders.id, orderId));
     throw error;
   }
+
+  let notificationSent = false;
+  try {
+    await sendOwnerOrderNotification({
+      orderNumber,
+      customer: input.customer,
+      paymentMethodName: method.name,
+      paymentDetails,
+      paymentProofUrl: input.paymentProofUrl,
+      items: savedItems,
+      subtotal,
+      shipping,
+      tax,
+      discount: discountAmount,
+      total: totalAmount,
+      currency: quote.currency,
+    });
+    notificationSent = true;
+  } catch (error) {
+    console.error("Owner order notification failed:", error);
+  }
+
+  return {
+    orderNumber,
+    total,
+    subtotal: quote.subtotal,
+    discount,
+    currency: quote.currency,
+    paymentMethodName: method.name,
+    notificationSent,
+  };
 }

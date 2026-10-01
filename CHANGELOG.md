@@ -6,6 +6,22 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+### Added (manual checkout and payment administration)
+
+- Checkout now places a local pending order with customer contact/shipping data, an
+  authoritative item/price snapshot, the selected payment method, method-specific
+  customer details, and optional payment proof. The owner is notified through Resend;
+  the customer is told that the owner will follow up on WhatsApp. No payment is charged
+  on the site.
+- Added `/pluggeo/payments` to add, edit, enable/disable, order, and delete payment
+  methods; configure customer fields, customer instructions, crypto wallets/assets,
+  discounts, and required proof screenshots.
+- Seeded Card, bank transfer, Chime, Apple Pay, Cash App, Crypto, and Other. Crypto has a
+  10% merchandise discount and the supplied Polygon wallet; checkout stays blocked for
+  that wallet until its accepted token is configured.
+- Added server-side screenshot validation (JPEG/PNG/WebP, 5 MB maximum), order emails,
+  and the payment-method/order schema migration.
+
 ### Changed (batch 92 — customer-selected Card2Crypto provider)
 
 - Checkout now requires the shopper to choose an active Card2Crypto

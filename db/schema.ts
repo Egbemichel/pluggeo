@@ -19,6 +19,60 @@ export const categories = pgTable("categories", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+export type PaymentMethodCustomerField = {
+  key: string;
+  label: string;
+  required: boolean;
+  placeholder?: string;
+};
+
+export type PaymentMethodWallet = {
+  id: string;
+  name: string;
+  network: string;
+  address: string;
+  asset?: string;
+};
+
+export const paymentMethods = pgTable(
+  "payment_methods",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    slug: text("slug").notNull().unique(),
+    description: text("description").notNull().default(""),
+    instructions: text("instructions").notNull().default(""),
+    enabled: boolean("enabled").notNull().default(true),
+    isCrypto: boolean("is_crypto").notNull().default(false),
+    requireProof: boolean("require_proof").notNull().default(false),
+    discountPercent: numeric("discount_percent", {
+      precision: 5,
+      scale: 2,
+    }).notNull().default("0"),
+    customerFields: jsonb("customer_fields")
+      .$type<PaymentMethodCustomerField[]>()
+      .notNull()
+      .default([]),
+    wallets: jsonb("wallets")
+      .$type<PaymentMethodWallet[]>()
+      .notNull()
+      .default([]),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => ({
+    enabledOrderIndex: index("payment_methods_enabled_order_idx").on(
+      table.enabled,
+      table.sortOrder,
+    ),
+  }),
+);
+
 export const orders = pgTable(
   "orders",
   {
@@ -64,6 +118,15 @@ export const orders = pgTable(
     paymentStatus: text("payment_status")
       .notNull()
       .default("pending"),
+
+    paymentMethodId: text("payment_method_id"),
+    paymentMethodName: text("payment_method_name"),
+    paymentDetails: jsonb("payment_details").$type<Record<string, string>>(),
+    paymentDiscount: numeric("payment_discount", {
+      precision: 10,
+      scale: 2,
+    }).notNull().default("0"),
+    paymentProofUrl: text("payment_proof_url"),
 
     paymentProvider: text("payment_provider"),
     paymentProviderReference: text("payment_provider_reference"),

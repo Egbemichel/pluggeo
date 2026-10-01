@@ -29,8 +29,9 @@ within the 5-day build window.
 - **Product detail page (PDP)** — images, price, description, variant selection if
   applicable
 
-This is a catalog/showcase site with a real shopping bag (`/bag`) — no checkout, no
-orders, no payments. See "Out of scope" in [CLAUDE.md](../CLAUDE.md).
+This is a catalog/showcase site with a real shopping bag (`/bag`) and manual order
+intake. Checkout records an order and the owner's selected payment method; the owner
+contacts the customer with payment instructions. The site does not process payments.
 
 ### Admin CMS (Google sign-in, admin-only)
 
@@ -40,8 +41,8 @@ orders, no payments. See "Out of scope" in [CLAUDE.md](../CLAUDE.md).
 
 ## Explicitly out of scope for v1
 
-- Checkout, orders, payments — see [CLAUDE.md](../CLAUDE.md). (`/bag` itself is real,
-  not out of scope — see [CLAUDE.md](../CLAUDE.md)'s "Out of scope" section.)
+- Automated payment processing, customer accounts, and payment gateway confirmation.
+  Manual checkout records pending orders and emails the owner; `/bag` remains device-local.
 
 Otherwise: nothing else is deferred — everything above ships in the first pass. If
 something can't fit in 5 days, that's a timeline call to raise with the user, not a

@@ -78,11 +78,16 @@ export const checkoutRequestSchema =
   z.object({
     customer: checkoutCustomerSchema,
 
-    paymentProvider: z
-      .string()
-      .trim()
-      .min(1)
-      .max(100),
+    paymentMethodId: z.string().uuid(),
+
+    paymentDetails: z.record(
+      z.string().trim().min(1).max(80),
+      z.string().trim().max(500),
+    ).default({}),
+
+    walletId: z.string().trim().max(80).optional(),
+
+    paymentProofUrl: z.string().url().max(1000).optional(),
 
     items: z
       .array(checkoutItemSchema)

@@ -66,10 +66,9 @@ export default async function ProductPage({
 
   const related = await getRelatedProducts(product.categoryId, product.id);
 
-  // No real inventory/stock tracking exists (checkout/orders are explicitly
-  // out of scope, CLAUDE.md) — every product reaching this point is already
-  // filtered to `status = "published"`, so InStock is the correct default
-  // absent a real signal to say otherwise. `variants` is sparse now (only
+  // No real inventory/stock tracking exists — every product reaching this
+  // point is already filtered to `status = "published"`, so InStock is the
+  // correct default absent a real signal to say otherwise. `variants` is sparse (only
   // combinations that differ from the base product get a row — see
   // lib/products.ts), so a combination with no row is available by
   // default; "every combination unavailable" is only true when every
