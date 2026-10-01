@@ -178,6 +178,7 @@ export async function createCheckoutOrder(
   }
 
   let notificationSent = false;
+  let notificationError: string | undefined;
   try {
     await sendOwnerOrderNotification({
       orderNumber,
@@ -195,6 +196,7 @@ export async function createCheckoutOrder(
     });
     notificationSent = true;
   } catch (error) {
+    notificationError = error instanceof Error ? error.message : String(error);
     console.error("Owner order notification failed:", error);
   }
 
@@ -206,5 +208,6 @@ export async function createCheckoutOrder(
     currency: quote.currency,
     paymentMethodName: method.name,
     notificationSent,
+    notificationError,
   };
 }
