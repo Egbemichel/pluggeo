@@ -2,13 +2,16 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "pluggeo",
   "account_id": "21c5d7d7d40d76725c2af91bb05ccdb3",
-  "main": ".open-next/worker.js",
+  "main": "worker.ts",
   "compatibility_date": "2026-08-01",
   "compatibility_flags": ["nodejs_compat"],
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS"
   },
+  // Daily analytics card to Telegram, 00:00 UTC (cron is always UTC; use "0 23 * * *"
+  // for 00:00 in UTC+1, etc.). Handler: worker.ts -> scheduled().
+  "triggers": { "crons": ["0 0 * * *"] },
   // Staging/production environments — fill in once a domain/account is confirmed.
   "env": {
     "staging": {},

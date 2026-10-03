@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { NavBar } from "@/components/nav-bar";
 import { Footer } from "@/components/footer";
 import { BagFlightProvider } from "@/components/bag-flight-provider";
+import { PageViewTracker } from "@/components/page-view-tracker";
 import { getSearchableProducts } from "@/lib/products";
 
 // Site-wide padding per the user's spec: 24px on mobile, 40px on desktop, on every
@@ -38,6 +39,7 @@ export default async function StorefrontLayout({ children }: { children: ReactNo
 
   return (
     <BagFlightProvider>
+      <PageViewTracker />
       <div className="flex flex-1 flex-col">
         <div className="px-6 py-(--space-7) md:px-10">
           <NavBar products={products} />

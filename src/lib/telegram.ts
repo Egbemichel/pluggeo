@@ -63,3 +63,29 @@ export async function notifyVisitor(info: VisitorInfo): Promise<NotifyResult> {
     return { attempted: true, ok: false, error: err instanceof Error ? err.message : String(err) };
   }
 }
+
+// Sends a pre-formatted HTML message (Telegram parse_mode "HTML") to the owner chat.
+// Unlike notifyVisitor this *throws* on failure, so the scheduled report can log it.
+export async function sendTelegramHtml(html: string): Promise<void> {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  const chatId = process.env.TELEGRAM_ADMIN_CHAT_ID;
+  if (!token || !chatId) {
+    throw new Error("TELEGRAM_BOT_TOKEN / TELEGRAM_ADMIN_CHAT_ID are not configured");
+  }
+
+  const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      chat_id: chatId,
+      text: html,
+      parse_mode: "HTML",
+      disable_web_page_preview: true,
+    }),
+    signal: AbortSignal.timeout(10_000),
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`Telegram sendMessage failed (${res.status}): ${body.slice(0, 200)}`);
+  }
+}

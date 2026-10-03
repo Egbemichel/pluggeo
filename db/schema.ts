@@ -340,3 +340,26 @@ export const productVariants = pgTable("product_variants", {
   priceOverride: numeric("price_override", { precision: 10, scale: 2 }),
   available: boolean("available").notNull().default(true),
 });
+
+// First-party, cookieless-server analytics for the daily Telegram report. One row per
+// storefront page view (client beacon -> /api/track). `visitor_id` is a random id kept
+// in the browser's localStorage — no IP, no user agent, no personal data is stored.
+export const pageViews = pgTable(
+  "page_views",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    visitorId: text("visitor_id").notNull(),
+    path: text("path").notNull(),
+    productSlug: text("product_slug"),
+    referrerHost: text("referrer_host"),
+    country: text("country"),
+    device: text("device").notNull().default("desktop"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => ({
+    createdAtIndex: index("page_views_created_at_idx").on(table.createdAt),
+    visitorIndex: index("page_views_visitor_idx").on(table.visitorId),
+  }),
+);

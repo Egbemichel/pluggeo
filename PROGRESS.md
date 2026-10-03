@@ -64,6 +64,13 @@ required currency, and minimum amount before building its payment URL. This
 integration remains in the codebase but is not selected by the current manual
 order-intake checkout; automated payment confirmation is not active.
 
+**Daily Telegram analytics report** (2026-10-03): storefront page views are recorded in
+`page_views` (client beacon -> `/api/track`); a Cron Trigger at 00:00 UTC (`wrangler.jsonc`
+`triggers.crons`, handled by `worker.ts`) sends the card built by `src/lib/analytics*.ts` via
+the existing Telegram bot. `/pluggeo/report` (admin only) sends it on demand. Optional
+`REPORT_TIMEZONE` (IANA name) only changes how the date/peak hour are labelled; to move the
+send time edit the cron (it is always UTC). SEO plan lives in `docs/SEO_CHECKLIST.md`.
+
 **Checkout is now manual order intake** (2026-10-01): checkout creates a local pending
 order from the device-local bag, re-prices all items server-side, and records the
 customer's name, email, WhatsApp number, shipping address, item/quantity/total snapshot,

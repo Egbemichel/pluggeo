@@ -22,6 +22,8 @@ environment values):
 
 - `RESEND_API_KEY` — Resend API key
 - `RESEND_FROM_EMAIL` — sender address on a verified Resend domain
+- `TELEGRAM_BOT_TOKEN` / `TELEGRAM_ADMIN_CHAT_ID` — visitor pings and the daily analytics card
+- `REPORT_TIMEZONE` (optional) — IANA timezone name for labelling the daily report
 - `ORDER_NOTIFICATION_EMAIL` — owner's order-notification inbox
 
 The proof-upload route also needs the existing Cloudinary values, including

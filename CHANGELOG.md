@@ -6,6 +6,21 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+### Added (daily Telegram analytics card, SEO checklist)
+
+- First-party page-view tracking: `PageViewTracker` (storefront layout) beacons to
+  `/api/track`, stored in the new `page_views` table (migration `0007`): random
+  browser-local visitor id, path, product slug, referrer host, country, device. No IP or
+  user agent is stored; bots and the owner's `pg_no_notify` browser are skipped.
+- A Cloudflare Cron Trigger (`0 0 * * *`, UTC) runs `worker.ts` -> `scheduled()` ->
+  `runDailyReport()`, sending a styled Telegram card: visitors (vs previous day, 7-day,
+  new/returning, bounce, peak hour), top pages/products, sources, countries, devices,
+  orders/revenue/conversion funnel, top sellers, and rule-based "what to do next" tips.
+  Admins can send it on demand by visiting `/pluggeo/report` while signed in.
+- `wrangler.jsonc` `main` is now the custom `worker.ts`, which wraps OpenNext's generated
+  worker and adds the `scheduled` handler.
+- `docs/SEO_CHECKLIST.md`: step-by-step checklist for ranking in the US.
+
 ### Added (styled order emails and invoice PDF)
 
 - Checkout now sends the customer an HTML order-received email (order summary, items,
