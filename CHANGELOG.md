@@ -14,7 +14,7 @@ All notable changes to this project are documented here, following
   invoice PDF attached (`pdf-lib`, Workers-compatible). The two emails send
   independently; neither can fail checkout.
 - Order emails show the pluggeo&co logo image (white header, navy accent line) instead of
-  text.
+  text, and the invoice PDF header carries the logo too.
 - `orders` gained `invoice_number` (unique), `invoice_issued_at`, `owner_notified_at`,
   and `customer_confirmed_at` (migration `0006`).
 

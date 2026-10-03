@@ -1,5 +1,6 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 
+import { LOGO_PNG_BASE64 } from "@/lib/invoice-logo";
 import {
   addressLines,
   formatDate,
@@ -76,30 +77,39 @@ export async function generateInvoicePdf(order: OrderEmailInput): Promise<Uint8A
 
   const page = pdf.addPage([PAGE_W, PAGE_H]);
 
-  // Header band
-  page.drawRectangle({ x: 0, y: PAGE_H - 210, width: PAGE_W, height: 210, color: NAVY });
-  page.drawText("pluggeo&co", { x: MARGIN, y: PAGE_H - 62, size: 22, font: bold, color: WHITE });
-  page.drawText("INVOICE", { x: MARGIN, y: PAGE_H - 128, size: 40, font: bold, color: WHITE });
-  page.drawText(safe(`# ${order.invoiceNumber}`), {
+  // Header: logo + title on white, details on a navy band
+  const logo = await pdf.embedPng(
+    Uint8Array.from(atob(LOGO_PNG_BASE64), (c) => c.charCodeAt(0)),
+  );
+  const logoW = 118;
+  const logoH = (logo.height / logo.width) * logoW;
+  page.drawImage(logo, { x: MARGIN, y: PAGE_H - MARGIN - logoH, width: logoW, height: logoH });
+  right(page, "INVOICE", PAGE_W - MARGIN, PAGE_H - MARGIN - 30, 34, bold, NAVY);
+  right(page, `# ${order.invoiceNumber}`, PAGE_W - MARGIN, PAGE_H - MARGIN - 50, 10.5, regular, GRAY);
+
+  const bandTop = PAGE_H - 150;
+  const bandHeight = 126;
+  page.drawRectangle({ x: 0, y: bandTop - bandHeight, width: PAGE_W, height: bandHeight, color: NAVY });
+
+  page.drawText("Order", { x: MARGIN, y: bandTop - 28, size: 11, font: bold, color: WHITE });
+  page.drawText(truncate(regular, order.orderNumber, 10, 240), {
     x: MARGIN,
-    y: PAGE_H - 152,
-    size: 11,
+    y: bandTop - 43,
+    size: 10,
     font: regular,
     color: WHITE,
   });
-  page.drawText(safe(`Order ${order.orderNumber}`), {
+  page.drawText("Date issued", { x: MARGIN, y: bandTop - 72, size: 11, font: bold, color: WHITE });
+  page.drawText(formatDate(order.issuedAt), {
     x: MARGIN,
-    y: PAGE_H - 170,
-    size: 9,
+    y: bandTop - 87,
+    size: 10,
     font: regular,
-    color: rgb(0.78, 0.8, 0.86),
+    color: WHITE,
   });
 
   const colX = 340;
-  let hy = PAGE_H - 52;
-  page.drawText("Date issued", { x: colX, y: hy, size: 11, font: bold, color: WHITE });
-  page.drawText(formatDate(order.issuedAt), { x: colX, y: hy - 15, size: 10, font: regular, color: WHITE });
-  hy -= 44;
+  let hy = bandTop - 28;
   page.drawText("Invoice to", { x: colX, y: hy, size: 11, font: bold, color: WHITE });
   hy -= 15;
   const billTo = [order.customer.name, order.customer.email, order.customer.phone, ...addressLines(order.customer)];
@@ -128,7 +138,7 @@ export async function generateInvoicePdf(order: OrderEmailInput): Promise<Uint8A
   };
 
   let current = page;
-  let y = PAGE_H - 252;
+  let y = PAGE_H - 312;
   tableHeader(current, y);
   y -= 34;
 
