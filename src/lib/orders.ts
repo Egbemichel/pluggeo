@@ -5,7 +5,10 @@ import {
   createCheckoutQuote,
   type CheckoutItemInput,
 } from "@/lib/checkout";
-import { sendOwnerOrderNotification } from "@/lib/order-email";
+import {
+  sendCustomerOrderConfirmation,
+  sendOwnerOrderNotification,
+} from "@/lib/order-email";
 import { calculateManualPaymentDiscount } from "@/lib/manual-payment";
 
 import type { CheckoutRequest } from "@/app/api/checkout/schema";
@@ -124,6 +127,8 @@ export async function createCheckoutOrder(
   const total = Math.max(0, quote.total - discount);
   const orderId = generateOrderId();
   const orderNumber = generateOrderNumber();
+  const invoiceNumber = `INV-${orderNumber.replace(/^PG-/, "")}`;
+  const issuedAt = new Date();
   const subtotal = quote.subtotal.toFixed(2);
   const shipping = quote.shipping.toFixed(2);
   const tax = quote.tax.toFixed(2);
@@ -154,6 +159,8 @@ export async function createCheckoutOrder(
     paymentDetails,
     paymentDiscount: discountAmount,
     paymentProofUrl: input.paymentProofUrl || null,
+    invoiceNumber,
+    invoiceIssuedAt: issuedAt,
   });
 
   const savedItems = quote.items.map((item) => ({
@@ -177,25 +184,51 @@ export async function createCheckoutOrder(
     throw error;
   }
 
-  let notificationSent = false;
+  const emailOrder = {
+    orderNumber,
+    invoiceNumber,
+    issuedAt,
+    customer: input.customer,
+    paymentMethodName: method.name,
+    paymentDetails,
+    paymentProofUrl: input.paymentProofUrl,
+    items: savedItems,
+    subtotal,
+    shipping,
+    tax,
+    discount: discountAmount,
+    total: totalAmount,
+    currency: quote.currency,
+  };
+
+  // Each email is independent: one failing must not block the other, and
+  // neither may fail the checkout (the order is already saved).
+  const [ownerResult, customerResult] = await Promise.allSettled([
+    sendOwnerOrderNotification(emailOrder),
+    sendCustomerOrderConfirmation(emailOrder),
+  ]);
+
+  const notificationSent = ownerResult.status === "fulfilled";
+  if (ownerResult.status === "rejected") {
+    console.error("Owner order notification failed:", ownerResult.reason);
+  }
+  if (customerResult.status === "rejected") {
+    console.error("Customer order confirmation failed:", customerResult.reason);
+  }
+
   try {
-    await sendOwnerOrderNotification({
-      orderNumber,
-      customer: input.customer,
-      paymentMethodName: method.name,
-      paymentDetails,
-      paymentProofUrl: input.paymentProofUrl,
-      items: savedItems,
-      subtotal,
-      shipping,
-      tax,
-      discount: discountAmount,
-      total: totalAmount,
-      currency: quote.currency,
-    });
-    notificationSent = true;
+    const now = new Date();
+    await db
+      .update(orders)
+      .set({
+        ownerNotifiedAt: notificationSent ? now : null,
+        customerConfirmedAt:
+          customerResult.status === "fulfilled" ? now : null,
+        updatedAt: now,
+      })
+      .where(eq(orders.id, orderId));
   } catch (error) {
-    console.error("Owner order notification failed:", error);
+    console.error("Failed to record email delivery:", error);
   }
 
   return {

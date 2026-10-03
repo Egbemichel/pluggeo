@@ -24,7 +24,9 @@ The storefront's default checkout is manual order intake, not a payment gateway:
 2. Requote products, options, quantities, and totals from the database.
 3. Apply the configured crypto discount to the merchandise subtotal only.
 4. Persist the order and item snapshots as pending.
-5. Send the order details to the owner through Resend.
+5. Send the owner a styled email with the invoice PDF attached, and the customer an
+   order-received confirmation, through Resend (independent; failures are logged and
+   recorded in `owner_notified_at` / `customer_confirmed_at`, never fail the checkout).
 6. Show the order number and confirm that the owner will contact the customer on WhatsApp.
 
 Payment methods and their customer fields, instructions, wallets, discounts, sort order,

@@ -6,6 +6,16 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+### Added (styled order emails and invoice PDF)
+
+- Checkout now sends the customer an HTML order-received email (order summary, items,
+  totals, payment method, ship-to) and sends the owner a styled new-order email with
+  customer/payment/shipping details, WhatsApp and email shortcuts, and a generated
+  invoice PDF attached (`pdf-lib`, Workers-compatible). The two emails send
+  independently; neither can fail checkout.
+- `orders` gained `invoice_number` (unique), `invoice_issued_at`, `owner_notified_at`,
+  and `customer_confirmed_at` (migration `0006`).
+
 ### Added (manual checkout and payment administration)
 
 - Checkout now places a local pending order with customer contact/shipping data, an

@@ -75,7 +75,10 @@ customer fields, crypto wallets/assets, discount percentage, and the required-sc
 toggle. The initial methods are Card, bank transfer, Chime, Apple Pay, Cash App, Crypto,
 and Other. The crypto method has a 10% merchandise-subtotal discount and the supplied
 Polygon address; checkout blocks crypto until its accepted token is entered in the admin
-screen. `RESEND_FROM_EMAIL` must be on a domain verified in the same Resend account as the
+screen. Checkout sends two HTML emails via Resend (`src/lib/order-email*.ts`): a styled
+owner notification with an invoice PDF attached (`src/lib/invoice-pdf.ts`, pdf-lib;
+`orders.invoice_number`/`invoice_issued_at`) and a customer order-received email
+(`customer_confirmed_at`). `RESEND_FROM_EMAIL` must be on a domain verified in the same Resend account as the
 API key (pluggeoandco.shop, e.g. orders@pluggeoandco.shop; Gmail senders get a 403). Production needs `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, and
 `ORDER_NOTIFICATION_EMAIL` set on the Cloudflare Worker runtime, plus the existing
 Cloudinary credentials for proof uploads. These are runtime bindings, not GitHub Actions

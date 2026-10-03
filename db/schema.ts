@@ -128,6 +128,17 @@ export const orders = pgTable(
     }).notNull().default("0"),
     paymentProofUrl: text("payment_proof_url"),
 
+    invoiceNumber: text("invoice_number"),
+    invoiceIssuedAt: timestamp("invoice_issued_at", {
+      withTimezone: true,
+    }),
+    ownerNotifiedAt: timestamp("owner_notified_at", {
+      withTimezone: true,
+    }),
+    customerConfirmedAt: timestamp("customer_confirmed_at", {
+      withTimezone: true,
+    }),
+
     paymentProvider: text("payment_provider"),
     paymentProviderReference: text("payment_provider_reference"),
 
@@ -173,6 +184,10 @@ export const orders = pgTable(
     orderNumberUnique: uniqueIndex(
       "orders_order_number_unique",
     ).on(table.orderNumber),
+
+    invoiceNumberUnique: uniqueIndex(
+      "orders_invoice_number_unique",
+    ).on(table.invoiceNumber),
 
     emailIndex: index("orders_email_idx").on(table.email),
 

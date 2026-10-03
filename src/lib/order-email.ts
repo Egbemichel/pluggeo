@@ -1,93 +1,38 @@
-type OrderEmailInput = {
-  orderNumber: string;
-  customer: {
-    name: string;
-    email: string;
-    phone: string;
-    shippingLine1: string;
-    shippingLine2?: string | null;
-    city: string;
-    state?: string | null;
-    postalCode: string;
-    country: string;
-  };
-  paymentMethodName: string;
-  paymentDetails: Record<string, string>;
-  paymentProofUrl?: string | null;
-  items: Array<{
-    productName: string;
-    selectedOptions: string[];
-    quantity: number;
-    unitPrice: string;
-    lineTotal: string;
-  }>;
-  subtotal: string;
-  shipping: string;
-  tax: string;
-  discount: string;
-  total: string;
-  currency: string;
-};
+import { generateInvoicePdf } from "@/lib/invoice-pdf";
+import {
+  renderCustomerEmail,
+  renderOwnerEmail,
+} from "@/lib/order-email-templates";
+import type { OrderEmailInput } from "@/lib/order-types";
 
-function formatAddress(customer: OrderEmailInput["customer"]): string {
-  return [
-    customer.shippingLine1,
-    customer.shippingLine2,
-    [customer.city, customer.state, customer.postalCode]
-      .filter(Boolean)
-      .join(", "),
-    customer.country,
-  ]
-    .filter(Boolean)
-    .join("\n");
+export type { OrderEmailInput } from "@/lib/order-types";
+
+type ResendAttachment = { filename: string; content: string };
+
+function toBase64(bytes: Uint8Array): string {
+  let binary = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
 }
 
-export async function sendOwnerOrderNotification(
-  order: OrderEmailInput,
-): Promise<void> {
+async function sendViaResend(message: {
+  to: string;
+  subject: string;
+  html: string;
+  text: string;
+  attachments?: ResendAttachment[];
+}): Promise<void> {
   const apiKey = process.env.RESEND_API_KEY;
-  const recipient = process.env.ORDER_NOTIFICATION_EMAIL;
   const sender = process.env.RESEND_FROM_EMAIL;
 
-  if (!apiKey || !recipient || !sender) {
+  if (!apiKey || !sender) {
     throw new Error(
-      "Order email is not configured. Set RESEND_API_KEY, ORDER_NOTIFICATION_EMAIL, and RESEND_FROM_EMAIL.",
+      "Order email is not configured. Set RESEND_API_KEY and RESEND_FROM_EMAIL.",
     );
   }
-
-  const lines = [
-    "NEW PLUG GEO ORDER",
-    "",
-    `Order: ${order.orderNumber}`,
-    "",
-    "Customer:",
-    order.customer.name,
-    order.customer.email,
-    order.customer.phone,
-    "",
-    `Payment method: ${order.paymentMethodName}`,
-    ...Object.entries(order.paymentDetails).map(
-      ([key, value]) => `${key}: ${value}`,
-    ),
-    `Payment proof: ${order.paymentProofUrl || "Not provided"}`,
-    "",
-    "Shipping:",
-    formatAddress(order.customer),
-    "",
-    "Items:",
-    ...order.items.map((item) => {
-      const options = item.selectedOptions.length
-        ? ` (${item.selectedOptions.join(", ")})`
-        : "";
-      return `${item.quantity} x ${item.productName}${options} | ${order.currency} ${item.unitPrice} each | ${order.currency} ${item.lineTotal}`;
-    }),
-    "",
-    `Subtotal: ${order.currency} ${order.subtotal}`,
-    `Shipping: ${order.currency} ${order.shipping}`,
-    `Tax: ${order.currency} ${order.tax}`,
-    `Payment discount: -${order.currency} ${order.discount}`,
-    `Total: ${order.currency} ${order.total}`,
-  ];
 
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -97,9 +42,11 @@ export async function sendOwnerOrderNotification(
     },
     body: JSON.stringify({
       from: sender,
-      to: [recipient],
-      subject: `New order ${order.orderNumber}`,
-      text: lines.join("\n"),
+      to: [message.to],
+      subject: message.subject,
+      html: message.html,
+      text: message.text,
+      ...(message.attachments ? { attachments: message.attachments } : {}),
     }),
   });
 
@@ -107,4 +54,35 @@ export async function sendOwnerOrderNotification(
     const detail = await response.text();
     throw new Error(`Resend email failed (${response.status}): ${detail}`);
   }
+}
+
+export async function sendOwnerOrderNotification(
+  order: OrderEmailInput,
+): Promise<void> {
+  const recipient = process.env.ORDER_NOTIFICATION_EMAIL;
+  if (!recipient) {
+    throw new Error(
+      "Order email is not configured. Set ORDER_NOTIFICATION_EMAIL.",
+    );
+  }
+
+  const { subject, html, text } = renderOwnerEmail(order);
+  const pdf = await generateInvoicePdf(order);
+
+  await sendViaResend({
+    to: recipient,
+    subject,
+    html,
+    text,
+    attachments: [
+      { filename: `${order.invoiceNumber}.pdf`, content: toBase64(pdf) },
+    ],
+  });
+}
+
+export async function sendCustomerOrderConfirmation(
+  order: OrderEmailInput,
+): Promise<void> {
+  const { subject, html, text } = renderCustomerEmail(order);
+  await sendViaResend({ to: order.customer.email, subject, html, text });
 }
