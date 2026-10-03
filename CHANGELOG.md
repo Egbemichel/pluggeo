@@ -13,6 +13,8 @@ All notable changes to this project are documented here, following
   customer/payment/shipping details, WhatsApp and email shortcuts, and a generated
   invoice PDF attached (`pdf-lib`, Workers-compatible). The two emails send
   independently; neither can fail checkout.
+- Order emails show the pluggeo&co logo image (white header, navy accent line) instead of
+  text.
 - `orders` gained `invoice_number` (unique), `invoice_issued_at`, `owner_notified_at`,
   and `customer_confirmed_at` (migration `0006`).
 

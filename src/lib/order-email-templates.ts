@@ -39,8 +39,8 @@ function shell(opts: { preheader: string; title: string; body: string }): string
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${PAGE_BG};padding:24px 12px;">
 <tr><td align="center">
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:100%;max-width:600px;background:#ffffff;border-radius:8px;overflow:hidden;">
-<tr><td style="background:${NAVY};padding:26px 32px;">
-<a href="${siteUrl()}" style="font-family:${FONT};font-size:22px;font-weight:700;letter-spacing:0.5px;color:#ffffff;text-decoration:none;">pluggeo&amp;co</a>
+<tr><td style="background:#ffffff;padding:24px 32px 20px;border-bottom:4px solid ${NAVY};">
+<a href="${siteUrl()}" style="text-decoration:none;"><img src="${siteUrl()}/logo.png" width="124" height="72" alt="pluggeo&amp;co" style="display:block;border:0;outline:none;height:auto;max-width:124px;font-family:${FONT};font-size:22px;font-weight:700;color:${NAVY};"></a>
 </td></tr>
 ${opts.body}
 <tr><td style="background:${PAGE_BG};padding:20px 32px;font-size:12px;color:${GRAY};line-height:1.6;">
